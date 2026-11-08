@@ -12,6 +12,7 @@ import { createLifecycle } from "../lib/lifecycle.mjs";
 import { createRunner } from "../lib/runner.mjs";
 import { createService } from "../lib/server.mjs";
 import { createPeople, peopleCommand, peoplePath, PEOPLE_HELP, KEYS_FILE } from "../lib/people.mjs";
+import { createHistory, HISTORY_UNAVAILABLE } from "../lib/history.mjs";
 
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
@@ -69,11 +70,12 @@ async function main() {
   if (problem) console.error(`${problem}\nThe stages and roles will answer with this until the file is fixed.`);
   const key = store.key();
   const person = localPerson();
+  const history = createHistory({ store });
   const runner = createRunner({ store, lifecycle, config, person });
   const people = createPeople({ file: peoplePath(config.lifecycle), keysFile: join(config.data, KEYS_FILE), lifecycle: lifecycle.file, serviceKey: key.value, admin: person });
   const peopleProblems = people.list().problems;
   if (peopleProblems.length) console.error(`People: ${peopleProblems.join(" ")}`);
-  const service = createService({ store, lifecycle, runner, key: key.value, person, people, version: pkg.version });
+  const service = createService({ store, lifecycle, runner, key: key.value, person, people, version: pkg.version, history });
   let base;
   try { base = await service.listen(config.port); } catch (e) {
     console.error(e.code === "EADDRINUSE" ? `Port ${config.port} is in use. Set another "port" in ${config.file}, or give --port.` : e.message);
@@ -90,6 +92,7 @@ async function main() {
   if (!existsSync(join(config.adlc, "agents", "spec-writer"))) notes.push(`There is no CommonAgent/adlc checkout at ${config.adlc}, so builds will stop at Requirements. Set "adlc" in ${config.file}.`);
   const { missing } = modelEnv(config, process.env);
   if (missing.length) notes.push(`The model settings are read from ${missing.join(", ")}, which ${missing.length === 1 ? "is" : "are"} not set, so Requirements and Test will stop and say so.`);
+  if (HISTORY_UNAVAILABLE) notes.push(HISTORY_UNAVAILABLE);
   if (config.code.holder === "pull-request") {
     if (!String(process.env[config.repository.token] ?? "").trim()) notes.push(`Code goes to a pull request on ${config.repository.repo}, and the token is read from ${config.repository.token}, which is not set, so Code will stop and say so.`);
     else console.log(`Code goes to a pull request on ${config.repository.repo}. Product Factory checks it for pushes every ${config.repository.poll_seconds} seconds.`);
@@ -100,7 +103,7 @@ async function main() {
 
   await runner.resumeAll();
   runner.watch();
-  const stop = async () => { await runner.stopAll(); await service.close(); process.exit(0); };
+  const stop = async () => { await runner.stopAll(); await service.close(); history?.close(); process.exit(0); };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
 }

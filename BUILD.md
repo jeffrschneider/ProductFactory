@@ -23,6 +23,14 @@ build files (`node:sqlite`, built into Node). Never estimated: time per stage an
 where builds wait longest, rounds per stage and how often work is sent back,
 spend where holders report it, and how each holder performs.
 
+The first part is built (README, "Analytics"): the history in
+`<data>/history.sqlite`, rebuilt from the build files when missing, and
+`GET /v1/lifecycle/analytics`, Product Factory's own route (not part of the
+lifecycle API standard), answering builds started and finished per week,
+median time per stage per week, the send-back rate per stage, and time
+waiting on people against agents working. The console shows it on its
+Analytics page. Spend and how each holder performs come next.
+
 ## Intake and connectors
 
 A build starts from a ticket or an API call as well as the console, links
