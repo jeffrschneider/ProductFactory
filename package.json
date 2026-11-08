@@ -39,6 +39,6 @@
   },
   "private": true,
   "dependencies": {
-    "adlc-console": "github:CommonAgent/adlc-console#5f1dde7a12d39017b82ffa0d1612fb36a3df85cd"
+    "adlc-console": "github:CommonAgent/adlc-console#374ff26b6314a2ca174fc4e89425b64968e7ac71"
   }
 }
