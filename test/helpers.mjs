@@ -13,6 +13,8 @@ import { createRunner } from "../lib/runner.mjs";
 import { createService } from "../lib/server.mjs";
 import { createPeople, KEYS_FILE } from "../lib/people.mjs";
 import { createHistory } from "../lib/history.mjs";
+import { createNotices } from "../lib/notices.mjs";
+import { createIssueIntake } from "../lib/intake.mjs";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 export const FAKE_ADLC = join(HERE, "fixtures", "fake-adlc");
@@ -29,7 +31,7 @@ export const MODEL_VARS = { PF_T_MODEL_NAME: "stand-in-model", PF_T_MODEL_ENDPOI
  * holder: "harness" or "code-writer". failRounds: how many harness rounds write the wrong code.
  * people: a people.json to start from; with it, each person's own key works (f.people).
  */
-export async function factory({ doc = null, holder = "harness", rounds = 3, failRounds = 0, model = true, harness = true, github = null, review = undefined, history: withHistory = true, runtime = null, people = null } = {}) {
+export async function factory({ doc = null, holder = "harness", rounds = 3, failRounds = 0, model = true, harness = true, github = null, review = undefined, history: withHistory = true, runtime = null, people = null, intake = undefined, notify = undefined, extraEnv = {} } = {}) {
   const dir = await tempDir("factory");
   const stubLog = join(dir, "harness-calls.jsonl");
   if (doc) await writeFile(join(dir, "lifecycle.json"), JSON.stringify(doc, null, 2));
@@ -43,15 +45,20 @@ export async function factory({ doc = null, holder = "harness", rounds = 3, fail
     // A fake GitHub (fixtures/fake-github.mjs): the token is read from PF_T_GITHUB_TOKEN, and the pull request is checked only when a test says so.
     ...(github ? { repository: { host: "github", repo: github.repo, token: "PF_T_GITHUB_TOKEN", api: github.url, poll_seconds: 3600 } } : {}),
     ...(review !== undefined ? { review } : {}),
+    ...(intake !== undefined ? { intake } : {}),
+    ...(notify !== undefined ? { notify } : {}),
     package: { packer: ["node", STUB_PACKER] },
     ...(runtime ? { runtime } : {}),
   }, dir);
-  const env = { ...process.env, ...(model ? MODEL_VARS : {}), PF_STUB_LOG: stubLog, PF_STUB_FAIL_ROUNDS: String(failRounds), ...(github ? { PF_T_GITHUB_TOKEN: github.token } : {}) };
+  const env = { ...process.env, ...(model ? MODEL_VARS : {}), PF_STUB_LOG: stubLog, PF_STUB_FAIL_ROUNDS: String(failRounds), ...(github ? { PF_T_GITHUB_TOKEN: github.token } : {}), ...extraEnv };
   if (!model) for (const k of Object.keys(MODEL_VARS)) delete env[k];
   const store = createStore({ dir: config.data });
   const lifecycle = createLifecycle({ path: config.lifecycle });
   const person = { name: "Test Person", email: "person@example.com" };
+  const notices = createNotices({ config, env, store, person });
+  notices.watch();
   const runner = createRunner({ store, lifecycle, config, env, person });
+  const issues = createIssueIntake({ config, env, store, runner });
   const key = store.key();
   const history = withHistory ? createHistory({ store }) : null;
   if (people) await writeFile(join(dir, "people.json"), JSON.stringify(people, null, 2));
@@ -70,14 +77,14 @@ export async function factory({ doc = null, holder = "harness", rounds = 3, fail
     return { status: r.status, json, text: raw ? text : undefined, type: r.headers.get("content-type") };
   };
   return {
-    dir, config, store, lifecycle, runner, service, base, key, stubLog, call, env, history, people: access,
+    dir, config, store, lifecycle, runner, notices, issues, service, base, key, stubLog, call, env, history, people: access,
     get: (p) => call("GET", p),
     post: (p, b = {}) => call("POST", p, b),
     put: (p, b) => call("PUT", p, b),
     del: (p) => call("DELETE", p),
     /** Waits until the build has nothing running, then reads it through the API. */
     settled: async (id) => { await runner.idle(id); return (await call("GET", `/builds/${id}`)).json.build; },
-    close: async () => { await runner.stopAll(); await service.close(); history?.close(); },
+    close: async () => { await issues.stop(); await runner.stopAll(); await notices.idle(); await service.close(); history?.close(); },
   };
 }
 
