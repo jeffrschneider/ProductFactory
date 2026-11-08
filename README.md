@@ -33,10 +33,12 @@ later milestone hands to the runtime you bring.
 
 ## What milestone 1 does not do
 
-No board, no analytics, no tracker or repository host, no single sign-on,
-no deploy, no try-it, and agents only (no processes or general software).
-There is no pull request: the build folder is a folder on this computer, and
-its path is in the Code stage's log. The package's build record is unsigned.
+No board, no analytics, no tracker, no repository host but GitHub, no single
+sign-on, no deploy, no try-it, and agents only (no processes or general
+software). By default the build folder is a folder on this computer, and its
+path is in the Code stage's log; Code can be a pull request on GitHub instead
+(see [Code on a pull request](#code-on-a-pull-request)). The package's build
+record is unsigned.
 Role bindings in your lifecycle other than the reference agents are kept, and
 the build's log says when milestone 1 sent a stage to someone else instead.
 Stages of your own in the lifecycle document are kept and named on the build,
@@ -109,6 +111,8 @@ an environment variable, and a value there is refused.
   those names. With one missing, Requirements and Test stop and name it.
 - `code`: who holds Code, the harness command, how many rounds the harness
   gets before the build stops and asks you, and how long one round may take.
+  `"holder": "pull-request"` puts Code on a pull request; then `repository`
+  names where (see [Code on a pull request](#code-on-a-pull-request)).
 - `package.packer`: the Common Agent packer, `common-agent-pack`, or any
   command that takes the same two command lines.
 
@@ -148,6 +152,58 @@ To have the reference code writer hold Code instead, set `"holder":
 "code-writer"`. It runs the code writer's own steps from your adlc checkout
 (its workspace, its check with its rounds, its report and its delivery check)
 around the same harness command.
+
+## Code on a pull request
+
+Code can be a real GitHub pull request that your own coding harness works on:
+Claude Code, Codex, Devin, or anything that pushes commits. Set:
+
+```json
+"code": { "holder": "pull-request", "minutes": 30 },
+"repository": { "host": "github", "repo": "owner/name", "token": "GITHUB_TOKEN" }
+```
+
+`token` is the name of the environment variable that holds a GitHub token,
+never the token: it is read from there each time and never kept. The token
+needs to read and write the repository's contents and pull requests, and, if
+it may, commit statuses. Optional: `api` for a GitHub Enterprise Server
+(`https://github.example.com/api/v3`), `poll_seconds` (default 30), and
+`review.spending_limit`, the line the security reviewer is told (default
+`10 USD per day`).
+
+What happens at Code:
+
+1. Product Factory lays out the build folder as in local mode (`AGENTS.md`,
+   `.adlc/check.mjs`, `build.lock.json`) and opens a branch and a "Write the
+   scripts" pull request holding it, in `agents/<name>/`. The repository's
+   other files are left as they are.
+2. You point your harness at the pull request. `AGENTS.md` is the contract.
+3. Product Factory checks the pull request for a new push every
+   `poll_seconds` (no webhook needed). On each one it runs the gate: the
+   fence (only `scripts/` may change, and new tests under `test/`), a scan of
+   the scripts for credential values, hidden characters and undeclared
+   addresses, the suite and the suite again with each script blanked, and
+   then the code critic and the security reviewer, where the lifecycle uses
+   Review and Security review and the reference agent is in your adlc
+   checkout. It says the result on the pull request as a comment, and as the
+   commit status "Product Factory gate" where the token may post one.
+4. The console shows the pull request and the latest check on the Code stage.
+5. When the gate passes, the build waits for your OK. Your OK takes the
+   scripts from that exact commit, merges the pull request there, and goes on
+   to Package. A push after the pass needs its own pass first.
+6. If your harness writes `records/conflict.md` (a test it cannot pass without
+   breaking the spec), the gate stops and says so. **Send back to Test**, with
+   your words, has the test writer revise the suite; the revised tests go on
+   the same pull request as one commit, with the lock updated and the
+   conflict removed, and the gate runs again.
+
+The logic comes from the hand-off AgentMesh built, ported as plain
+JavaScript: [lib/pull-request.mjs](lib/pull-request.mjs) (opening, revising
+and taking the pull request), [lib/fence.mjs](lib/fence.mjs),
+[lib/gate.mjs](lib/gate.mjs) and [lib/gate-suite.mjs](lib/gate-suite.mjs)
+(the gate), and [lib/review.mjs](lib/review.mjs) (the reviewers). GitHub calls
+go through the adlc console's client (`adlc-console/lib/github.mjs`). Local
+mode is unchanged.
 
 ## How a build is run
 
@@ -285,8 +341,8 @@ Where milestone 1 differs from one of them:
   `outside_tool` (the packer), not the reference package maker, which needs
   Python. The roles answer is the lifecycle document's: it does not show your
   harness as the code writer's binding, because a binding to your own agent
-  needs a handle. A stage's `where` is always null: the API knows only a pull
-  request there. Stages of your own are not in the stages answer, which lists
+  needs a handle. A stage's `where` is null, except at Code on a pull request,
+  where it is that pull request with its newest commit and check. Stages of your own are not in the stages answer, which lists
   stages.json's stages only.
 - **Agent Package.** The packer (0.1.0) implements Common Agent 0.30.0-draft.
   It packs each skill as written, so Product Factory first places each skill's
@@ -298,7 +354,12 @@ Where milestone 1 differs from one of them:
   "Approve the spec" in the console answers two phases at once: the spec
   writer's draft, which the document makes assisted (held for the person), and
   the approve-the-spec gate. There is no "another round" at your OK on the
-  code, because the document has no way back from there; you can stop.
+  code, because the document has no way back from there; you can stop. The
+  document has no way back from Code to Test either, only `[conflict]` back
+  to the spec's gate, where "the suite or the spec is revised". So Send back
+  to Test on a pull request takes `[conflict]`, and the same answer passes the
+  spec's gate again with the spec as approved; the test writer then revises
+  the suite from your words. The run records both, in your words.
 - **The process runner.** A run that reaches Deploy closes with the outcome
   `ended` and its open phases listed; the runner leaves the outcome's words
   to whoever closes a run.
@@ -317,9 +378,14 @@ console's contract checks and the lifecycle API's own check
 (`standards/lifecycle-api-check.mjs`), and builds walked through every stage:
 both gates, asking for changes, a failed suite round, rounds running out, a
 left-out stage, a project's lifecycle, the reference code writer, a refused
-spec started again, stopping, archiving, and starting again mid-stage; and
-teams: the people document, keys, each permission, and gate approvers by
-person and by team.
+spec started again, stopping, archiving, and starting again mid-stage. Code
+on a pull request runs against a fake GitHub (`test/fixtures/fake-github.mjs`,
+a local HTTP stub with a small git in memory), with stand-in reviewers:
+opening the pull request, a failing push and a passing one, the fence
+refusing changes outside what the coding step may change, a reviewer's open
+finding, your OK taking the passing commit and refused for a newer one, Send
+back to Test, and starting again while it waits on pushes. Teams: the people
+document, keys, each permission, and gate approvers by person and by team.
 Set `PF_TEST_TMP` to keep test folders somewhere other than the system's.
 
 ## License
