@@ -1,0 +1,17 @@
+{
+  "what": "The process runner's parser, planner and run state, copied byte for byte, with the three modules run-state.mjs imports (timeline, agreements, retry). Product Factory calls parseProcessDocument, validate, newRun, apply and nextActions, and supplies the delivery itself (its holder adapters) in place of the runner's mesh messages (turn.mjs, drive.mjs, messages.mjs), which are not copied. No function here that reaches a network is called.",
+  "repository": "https://github.com/AgentMesh-Community/process-runner",
+  "commit": "64efd77f9f53be15f033f4f8adf6feb6b7e01088",
+  "version": "0.34.0",
+  "license": "Apache-2.0",
+  "from": "package/scripts/",
+  "files": [
+    "parse-process.mjs",
+    "plan.mjs",
+    "run-state.mjs",
+    "timeline.mjs",
+    "agreements.mjs",
+    "retry.mjs"
+  ],
+  "refresh": "node scripts/vendor.mjs --process-runner <checkout of AgentMesh-Community/process-runner>"
+}

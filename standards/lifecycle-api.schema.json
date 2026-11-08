@@ -1,0 +1,476 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/CommonAgent/adlc/main/standards/lifecycle-api.schema.json",
+  "title": "The lifecycle API",
+  "version": "0.3",
+  "description": "What any service implementing the Agent Development Lifecycle answers, so that one client works against more than one service. Every request and answer is JSON, at the path /v1/lifecycle on the service. Times are ISO 8601 with a zone. Auth is Authorization: Bearer <key>, where the key is one the person makes for their own account, as the service says. A build lists the 24 stages of stages.json, one entry each, and a stage the service does not run is reported as not_offered. A client draws one button for each action the build offers, and nothing else. An organization chooses who holds each role of stages.json (the roles operations): the service's reference agent, its own agent, a contracted supplier, a person or an outside tool. A holder outside the service hands its evidence back in one of the open formats stages.json lists, and the service reads it onto the stage. An organization also chooses which stages its lifecycle uses (the stages operations), for the whole organization or for one project; when nothing is chosen every stage is used, and a build keeps the choice in effect when it started. The schema changes only by adding: a client ignores a field it does not know, and a service never removes or retypes one. Version 0.2 adds the roles operations, the evidence operation and new fields, and it also adds values to two lists, the holder's kinds and the stage's states; a client that does not know a state draws the stage as not_offered, and one that does not know a holder's kind shows the holder's name. Version 0.3 adds the stages operations, the state not_used, and the build's lifecycle field; a client that knows only 0.2 draws a not_used stage as not_offered. The operations list names the definition each request and answer must match; lifecycle-api-check.mjs checks a running service against it, together with the rules a schema cannot say.",
+  "basePath": "/v1/lifecycle",
+  "operations": [
+    { "method": "GET", "path": "/me", "answer": "#/$defs/MeAnswer", "does": "Who is asking, and the service's name." },
+    { "method": "GET", "path": "/builds", "answer": "#/$defs/BuildListAnswer", "does": "The person's builds, each with the stage it is at and where it ended, in words. A build the person archived is left out unless the request adds ?archived=1." },
+    { "method": "POST", "path": "/builds", "request": "#/$defs/StartRequest", "answer": "#/$defs/BuildAnswer", "does": "Start a build from the person's words." },
+    { "method": "GET", "path": "/builds/{id}", "answer": "#/$defs/BuildAnswer", "does": "One build, stage by stage, with its log and the actions it offers now." },
+    { "method": "GET", "path": "/builds/{id}/timeline", "answer": "#/$defs/TimelineAnswer", "does": "The build's run as one bar per step per round, ordered by start, with how long each took and the totals by kind. Added in 0.1." },
+    { "method": "GET", "path": "/builds/{id}/files?path={path}", "answer": "the file's bytes", "does": "A file a stage handed back, at the link the build gives." },
+    { "method": "POST", "path": "/builds/{id}/actions/{name}", "request": "#/$defs/ActionRequest", "answer": "#/$defs/BuildAnswer", "does": "Take one of the actions the build offers, with the inputs it needs." },
+    { "method": "POST", "path": "/builds/{id}/try", "request": "#/$defs/TryRequest", "answer": "#/$defs/TryAnswer", "does": "Send one input to the build's pull request or to the installed agent, and read the answer." },
+    { "method": "GET", "path": "/builds/{id}/tries", "answer": "#/$defs/TriesAnswer", "does": "The tries made on a build, newest first." },
+    { "method": "POST", "path": "/builds/{id}/tries/{tid}/keep", "answer": "#/$defs/TryListAnswer", "does": "Keep a try: it is added to the agent's suite as a new test file." },
+    { "method": "POST", "path": "/builds/{id}/tries/{tid}/wrong", "request": "#/$defs/WrongRequest", "answer": "#/$defs/TryListAnswer", "does": "Say a try came back wrong: it goes back to whoever holds Code, as a comment on the pull request." },
+    { "method": "POST", "path": "/builds/{id}/evidence", "request": "#/$defs/EvidenceRequest", "answer": "#/$defs/BuildAnswer", "does": "Hand back evidence for a stage held outside the service, in one of the formats stages.json lists. The service reads it and lists it on that stage. It answers 400 when the content does not read as the format named. Added in 0.2." },
+    { "method": "GET", "path": "/roles", "answer": "#/$defs/RolesAnswer", "does": "Every role of stages.json, each with who holds it now and where that binding comes from. With ?project=<name>, as a build started under that project would see them. Added in 0.2." },
+    { "method": "PUT", "path": "/roles/{role}", "request": "#/$defs/RoleBindingRequest", "answer": "#/$defs/RolesAnswer", "does": "Bind a role for the organization, or with ?project=<name> for builds started under that project. It answers 400 for a role stages.json does not name, a your_agent or contracted holder with no handle, the requester bound to anyone but a person, or an evidence format stages.json does not list. Added in 0.2." },
+    { "method": "DELETE", "path": "/roles/{role}", "answer": "#/$defs/RolesAnswer", "does": "Remove the organization's binding of a role, or with ?project=<name> that project's, so the role falls back to the organization's binding, then to the service's reference agent, then to nobody. Added in 0.2." },
+    { "method": "GET", "path": "/stages", "answer": "#/$defs/StagesAnswer", "does": "Every stage of stages.json, in its order, each saying whether the organization's lifecycle uses it, where that choice comes from, and whether this service can run its builds without it. With ?project=<name>, as a build started under that project would see them. When nothing is chosen, every stage is used. Added in 0.3." },
+    { "method": "PUT", "path": "/stages/{stage}", "request": "#/$defs/StageChoiceRequest", "answer": "#/$defs/StagesAnswer", "does": "Choose whether the organization's lifecycle uses a stage, or with ?project=<name> whether that project's does. A build started later keeps the choice; a build already started does not change. It answers 400 for a stage stages.json does not name, or for used: false on a stage this service cannot leave out; 403 for a member who is not an admin of the organization; and 409 when the choice could not be saved. Added in 0.3." },
+    { "method": "DELETE", "path": "/stages/{stage}", "answer": "#/$defs/StagesAnswer", "does": "Remove the organization's choice for a stage, or with ?project=<name> that project's, so the stage falls back to the organization's choice, then to the default, which uses it. It answers 403 and 409 as PUT does. Added in 0.3." }
+  ],
+  "errors": "#/$defs/ErrorAnswer",
+  "$defs": {
+    "Words": { "type": "string" },
+    "Time": { "type": "string", "format": "date-time", "description": "ISO 8601, with a zone (Z or an offset)." },
+    "StageId": { "type": "string", "minLength": 1, "description": "An id from stages.json, such as \"code\"." },
+    "State": {
+      "enum": ["not_started", "working", "waiting_on_you", "done", "refused", "stopped", "not_offered", "not_bound", "not_applicable", "not_used"],
+      "description": "waiting_on_you: the person's act is next. not_offered: this service cannot hand the stage to anyone, even if its role were bound. not_bound: the stage applies to the build, nobody holds its role, and the service does not run it (added in 0.2). not_applicable: the stage does not apply to this kind of build, such as Review on a process (added in 0.2). not_used: the build's lifecycle leaves the stage out; the stage has no holder, has run 0 times, offers no action, and its given says \"Not part of this build's lifecycle\" with whose choice it was, the organization's default or the project's name (added in 0.3). When more than one could apply, not_applicable comes first, then not_used, then every other state. A stage held outside the service is not_started until its evidence or answer arrives, then done, or refused when the evidence says it failed. A client that does not know a state draws it as not_offered."
+    },
+    "RoleId": { "type": "string", "minLength": 1, "description": "A role id from stages.json, such as \"code-critic\". Added in 0.2." },
+    "EvidenceFormat": {
+      "enum": ["sarif", "cyclonedx", "spdx", "slsa", "in-toto", "otel-genai", "pact"],
+      "description": "An evidence format from stages.json's evidence_formats. Added in 0.2."
+    },
+    "Said": {
+      "type": "object",
+      "required": ["at", "said"],
+      "properties": { "at": { "$ref": "#/$defs/Time" }, "said": { "$ref": "#/$defs/Words" } }
+    },
+    "Log": { "type": "array", "items": { "$ref": "#/$defs/Said" } },
+
+    "ErrorAnswer": {
+      "type": "object",
+      "required": ["error"],
+      "description": "Any 4xx or 5xx answer. A 401 or 403 means the key is missing, wrong or lacks what the call needs.",
+      "properties": {
+        "error": { "$ref": "#/$defs/Words", "description": "What went wrong, in words a person can read." },
+        "build": { "$ref": "#/$defs/Build", "description": "On a refused action, the build as it now stands." },
+        "tries_today": { "type": "integer", "minimum": 0, "description": "On a 429 from try: the tries this build has had today." },
+        "tries_cap": { "type": "integer", "minimum": 0, "description": "On a 429 from try: the most tries a build may have in a day." }
+      }
+    },
+
+    "MeAnswer": {
+      "type": "object",
+      "required": ["account", "service"],
+      "properties": {
+        "account": {
+          "type": "object",
+          "required": ["email", "name"],
+          "properties": { "email": { "$ref": "#/$defs/Words" }, "name": { "$ref": "#/$defs/Words" } }
+        },
+        "service": {
+          "type": "object",
+          "required": ["name"],
+          "properties": { "name": { "$ref": "#/$defs/Words", "description": "The service's name as a person should see it." } }
+        }
+      }
+    },
+
+    "BuildListAnswer": {
+      "type": "object",
+      "required": ["builds"],
+      "properties": { "builds": { "type": "array", "items": { "$ref": "#/$defs/BuildListItem" } } }
+    },
+    "BuildListItem": {
+      "type": "object",
+      "required": ["id", "name", "does", "version", "at", "updated"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Words" },
+        "name": { "$ref": "#/$defs/Words" },
+        "does": { "$ref": "#/$defs/Words" },
+        "version": { "$ref": "#/$defs/Words" },
+        "kind": { "enum": ["agent", "process"], "description": "What the build makes: an agent, shaped as a Common Agent, or a process, shaped as an Agent Processes document. Absent means agent. Added in 0.1." },
+        "at": {
+          "type": "object",
+          "required": ["stage", "state"],
+          "description": "The stage the build is at, and its state there.",
+          "properties": {
+            "stage": { "$ref": "#/$defs/StageId" },
+            "state": { "$ref": "#/$defs/State" },
+            "summary": { "$ref": "#/$defs/Words", "description": "Where the build ended, or where it is, in the words a person reads first, such as \"Installed · conforms\", \"Installed · paused: failed conformance\", \"Waiting on you at Code\" or \"Stopped at Requirements\". Added in 0.1; a client that finds none says the stage and state." }
+          }
+        },
+        "archived": { "type": "boolean", "description": "The person archived it. Archived builds are listed only when the request adds ?archived=1. Added in 0.1." },
+        "updated": { "$ref": "#/$defs/Time" }
+      }
+    },
+
+    "StartRequest": {
+      "type": "object",
+      "required": ["does"],
+      "properties": {
+        "kind": { "enum": ["agent", "process"], "description": "What to build. Absent means agent. A service that does not build the kind asked for refuses the request and says so. Added in 0.1." },
+        "does": { "type": "string", "minLength": 1, "description": "What the agent does, or what the process gets done, in the person's words." },
+        "refuses": { "$ref": "#/$defs/Words", "description": "What it must refuse." },
+        "more": { "$ref": "#/$defs/Words", "description": "Anything else the person wants said." },
+        "name": { "$ref": "#/$defs/Words", "description": "A name for the agent, when the person has one." },
+        "prototype": { "$ref": "#/$defs/Words", "description": "A public repository, as owner/name, to read as the agent's prototype." },
+        "project": { "$ref": "#/$defs/Words", "description": "The project the build is for, in the person's words. A role bound for that project holds its stages in place of the organization's binding. Added in 0.2." }
+      }
+    },
+
+    "BuildAnswer": {
+      "type": "object",
+      "required": ["build"],
+      "properties": { "build": { "$ref": "#/$defs/Build" } }
+    },
+    "Build": {
+      "type": "object",
+      "required": ["id", "name", "does", "version", "handle", "stages", "actions", "log", "can_try"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Words" },
+        "name": { "$ref": "#/$defs/Words" },
+        "does": { "$ref": "#/$defs/Words" },
+        "version": { "$ref": "#/$defs/Words" },
+        "kind": { "enum": ["agent", "process"], "description": "What the build makes: an agent, shaped as a Common Agent, or a process, shaped as an Agent Processes document. Absent means agent. Added in 0.1." },
+        "handle": { "$ref": "#/$defs/Words", "description": "The address the agent answers at once it is installed. For a process, the address of the installed process document." },
+        "stages": { "type": "array", "items": { "$ref": "#/$defs/Stage" }, "description": "One entry for each of the stages in stages.json." },
+        "actions": { "type": "array", "items": { "$ref": "#/$defs/Action" }, "description": "Everything the person may do now. A client draws one button for each, and nothing else." },
+        "log": { "$ref": "#/$defs/Log" },
+        "can_try": {
+          "type": "object",
+          "required": ["pull_request", "installed"],
+          "description": "Whether a try may be sent now, against the pull request and against the installed agent.",
+          "properties": { "pull_request": { "type": "boolean" }, "installed": { "type": "boolean" } }
+        },
+        "summary": { "$ref": "#/$defs/Words", "description": "Where the build ended, or where it is, in words: the same words as the list's at.summary. Added in 0.1." },
+        "paused": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["at", "why"],
+              "properties": { "at": { "$ref": "#/$defs/Time" }, "why": { "$ref": "#/$defs/Words" } }
+            }
+          ],
+          "description": "The installed agent is paused, since when and why (for example, a conformance check it failed); null when it is not. Added in 0.1."
+        },
+        "archived": { "type": "boolean", "description": "The person archived it. Added in 0.1." },
+        "project": { "$ref": "#/$defs/Words", "description": "The project the build was started under, as its StartRequest gave it; absent when none was given. Added in 0.2." },
+        "lifecycle": {
+          "type": "object",
+          "required": ["project", "at"],
+          "description": "Whose choice of stages the build started under, and when it took it. The build keeps that choice: a stage chosen or left out later does not change it. Absent from a service that keeps no choice of stages. Added in 0.3.",
+          "properties": {
+            "project": { "type": ["string", "null"], "description": "The project whose stages the build took, the same as the build's project; null when the build named none, so it took the organization's choices and the default." },
+            "at": { "$ref": "#/$defs/Time", "description": "When the build took the choice: when it started." }
+          }
+        },
+        "timeline": { "type": "array", "items": { "$ref": "#/$defs/TimelineBar" }, "description": "The build's run as one bar per step per round, ordered by start; empty when the service keeps no run for it. Steps that run at the same time keep their own bars, so overlaps show. Added in 0.1." }
+      }
+    },
+    "TimelineBar": {
+      "type": "object",
+      "required": ["phase", "round", "holder", "kind", "start", "end", "duration_ms", "status"],
+      "properties": {
+        "phase": { "$ref": "#/$defs/Words", "description": "The step of the run, by the process document's name for it." },
+        "round": { "type": "integer", "minimum": 0, "description": "1 the first time the step ran, one more each time it ran again." },
+        "holder": { "type": ["string", "null"], "description": "Who held it, by handle; null for a person's gate." },
+        "kind": { "enum": ["agent", "person", "external"], "description": "agent: an agent working. person: waiting on a person. external: waiting on something outside the run (a pull request, a sandbox, an install, a verdict)." },
+        "start": { "$ref": "#/$defs/Time" },
+        "end": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/Time" }], "description": "Null while it is still open." },
+        "duration_ms": { "type": ["integer", "null"], "minimum": 0, "description": "Milliseconds from start to end; null while it is still open." },
+        "status": { "$ref": "#/$defs/Words", "description": "How it stands or ended, such as closed, working or superseded." }
+      }
+    },
+    "TimelineAnswer": {
+      "type": "object",
+      "required": ["timeline", "totals"],
+      "properties": {
+        "timeline": { "type": "array", "items": { "$ref": "#/$defs/TimelineBar" } },
+        "totals": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["total_ms", "by_kind_ms", "share"],
+              "properties": {
+                "total_ms": { "type": "integer", "minimum": 0, "description": "From the first bar's start to the last bar's end." },
+                "by_kind_ms": { "type": "object", "description": "The bars' own time summed by kind: agent, person, external." },
+                "share": { "type": "object", "description": "Each kind's part of the bars' summed time, 0 to 1." }
+              }
+            }
+          ],
+          "description": "Null when the service keeps no run for the build."
+        }
+      }
+    },
+    "Stage": {
+      "type": "object",
+      "required": ["stage", "state", "holder", "runs", "rounds", "given", "handed_back", "done_when_met", "log", "where"],
+      "properties": {
+        "stage": { "$ref": "#/$defs/StageId" },
+        "state": { "$ref": "#/$defs/State" },
+        "holder": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/Holder" }], "description": "Who holds the stage; null for a stage that is not offered, not bound, not applicable or not used." },
+        "runs": { "type": "integer", "minimum": 0, "description": "How many times the stage has run." },
+        "rounds": { "type": "array", "items": { "$ref": "#/$defs/Round" }, "description": "Newest first." },
+        "given": { "$ref": "#/$defs/Words" },
+        "handed_back": {
+          "type": "object",
+          "required": ["words", "files"],
+          "properties": {
+            "words": { "type": "array", "items": { "$ref": "#/$defs/Words" } },
+            "files": { "type": "array", "items": { "$ref": "#/$defs/File" } }
+          }
+        },
+        "done_when_met": { "type": ["boolean", "null"], "description": "Whether the stage's \"done when\" was met; null when it is not known yet." },
+        "log": { "$ref": "#/$defs/Log" },
+        "where": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/PullRequest" }], "description": "Where the stage's work is, when it is somewhere the person can open." },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/Evidence" }, "description": "The evidence handed back for the stage by a holder outside the service, as the service read it. Added in 0.2." }
+      }
+    },
+    "Evidence": {
+      "type": "object",
+      "required": ["format", "name", "at", "summary"],
+      "description": "One piece of evidence, as the service read it. Added in 0.2.",
+      "properties": {
+        "format": { "$ref": "#/$defs/EvidenceFormat" },
+        "name": { "$ref": "#/$defs/Words", "description": "Its name, as it was handed back." },
+        "at": { "$ref": "#/$defs/Time", "description": "When it arrived." },
+        "summary": { "$ref": "#/$defs/Words", "description": "What the service read in it, in words, such as \"2 errors, 5 warnings\" or \"41 components\"." },
+        "file": { "$ref": "#/$defs/File", "description": "The file as it was handed back." }
+      }
+    },
+    "Holder": {
+      "type": "object",
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": { "enum": ["reference_agent", "your_agent", "contracted", "person", "outside_tool"], "description": "reference_agent: the service's own agent for the role. your_agent: an agent of the organization's, on the mesh. contracted: a supplier's agent the organization contracted, on the mesh. person: a person. outside_tool: a tool outside the mesh, whose evidence is handed back to the service. contracted and outside_tool were added in 0.2." },
+        "name": { "$ref": "#/$defs/Words", "description": "Words a person reads, such as \"CodeRabbit\" or \"Our security team\"." },
+        "handle": { "$ref": "#/$defs/Words", "description": "The holder's handle on the mesh. A your_agent or contracted holder has one, a reference_agent may, and a person or an outside_tool has none. Added in 0.2." },
+        "role": { "$ref": "#/$defs/RoleId", "description": "The role it holds the stage as. Added in 0.2." },
+        "evidence": {
+          "type": "object",
+          "required": ["formats"],
+          "description": "The evidence the holder hands back, and where it can be read. Added in 0.2.",
+          "properties": {
+            "formats": { "type": "array", "items": { "$ref": "#/$defs/EvidenceFormat" } },
+            "where": { "$ref": "#/$defs/Words", "description": "Words or an address saying where the holder's evidence can be read." }
+          }
+        }
+      }
+    },
+    "RolesAnswer": {
+      "type": "object",
+      "required": ["roles"],
+      "description": "Every role of stages.json, once each. Added in 0.2.",
+      "properties": {
+        "project": { "$ref": "#/$defs/Words", "description": "The project asked about, when the request named one." },
+        "roles": { "type": "array", "items": { "$ref": "#/$defs/Role" } }
+      }
+    },
+    "Role": {
+      "type": "object",
+      "required": ["role", "name", "contract", "offering", "stages", "binding", "from", "reference_agent"],
+      "description": "One role, as stages.json names it, and who holds it now. Added in 0.2.",
+      "properties": {
+        "role": { "$ref": "#/$defs/RoleId" },
+        "name": { "$ref": "#/$defs/Words" },
+        "contract": { "$ref": "#/$defs/Words", "description": "The role's contract, https://agentroles.ai/<id>.html." },
+        "offering": { "$ref": "#/$defs/Words", "description": "The offering a bound handle is sent the stage's input under, role-<id>." },
+        "stages": { "type": "array", "items": { "$ref": "#/$defs/StageId" } },
+        "binding": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/RoleBinding" }], "description": "The binding in effect; null when nobody holds the role." },
+        "from": { "enum": ["project", "org", "default", "unbound"], "description": "Where the binding in effect comes from: the project's binding, the organization's, the service's default (its reference agent, or the person who asked for the requester), or nobody." },
+        "reference_agent": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/Holder" }], "description": "The service's own agent for the role, when it runs one." }
+      }
+    },
+    "RoleBinding": {
+      "type": "object",
+      "required": ["role", "holder"],
+      "description": "Who holds a role. scope, since and by are absent on a default, which nobody bound. Added in 0.2.",
+      "properties": {
+        "role": { "$ref": "#/$defs/RoleId" },
+        "holder": { "$ref": "#/$defs/Holder" },
+        "scope": {
+          "anyOf": [
+            { "type": "object", "required": ["org"], "properties": { "org": { "const": true } } },
+            { "type": "object", "required": ["project"], "properties": { "project": { "type": "string", "minLength": 1 } } }
+          ],
+          "description": "{ \"org\": true } for the organization's binding, or { \"project\": <name> } for one project's."
+        },
+        "since": { "$ref": "#/$defs/Time" },
+        "by": { "$ref": "#/$defs/Words", "description": "Who bound it." }
+      }
+    },
+    "RoleBindingRequest": {
+      "type": "object",
+      "required": ["holder"],
+      "description": "The holder to bind the role to. Added in 0.2.",
+      "properties": { "holder": { "$ref": "#/$defs/Holder" } }
+    },
+    "StagesAnswer": {
+      "type": "object",
+      "required": ["project", "stages"],
+      "description": "Every stage of stages.json, once each, in its order, and whether the lifecycle uses it. Added in 0.3.",
+      "properties": {
+        "project": { "type": ["string", "null"], "description": "The project asked about; null when the request named none." },
+        "stages": { "type": "array", "items": { "$ref": "#/$defs/StageChoice" } },
+        "updated_at": { "$ref": "#/$defs/Time", "description": "When a choice this answer reads was last changed; absent when nobody has chosen." }
+      }
+    },
+    "StageChoice": {
+      "type": "object",
+      "required": ["stage", "name", "phase", "roles", "used", "from", "can_leave_out"],
+      "description": "One stage, as stages.json names it, and whether the lifecycle uses it. Added in 0.3.",
+      "properties": {
+        "stage": { "$ref": "#/$defs/StageId" },
+        "name": { "$ref": "#/$defs/Words", "description": "The stage's name in stages.json." },
+        "phase": { "type": "string", "minLength": 1, "description": "The id of the stage's phase in stages.json, such as \"define\"." },
+        "roles": { "type": "array", "items": { "$ref": "#/$defs/RoleId" }, "description": "The roles that hold the stage, its role_ids in stages.json. Who holds each is in the roles answer." },
+        "used": { "type": "boolean", "description": "Whether the lifecycle uses the stage. A build started now runs a used stage and reports an unused one as not_used." },
+        "from": { "enum": ["project", "org", "default"], "description": "Where the choice comes from: the project's, the organization's, or the default, which uses every stage." },
+        "can_leave_out": { "type": "boolean", "description": "Whether this service can run its builds without the stage: false when a kind of build it makes, to which the stage applies, needs it. A fact about the service, not a rule of the organization's." },
+        "why_not": { "$ref": "#/$defs/Words", "description": "When can_leave_out is false, what needs the stage, in words a person reads, such as \"Code is written to Test's suite; this service cannot build without it.\"" }
+      }
+    },
+    "StageChoiceRequest": {
+      "type": "object",
+      "required": ["used"],
+      "description": "Whether the lifecycle uses the stage. Added in 0.3.",
+      "properties": { "used": { "type": "boolean" } }
+    },
+    "EvidenceRequest": {
+      "type": "object",
+      "required": ["stage", "format", "name", "content"],
+      "description": "Evidence for one stage of a build. Added in 0.2.",
+      "properties": {
+        "stage": { "$ref": "#/$defs/StageId" },
+        "format": { "$ref": "#/$defs/EvidenceFormat" },
+        "name": { "type": "string", "minLength": 1, "description": "Its name, such as the file's name." },
+        "content": { "type": ["object", "array", "string"], "description": "The file, as a JSON value or as a base64 string." }
+      }
+    },
+    "Round": {
+      "type": "object",
+      "required": ["n", "at", "label", "verdict", "back", "words"],
+      "properties": {
+        "n": { "type": "integer" },
+        "at": { "$ref": "#/$defs/Time" },
+        "label": { "$ref": "#/$defs/Words" },
+        "verdict": { "$ref": "#/$defs/Words" },
+        "back": { "type": "boolean", "description": "True when this round sent the work back." },
+        "words": { "$ref": "#/$defs/Words" }
+      }
+    },
+    "File": {
+      "type": "object",
+      "required": ["path", "size", "link"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "size": { "type": "integer", "minimum": 0, "description": "Bytes." },
+        "link": { "$ref": "#/$defs/Words", "description": "Where its bytes are read, with the same key: an address, or a path on the service such as /v1/lifecycle/builds/{id}/files?path={path}." }
+      }
+    },
+    "PullRequest": {
+      "type": "object",
+      "required": ["kind", "url", "head", "check"],
+      "properties": {
+        "kind": { "const": "pull_request" },
+        "url": { "$ref": "#/$defs/Words" },
+        "head": { "type": ["string", "null"], "description": "The pull request's newest commit, as a short sha." },
+        "check": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/Check" }] }
+      }
+    },
+    "Check": {
+      "type": "object",
+      "required": ["title", "words", "items", "passed"],
+      "description": "The check on the pull request's newest commit.",
+      "properties": {
+        "title": { "$ref": "#/$defs/Words" },
+        "words": { "$ref": "#/$defs/Words" },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/Words" } },
+        "passed": { "type": ["boolean", "null"], "description": "null while it runs." }
+      }
+    },
+    "Action": {
+      "type": "object",
+      "required": ["stage", "name", "label", "needs"],
+      "properties": {
+        "stage": { "$ref": "#/$defs/StageId", "description": "The stage it acts at, one the build offers." },
+        "name": { "$ref": "#/$defs/Words", "description": "Posted as /builds/{id}/actions/{name}. Names a service may offer include approve, changes, accept, resume, back_to_test and stop; archive and unarchive, for a build that ended without an install; and resume_agent, which resumes an installed agent a failed conformance check paused." },
+        "label": { "$ref": "#/$defs/Words", "description": "The button's words." },
+        "needs": { "type": "array", "items": { "$ref": "#/$defs/Need" } }
+      }
+    },
+    "Need": {
+      "type": "object",
+      "required": ["name", "label", "kind"],
+      "properties": {
+        "name": { "$ref": "#/$defs/Words", "description": "The member it is sent as in the action's request." },
+        "label": { "$ref": "#/$defs/Words" },
+        "kind": { "$ref": "#/$defs/Words", "description": "text (a line), words (a paragraph) or repository (owner/name)." },
+        "optional": { "type": "boolean", "description": "True when the person may leave it empty, and it is then not sent." }
+      }
+    },
+
+    "ActionRequest": {
+      "type": "object",
+      "description": "One member for each need the action names, as words. A need marked optional and left empty is not sent.",
+      "additionalProperties": { "type": "string" }
+    },
+
+    "TryRequest": {
+      "type": "object",
+      "required": ["say", "against"],
+      "properties": {
+        "say": { "type": "string", "minLength": 1, "description": "The input, in words." },
+        "against": { "enum": ["pull_request", "installed"] },
+        "offering": { "$ref": "#/$defs/Words", "description": "Which of the agent's jobs to try; the service picks one when it is not given." }
+      }
+    },
+    "Try": {
+      "type": "object",
+      "required": ["id", "say", "against", "answer", "ms", "at"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Words" },
+        "say": { "$ref": "#/$defs/Words" },
+        "against": { "enum": ["pull_request", "installed"] },
+        "answer": { "$ref": "#/$defs/Words", "description": "The agent's answer, or what went wrong, in words." },
+        "ms": { "type": "number", "minimum": 0, "description": "How long it took, in milliseconds." },
+        "at": { "$ref": "#/$defs/Time" }
+      }
+    },
+    "TryListItem": {
+      "type": "object",
+      "required": ["id", "say", "against", "answer", "ms", "at", "kept", "sent_back"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Words" },
+        "say": { "$ref": "#/$defs/Words" },
+        "against": { "enum": ["pull_request", "installed"] },
+        "answer": { "$ref": "#/$defs/Words" },
+        "ms": { "type": "number", "minimum": 0 },
+        "at": { "$ref": "#/$defs/Time" },
+        "kept": { "type": "boolean", "description": "It was kept as a test." },
+        "sent_back": { "type": "boolean", "description": "It was said to be wrong, and sent back." }
+      }
+    },
+    "TryAnswer": {
+      "type": "object",
+      "required": ["try"],
+      "properties": { "try": { "$ref": "#/$defs/Try" } }
+    },
+    "TriesAnswer": {
+      "type": "object",
+      "required": ["tries"],
+      "properties": { "tries": { "type": "array", "items": { "$ref": "#/$defs/TryListItem" } } }
+    },
+    "TryListAnswer": {
+      "type": "object",
+      "required": ["try"],
+      "properties": { "try": { "$ref": "#/$defs/TryListItem" } }
+    },
+    "WrongRequest": {
+      "type": "object",
+      "properties": { "why": { "$ref": "#/$defs/Words", "description": "Why the answer is wrong." } }
+    }
+  }
+}

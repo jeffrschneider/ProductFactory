@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/CommonAgent/adlc/main/standards/lifecycle-document.schema.json",
+  "title": "A lifecycle document",
+  "version": "0.1",
+  "description": "An organization's lifecycle, kept as a file: which of the stages in stages.json it uses, who holds each role, and the stages it adds of its own, for the organization and for each project. A project's choices override the organization's, stage by stage and role by role. Anything not chosen follows the default: every stage used, and each role held by its reference agent. No service is needed to read or write it.",
+  "type": "object",
+  "required": ["version", "organization"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": "0.1", "description": "The version of this format." },
+    "organization": { "$ref": "#/$defs/Scope", "description": "The organization's choices. Every build follows them unless its project chose otherwise." },
+    "projects": {
+      "type": "object",
+      "description": "Each project's choices, by project name.",
+      "propertyNames": { "type": "string", "minLength": 1, "maxLength": 200 },
+      "additionalProperties": { "$ref": "#/$defs/Scope" }
+    }
+  },
+  "$defs": {
+    "Id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "maxLength": 64 },
+    "Words": { "type": "string", "minLength": 1 },
+    "Scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "used": {
+          "type": "object",
+          "description": "Whether each stage is used, by stage id: false leaves it out, true uses it. A stage not listed follows the wider scope, or the default, which uses it.",
+          "propertyNames": { "$ref": "#/$defs/Id" },
+          "additionalProperties": { "type": "boolean" }
+        },
+        "holders": {
+          "type": "object",
+          "description": "Who holds each role, by role id. A role not listed follows the wider scope, or the default, its reference agent.",
+          "propertyNames": { "$ref": "#/$defs/Id" },
+          "additionalProperties": { "$ref": "#/$defs/Holder" }
+        },
+        "added_stages": {
+          "type": "array",
+          "description": "Stages of this scope's own, each placed after a stage.",
+          "items": { "$ref": "#/$defs/AddedStage" }
+        }
+      }
+    },
+    "Holder": {
+      "type": "object",
+      "required": ["kind", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["reference_agent", "your_agent", "contracted", "person", "outside_tool"] },
+        "name": { "$ref": "#/$defs/Words" },
+        "handle": { "$ref": "#/$defs/Words", "description": "Its handle on the mesh. A your_agent or contracted holder has one." },
+        "evidence": {
+          "type": "object",
+          "required": ["formats"],
+          "additionalProperties": false,
+          "properties": {
+            "formats": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "Evidence format ids from stages.json." },
+            "where": { "$ref": "#/$defs/Words" }
+          }
+        }
+      }
+    },
+    "AddedStage": {
+      "type": "object",
+      "required": ["id", "name", "phase", "after", "role", "given", "hands_back", "done_when", "person_gate"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/Id", "description": "Unique among every stage, including those in stages.json." },
+        "name": { "$ref": "#/$defs/Words" },
+        "phase": { "$ref": "#/$defs/Id", "description": "A phase id from stages.json, such as \"make\"." },
+        "after": {
+          "anyOf": [{ "$ref": "#/$defs/Id" }, { "type": "null" }],
+          "description": "The stage it comes after, in the same phase; null puts it first in its phase."
+        },
+        "role": { "$ref": "#/$defs/Id", "description": "A role id from stages.json, or a new role this document names." },
+        "role_name": { "$ref": "#/$defs/Words", "description": "The new role's name. Present only when role is not in stages.json." },
+        "given": { "$ref": "#/$defs/Words", "description": "What the stage is given." },
+        "hands_back": { "$ref": "#/$defs/Words", "description": "What the stage hands back." },
+        "done_when": { "$ref": "#/$defs/Words", "description": "When the stage is done." },
+        "person_gate": { "type": "boolean", "description": "Whether a person must say yes before the stage is done." }
+      }
+    }
+  }
+}

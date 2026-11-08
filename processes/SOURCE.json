@@ -1,0 +1,24 @@
+{
+  "make-a-new-agent.txt": {
+    "what": "The reference process \"make a new agent\" (ref/dev/make-a-new-agent v1), as published, with its blanks filled for a build on one computer.",
+    "from": "https://agentprocesses.ai/make-a-new-agent.html",
+    "fetched": "2026-11-08",
+    "note": "The examples folder of jeffrschneider/agentprocesses does not hold this process; the published page does.",
+    "filled_in_the_file": {
+      "<team>": "product-factory",
+      "<your request channel>": "the Product Factory console",
+      "<level> at write-the-suite, make-the-package, deploy-the-agent, check-conformance": "autonomous",
+      "<level> at write-the-scripts": "supervised: the scripts wait for the owner's OK before they are packed",
+      "<your settled stack>, <version>": "node 22",
+      "<your hosts>": "the host you bring",
+      "<your catalog>": "your catalog",
+      "<target>": "none set",
+      "the roster blank": "named for each build, in the roster Product Factory sends with the run"
+    },
+    "filled_for_each_build": {
+      "<who>": "the person who started the build",
+      "<date>": "the day the build started",
+      "<the agent's owner>": "the person who started the build"
+    }
+  }
+}
