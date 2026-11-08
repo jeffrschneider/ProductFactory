@@ -3,11 +3,11 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { factory, tempDir, stageOf, actionNames } from "./helpers.mjs";
 import { readPeople, loadPeople, createKeys, readApprovers, peopleCommand, peoplePath, KEYS_FILE } from "../lib/people.mjs";
-import { createLifecycle, NEWER } from "../lib/lifecycle.mjs";
+import { createLifecycle } from "../lib/lifecycle.mjs";
 import { validate } from "../standards/lifecycle-api-check.mjs";
 
 const PEOPLE = {
@@ -231,10 +231,10 @@ test("a gate's approvers by team: an approver in the team answers, a member in i
 });
 
 test("approvers stay in the lifecycle file when the lifecycle is changed, and wrong ones are named in words", async (t) => {
-  assert.deepEqual(NEWER, ["approvers"]);
+  // Names the schema cannot check (people.json's) are named by this service; the file stays valid.
   const doc = {
     version: "0.1",
-    organization: { approvers: { requirements: [{ team: "Platform" }, { person: "max@example.com" }, { person: "zed@example.com" }, { team: "Design" }, { who: "x" }] } },
+    organization: { approvers: { requirements: [{ team: "Platform" }, { person: "max@example.com" }, { person: "zed@example.com" }, { team: "Design" }] } },
     projects: { web: { approvers: { code: [{ person: "ana@example.com" }] } } },
   };
   const { f } = await withPeople(t, doc);
@@ -254,12 +254,23 @@ test("approvers stay in the lifecycle file when the lifecycle is changed, and wr
   assert.match(said, /organization.approvers.requirements names max@example.com, a member/);
   assert.match(said, /names zed@example.com, who is not in people.json/);
   assert.match(said, /names the team Design, which is not in people.json/);
-  assert.match(said, /requirements\[4\] is one person/);
   assert.ok(!JSON.stringify(people).includes("pf_"), "no key is ever listed");
+  assert.equal(await createLifecycle({ path: f.lifecycle.file }).check(), null);
+  assert.equal(readApprovers(kept, readPeople(PEOPLE).doc).org.requirements.length, 4);
+});
 
-  // The console's store reads the document without approvers; this service's own check is readApprovers.
-  const lc = createLifecycle({ path: f.lifecycle.file });
-  assert.equal(await lc.check(), null);
-  assert.deepEqual(readApprovers(kept, readPeople(PEOPLE).doc).org.requirements.length, 4);
-  assert.ok(existsSync(f.lifecycle.file));
+test("an approver entry the schema does not allow makes the lifecycle file invalid, named in words", async (t) => {
+  // The lifecycle document schema says what an approver is, so a wrong one is a wrong file,
+  // as the console treats every other wrong field: the lifecycle routes answer 409 with the problem.
+  const doc = { version: "0.1", organization: { approvers: { requirements: [{ team: "Platform" }, { who: "x" }] } } };
+  const { f } = await withPeople(t, doc);
+  const put = await f.put("/stages/docs", { used: false });
+  assert.equal(put.status, 409);
+  assert.match(put.json.error, /not a valid lifecycle document: organization\.approvers\.requirements\[1\] has "who"/);
+  assert.equal((await f.get("/stages")).status, 409);
+  assert.match(await createLifecycle({ path: f.lifecycle.file }).check(), /approvers\.requirements\[1\]/);
+  // The file is left as it was, this service names the entry too, and no build starts under it.
+  assert.deepEqual(JSON.parse(readFileSync(f.lifecycle.file, "utf8")), doc);
+  assert.match((await f.get("/people")).json.problems.join("\n"), /requirements\[1\] is one person/);
+  assert.equal((await f.post("/builds", { does: "Count the words." })).status, 409);
 });

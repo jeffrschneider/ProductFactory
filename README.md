@@ -407,8 +407,10 @@ and look the person up in `people.json` by its email.
 
 - Lifecycle API 0.3 and stages.json 1.2.0 (CommonAgent/adlc, copies in `standards/`).
 - The lifecycle document 0.1, through the adlc console's store, with `approvers`
-  (CommonAgent/adlc#121). The console's store does not know `approvers` yet,
-  so it is handed the file without them, and they are put back when it writes.
+  (CommonAgent/adlc#121). The console's store checks each entry's shape, so a
+  wrong entry makes the file invalid, named in words, like any other wrong
+  field. Product Factory then checks what a schema cannot: that each person
+  and team is in `people.json`, and that a named person may answer gates.
 - Agent Processes, through the process runner, for "make a new agent".
 - The Common Agent package format, through `@common-agent/package`.
 
