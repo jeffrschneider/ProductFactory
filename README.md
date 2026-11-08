@@ -65,7 +65,7 @@ set, Deploy waits: "Hand this package to your runtime", with both paths.
 
 ## What milestone 1 does not do
 
-No board, no tracker, no repository host but GitHub, no single sign-on,
+No board, no tracker but GitHub Issues, no repository host but GitHub, no single sign-on,
 nothing installed by Product Factory itself (Deploy hands the package to your
 runtime), no try-it, and agents only (no processes or general software). By
 default the build folder is a folder on this computer, and its path is in the
@@ -240,6 +240,64 @@ and taking the pull request), [lib/fence.mjs](lib/fence.mjs),
 (the gate), and [lib/review.mjs](lib/review.mjs) (the reviewers). GitHub calls
 go through the adlc console's client (`adlc-console/lib/github.mjs`). Local
 mode is unchanged.
+
+## Start builds from issues
+
+An open GitHub issue with a label you choose can start a build. Name the
+repository as for Code on a pull request, and add:
+
+```json
+"repository": { "host": "github", "repo": "owner/name", "token": "GITHUB_TOKEN" },
+"intake": { "github_issues": { "label": "product-factory", "poll_seconds": 60 } }
+```
+
+Product Factory reads the repository's open issues with that label every
+`poll_seconds` (default 60; no webhook needed). Each one starts a build: the
+issue's title is what the agent should do, and its body is the rest of the
+request. An issue starts one build at most; the build keeps its issue, and its
+log names it with a link. The build comments on the issue when a gate waits on
+a person, naming the gate, and when the build ends, with how it ended. The
+token needs to read issues and write issue comments.
+
+## Gate notices
+
+Product Factory can tell someone when a gate starts waiting and when a build
+ends. Add one or more notices:
+
+```json
+"notify": [
+  { "kind": "webhook", "url_env": "SLACK_WEBHOOK_URL" },
+  { "kind": "command", "command": ["node", "send-mail.mjs"] }
+]
+```
+
+Each notice carries a short JSON message:
+
+```json
+{ "build": "b_…", "name": "word-counter", "event": "waiting", "gate": "Approve the spec",
+  "waiting_on": "Ana Lee (ana@example.com) or an approver in the team Platform",
+  "stage": "requirements", "state": "waiting", "link": "…",
+  "text": "word-counter (b_…) waits at Requirements: Approve the spec. Who may answer: Ana Lee (ana@example.com) or an approver in the team Platform." }
+```
+
+At the end `event` is `ended`, `state` is `done` or `stopped`, and `gate` is
+null. `waiting_on` names the gate's approvers when the lifecycle names any
+(people and teams, from people.json), and otherwise says `anyone`. A build
+that is refused counts as waiting, and anyone may run it again. `link` is the
+build's issue when it came from one, otherwise its address on the lifecycle API.
+
+- `webhook` posts the message to the address in the environment variable
+  `url_env` names (never the address itself). A Slack or Teams incoming
+  webhook shows `text`.
+- `command` runs the command, as a list of words and without a shell, with
+  the message on stdin. Use it for email or anything else.
+
+Each notice goes out once. Its key (a gate's wait at a stage and round, or the
+build's end) is kept in build.json under `notices` before it is sent, so a
+repeated save or a restart never sends it twice. A notice goes out once the
+build has stopped moving, so a run that ends at Package and goes straight on to
+your runtime is told only where it stops. A notice that fails is said in the
+build's log, and the build goes on.
 
 ## How a build is run
 
@@ -469,7 +527,11 @@ back to Test, and starting again while it waits on pushes. The history's
 tests build it again from the build files, answer the four analytics
 questions over hand-made builds where every number is known, and call the
 analytics route. Teams: the people
-document, keys, each permission, and gate approvers by person and by team.
+document, keys, each permission, and gate approvers by person and by team. Issues and
+notices run against the same fake GitHub and a fake webhook receiver: a
+labelled issue starting one build, an unlabelled one starting none, the
+comments at a gate and at the end, the webhook and command notices, and a
+notice that fails without stopping the build.
 Set `PF_TEST_TMP` to keep test folders somewhere other than the system's.
 
 ## License

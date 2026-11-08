@@ -6,7 +6,8 @@
 //   gh.url                       the API address to give Product Factory
 //   gh.push(branch, changes)     a commit on top of the branch: { path: text | null }, as a coding harness pushes
 //   gh.filesAt(ref)              { path: text } at a branch or commit
-//   gh.pulls, gh.comments, gh.statuses, gh.calls
+//   gh.addIssue({ title, body, labels })  an open issue, as a person files one
+//   gh.pulls, gh.issues, gh.comments, gh.statuses, gh.calls
 
 import { createServer } from "node:http";
 import { createHash } from "node:crypto";
@@ -18,6 +19,7 @@ export async function fakeGitHub({ token = "ghs_fake_token_for_tests", repo = "a
   const refs = new Map();
   const pulls = new Map();
   const comments = [];
+  const issues = [];
   const statusList = [];
   const calls = [];
   let seq = 0;
@@ -82,6 +84,14 @@ export async function fakeGitHub({ token = "ghs_fake_token_for_tests", repo = "a
       Object.assign(p, { state: "closed", merged: true, merged_head: head });
       return [200, { sha, merged: true }];
     }],
+    ["GET", new RegExp(`^${A}/issues\\?(.*)$`), (m) => {
+      const q = new URLSearchParams(m[1]);
+      const want = (q.get("labels") ?? "").split(",").filter(Boolean);
+      const page = Number(q.get("page") ?? 1);
+      const per = Number(q.get("per_page") ?? 30);
+      const open = issues.filter((i) => i.state === (q.get("state") ?? "open") && want.every((l) => i.labels.includes(l)));
+      return [200, open.slice((page - 1) * per, page * per).map((i) => ({ number: i.number, title: i.title, body: i.body, state: i.state, labels: i.labels.map((name) => ({ name })), html_url: `https://github.example/${repo}/issues/${i.number}` }))];
+    }],
     ["POST", new RegExp(`^${A}/issues/(\\d+)/comments$`), (m, b) => { comments.push({ number: Number(m[1]), body: b.body }); return [201, { id: comments.length }]; }],
     ["POST", new RegExp(`^${A}/statuses/([0-9a-f]{40})$`), (m, b) => {
       if (!statuses) return [403, { message: "Resource not accessible by personal access token" }];
@@ -107,7 +117,9 @@ export async function fakeGitHub({ token = "ghs_fake_token_for_tests", repo = "a
   const url = `http://127.0.0.1:${server.address().port}`;
 
   return {
-    url, token, repo, pulls, comments, statuses: statusList, calls,
+    url, token, repo, pulls, issues, comments, statuses: statusList, calls,
+    /** An open issue, as a person files one: numbered from 101, so it never shares a number with a pull request here. */
+    addIssue({ title, body = "", labels = [] }) { const number = 101 + issues.length; issues.push({ number, title, body, labels, state: "open" }); return number; },
     head: (branch) => refs.get(`heads/${branch}`),
     /** A commit on top of the branch, as a coding harness pushes one: { path: text | null }. */
     push(branch, changes, message = "A push") {

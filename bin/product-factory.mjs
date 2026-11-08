@@ -13,6 +13,8 @@ import { createRunner } from "../lib/runner.mjs";
 import { createService } from "../lib/server.mjs";
 import { createPeople, peopleCommand, peoplePath, PEOPLE_HELP, KEYS_FILE } from "../lib/people.mjs";
 import { createHistory, HISTORY_UNAVAILABLE } from "../lib/history.mjs";
+import { createNotices } from "../lib/notices.mjs";
+import { createIssueIntake } from "../lib/intake.mjs";
 
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
@@ -71,12 +73,15 @@ async function main() {
   const key = store.key();
   const person = localPerson();
   const history = createHistory({ store });
+  let base;
   const runner = createRunner({ store, lifecycle, config, person });
   const people = createPeople({ file: peoplePath(config.lifecycle), keysFile: join(config.data, KEYS_FILE), lifecycle: lifecycle.file, serviceKey: key.value, admin: person });
   const peopleProblems = people.list().problems;
   if (peopleProblems.length) console.error(`People: ${peopleProblems.join(" ")}`);
   const service = createService({ store, lifecycle, runner, key: key.value, person, people, version: pkg.version, history });
-  let base;
+  const notices = createNotices({ config, store, people, settled: (id) => runner.idle(id), linkOf: (r) => (base ? `${base}/v1/lifecycle/builds/${r.id}` : null) });
+  notices.watch();
+  const intake = createIssueIntake({ config, store, runner, log: (said) => console.log(said) });
   try { base = await service.listen(config.port); } catch (e) {
     console.error(e.code === "EADDRINUSE" ? `Port ${config.port} is in use. Set another "port" in ${config.file}, or give --port.` : e.message);
     process.exit(1);
@@ -97,13 +102,19 @@ async function main() {
     if (!String(process.env[config.repository.token] ?? "").trim()) notes.push(`Code goes to a pull request on ${config.repository.repo}, and the token is read from ${config.repository.token}, which is not set, so Code will stop and say so.`);
     else console.log(`Code goes to a pull request on ${config.repository.repo}. Product Factory checks it for pushes every ${config.repository.poll_seconds} seconds.`);
   } else if (!config.code.harness) notes.push(`No coding harness is set, so Code will stop and say so. Set "code.harness" in ${config.file}.`);
+  if (config.intake) {
+    if (!String(process.env[config.repository.token] ?? "").trim()) notes.push(`Builds start from issues labelled "${config.intake.github_issues.label}" on ${config.repository.repo}, and the token is read from ${config.repository.token}, which is not set, so no issue starts a build until it is.`);
+    else console.log(`Open issues labelled "${config.intake.github_issues.label}" on ${config.repository.repo} start builds. Product Factory reads them every ${config.intake.github_issues.poll_seconds} seconds.`);
+  }
+  for (const t of config.notify) if (t.kind === "webhook" && !String(process.env[t.url_env] ?? "").trim()) notes.push(`A webhook notice reads its address from ${t.url_env}, which is not set, so that notice will not be sent.`);
   for (const n of notes) console.log(`Note: ${n}`);
   if (notes.length) console.log("");
   console.log("Press Ctrl+C to stop it. A build that is running then runs its stage again the next time it starts.");
 
   await runner.resumeAll();
   runner.watch();
-  const stop = async () => { await runner.stopAll(); await service.close(); history?.close(); process.exit(0); };
+  intake.watch();
+  const stop = async () => { await intake.stop(); await runner.stopAll(); await service.close(); history?.close(); process.exit(0); };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
 }
