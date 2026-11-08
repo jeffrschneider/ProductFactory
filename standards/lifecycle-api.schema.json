@@ -2,8 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/CommonAgent/adlc/main/standards/lifecycle-api.schema.json",
   "title": "The lifecycle API",
-  "version": "0.4",
-  "description": "What any service implementing the Agent Development Lifecycle answers, so that one client works against more than one service. Every request and answer is JSON, at the path /v1/lifecycle on the service. Times are ISO 8601 with a zone. Auth is Authorization: Bearer <key>, where the key is one the person makes for their own account, as the service says. A build lists the 24 stages of stages.json, one entry each, and a stage the service does not run is reported as not_offered. A client draws one button for each action the build offers, and nothing else. An organization chooses who holds each role of stages.json (the roles operations): the service's reference agent, its own agent, a contracted supplier, a person or an outside tool. A holder outside the service hands its evidence back in one of the open formats stages.json lists, and the service reads it onto the stage. An organization also chooses which stages its lifecycle uses (the stages operations), for the whole organization or for one project; when nothing is chosen every stage is used, and a build keeps the choice in effect when it started. The schema changes only by adding: a client ignores a field it does not know, and a service never removes or retypes one. Version 0.2 adds the roles operations, the evidence operation and new fields, and it also adds values to two lists, the holder's kinds and the stage's states; a client that does not know a state draws the stage as not_offered, and one that does not know a holder's kind shows the holder's name. Version 0.3 adds the stages operations, the state not_used, and the build's lifecycle field; a client that knows only 0.2 draws a not_used stage as not_offered. Version 0.4 adds products, stage workspaces, each stage's chat and the build's artifacts: a product is every build of one name, one build per version; each stage of a build is a workspace with what it was given, what it handed back as versioned artifacts, and its gate; and each stage has a chat with the agent holding it, kept per product per stage across builds. Answering in a chat changes nothing: a change the person asks for comes back as a proposal of the build's existing action, which the person takes with the actions operation, so a change always goes back through its gate. A client that knows only 0.3 ignores the artifacts field, and a service that does not offer the 0.4 operations answers them 404. The operations list names the definition each request and answer must match; lifecycle-api-check.mjs checks a running service against it, together with the rules a schema cannot say.",
+  "version": "0.4.1",
+  "description": "What any service implementing the Agent Development Lifecycle answers, so that one client works against more than one service. Every request and answer is JSON, at the path /v1/lifecycle on the service. Times are ISO 8601 with a zone. Auth is Authorization: Bearer <key>, where the key is one the person makes for their own account, as the service says. A build lists the 24 stages of stages.json, one entry each, and a stage the service does not run is reported as not_offered. A client draws one button for each action the build offers, and nothing else. An organization chooses who holds each role of stages.json (the roles operations): the service's reference agent, its own agent, a contracted supplier, a person or an outside tool. A holder outside the service hands its evidence back in one of the open formats stages.json lists, and the service reads it onto the stage. An organization also chooses which stages its lifecycle uses (the stages operations), for the whole organization or for one project; when nothing is chosen every stage is used, and a build keeps the choice in effect when it started. The schema changes only by adding: a client ignores a field it does not know, and a service never removes or retypes one. Version 0.2 adds the roles operations, the evidence operation and new fields, and it also adds values to two lists, the holder's kinds and the stage's states; a client that does not know a state draws the stage as not_offered, and one that does not know a holder's kind shows the holder's name. Version 0.3 adds the stages operations, the state not_used, and the build's lifecycle field; a client that knows only 0.2 draws a not_used stage as not_offered. Version 0.4 adds products, stage workspaces, each stage's chat and the build's artifacts: a product is every build of one name, one build per version; each stage of a build is a workspace with what it was given, what it handed back as versioned artifacts, and its gate; and each stage has a chat with the agent holding it, kept per product per stage across builds. Answering in a chat changes nothing: a change the person asks for comes back as a proposal of the build's existing action, which the person takes with the actions operation, so a change always goes back through its gate. A client that knows only 0.3 ignores the artifacts field, and a service that does not offer the 0.4 operations answers them 404. Version 0.4.1 adds the product's boss (Agent Roles, role-boss): a conversation at the product level with an agent that answers from the product's record, routes a directive into the chat of the stage that owns it, and plans a larger request across the stages, proposing each stage's existing action; it never answers a gate, never changes an artifact, and lists everything it committed on the person's behalf. A service that does not offer the boss answers its operations 404. The operations list names the definition each request and answer must match; lifecycle-api-check.mjs checks a running service against it, together with the rules a schema cannot say.",
   "basePath": "/v1/lifecycle",
   "operations": [
     { "method": "GET", "path": "/me", "answer": "#/$defs/MeAnswer", "does": "Who is asking, and the service's name." },
@@ -28,7 +28,10 @@
     { "method": "GET", "path": "/products/{name}", "answer": "#/$defs/ProductAnswer", "does": "One product: its builds, newest first, the run plan of its newest build that has one, and a short activity feed, one line per stage event, newest first. It answers 404 for a name no build has. Added in 0.4." },
     { "method": "GET", "path": "/builds/{id}/stages/{stage}", "answer": "#/$defs/StageWorkspace", "does": "One stage of a build as a workspace: what it was given (earlier stages' artifacts), what it handed back (its artifacts), what done means for it, and its gate. It answers 404 for a stage stages.json does not name. Added in 0.4." },
     { "method": "GET", "path": "/products/{name}/stages/{stage}/messages", "answer": "#/$defs/MessagesAnswer", "does": "The chat with the agent holding a stage, across the product's builds, oldest first, each message naming the build and version it was said in. A gate is not a message: it is on the stage's workspace. Added in 0.4." },
-    { "method": "POST", "path": "/products/{name}/stages/{stage}/messages", "request": "#/$defs/MessageRequest", "answer": "#/$defs/MessageReplyAnswer", "does": "Say something to the agent holding a stage, on the product's newest build or the build named. The agent answers in words from the stage's outputs, what it was given and the build's record, and the person's message and the reply are kept. Answering changes nothing. When the person asks for a change, the reply proposes the build's existing action for it with its needs filled, only when the person may take that action now. Anyone who may read the build may post. It answers 400 in words for a stage the build's lifecycle leaves out or one held by a person, an outside tool or anyone the service cannot send messages to, and 409 when no agent can answer now, such as when the model is not set. Added in 0.4." }
+    { "method": "POST", "path": "/products/{name}/stages/{stage}/messages", "request": "#/$defs/MessageRequest", "answer": "#/$defs/MessageReplyAnswer", "does": "Say something to the agent holding a stage, on the product's newest build or the build named. The agent answers in words from the stage's outputs, what it was given and the build's record, and the person's message and the reply are kept. Answering changes nothing. When the person asks for a change, the reply proposes the build's existing action for it with its needs filled, only when the person may take that action now. Anyone who may read the build may post. It answers 400 in words for a stage the build's lifecycle leaves out or one held by a person, an outside tool or anyone the service cannot send messages to, and 409 when no agent can answer now, such as when the model is not set. Added in 0.4." },
+    { "method": "GET", "path": "/products/{name}/boss/messages", "answer": "#/$defs/BossMessagesAnswer", "does": "The conversation with the product's boss (Agent Roles, role-boss), oldest first, each message naming the product's newest build and its version when it was said. A proposal kept on a message says whether it is still open. Added in 0.4.1." },
+    { "method": "POST", "path": "/products/{name}/boss/messages", "request": "#/$defs/BossMessageRequest", "answer": "#/$defs/BossReplyAnswer", "does": "Say something to the product's boss, or confirm or decline one of its proposals. It answers from the product's record; routes a directive into the chat of the stage that owns it and says where it went (routed); breaks a larger request into a plan naming each stage in order and the gate the person meets at each (plan); and proposes the first stage's existing action, or first the start of the next version when the request changes the agent's statement (proposes). It never answers a gate, never changes an artifact, and takes no action: a stage's action is taken with the actions operation, and the next version starts only when the person confirms that proposal here (started). Anyone who may read the product may post; a proposal of a gate's action is made only to a person who may answer that gate. It answers 400 in words for an empty message or a proposal that is not open, and 409 when the boss cannot answer now, such as when the model is not set. Added in 0.4.1." },
+    { "method": "GET", "path": "/products/{name}/boss/commitments", "answer": "#/$defs/BossCommitmentsAnswer", "does": "Everything the boss committed on the person's behalf, oldest first, in full: each message it posted into a stage's chat, each proposal with the person's answer, each build it started with the confirmation it started it on, and each stage it told to drop work. Added in 0.4.1." }
   ],
   "errors": "#/$defs/ErrorAnswer",
   "$defs": {
@@ -711,7 +714,7 @@
           "properties": {
             "kind": { "enum": ["person", "agent", "system"], "description": "system: the service itself, such as when the agent could not answer." },
             "name": { "$ref": "#/$defs/Words" },
-            "role": { "$ref": "#/$defs/RoleId", "description": "The role an agent answers as." },
+            "role": { "$ref": "#/$defs/RoleId", "description": "The role an agent answers as. \"boss\" marks a directive the product's boss posted into this chat on the person's behalf (added in 0.4.1)." },
             "stage": { "$ref": "#/$defs/StageId" }
           }
         },
@@ -744,6 +747,129 @@
       "required": ["message", "reply"],
       "description": "The person's message as kept, and the reply. Added in 0.4.",
       "properties": { "message": { "$ref": "#/$defs/Message" }, "reply": { "$ref": "#/$defs/Message" } }
+    },
+
+    "BossMessagesAnswer": {
+      "type": "object",
+      "required": ["messages"],
+      "description": "The conversation with the product's boss, oldest first. Added in 0.4.1.",
+      "properties": { "messages": { "type": "array", "items": { "$ref": "#/$defs/BossMessage" } } }
+    },
+    "BossMessage": {
+      "type": "object",
+      "required": ["id", "at", "build", "version", "from", "text"],
+      "description": "One message between a person and the product's boss. Added in 0.4.1.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Words" },
+        "at": { "$ref": "#/$defs/Time" },
+        "build": { "$ref": "#/$defs/Words", "description": "The product's newest build when it was said." },
+        "version": { "$ref": "#/$defs/Words", "description": "That build's version." },
+        "from": {
+          "type": "object",
+          "required": ["kind", "name"],
+          "properties": {
+            "kind": { "enum": ["person", "agent", "system"], "description": "agent: the boss. system: the service itself, such as when the boss could not answer." },
+            "name": { "$ref": "#/$defs/Words" },
+            "role": { "$ref": "#/$defs/Words", "description": "\"boss\" on the boss's own messages." }
+          }
+        },
+        "text": { "$ref": "#/$defs/Words", "description": "Plain words." },
+        "confirms": { "$ref": "#/$defs/Words", "description": "On a person's message: the proposal it confirmed." },
+        "declines": { "$ref": "#/$defs/Words", "description": "On a person's message: the proposal it declined." },
+        "routed": { "$ref": "#/$defs/BossRoute" },
+        "plan": { "type": "array", "items": { "$ref": "#/$defs/BossPlanStep" }, "description": "The stages a larger request touches, in the order the lifecycle runs them." },
+        "proposes": { "$ref": "#/$defs/BossProposal" },
+        "started": {
+          "type": "object",
+          "required": ["build", "version"],
+          "description": "The build the boss started, only on the person's confirmation of a start_version proposal.",
+          "properties": { "build": { "$ref": "#/$defs/Words" }, "version": { "$ref": "#/$defs/Words" } }
+        },
+        "dropped": { "type": "array", "items": { "$ref": "#/$defs/BossRoute" }, "description": "Each stage the boss told that withdrawn work is no longer wanted, with the message it posted there." }
+      }
+    },
+    "BossRoute": {
+      "type": "object",
+      "required": ["stage", "message_id", "build"],
+      "description": "Where the boss posted: the stage's chat, the message it posted there, and the build it was posted on. Added in 0.4.1.",
+      "properties": { "stage": { "$ref": "#/$defs/StageId" }, "message_id": { "$ref": "#/$defs/Words" }, "build": { "$ref": "#/$defs/Words" } }
+    },
+    "BossPlanStep": {
+      "type": "object",
+      "required": ["stage", "words"],
+      "description": "One stage of a plan: what it must do, and the gate the person meets there when it has one. Added in 0.4.1.",
+      "properties": {
+        "stage": { "$ref": "#/$defs/StageId" },
+        "words": { "$ref": "#/$defs/Words" },
+        "gate": { "$ref": "#/$defs/Words", "description": "The gate the person meets at this stage, and who may answer it. Absent when the stage has none." }
+      }
+    },
+    "BossProposal": {
+      "type": "object",
+      "required": ["id", "build", "action", "needs"],
+      "description": "What the boss proposes. action is one of the build's existing actions, which the person takes with the actions operation, or start_version, which asks to start the product's next version with that build as its prototype and is confirmed with confirms on this operation. Added in 0.4.1.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Words" },
+        "build": { "$ref": "#/$defs/Words", "description": "The build the action applies to; for start_version, the build the next version starts from." },
+        "action": { "$ref": "#/$defs/Words" },
+        "needs": { "type": "object", "additionalProperties": { "type": "string" }, "description": "The action's request, one member per need; for start_version, version." },
+        "words": { "$ref": "#/$defs/Words", "description": "The proposal as a question to the person, such as \"Start version 0.2.0?\"." },
+        "when": { "$ref": "#/$defs/Words", "description": "When the build will offer the action, if it does not offer it yet, such as the changes action on a version that has just started. A client shows the proposal and lets the person confirm it once the build offers the action." },
+        "state": { "enum": ["open", "taken", "declined", "closed"], "description": "On a kept message: open until the person answers it; closed when it can no longer be taken, such as when a newer proposal replaced it." }
+      }
+    },
+    "BossMessageRequest": {
+      "type": "object",
+      "required": ["text"],
+      "description": "What the person says to the boss, and the proposal it confirms or declines, if any. Added in 0.4.1.",
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "confirms": { "$ref": "#/$defs/Words", "description": "The id of an open start_version proposal the person says yes to." },
+        "declines": { "$ref": "#/$defs/Words", "description": "The id of an open proposal the person says no to." }
+      }
+    },
+    "BossReplyAnswer": {
+      "type": "object",
+      "required": ["message", "reply"],
+      "description": "The person's message as kept, and the boss's reply. Added in 0.4.1.",
+      "properties": { "message": { "$ref": "#/$defs/BossMessage" }, "reply": { "$ref": "#/$defs/BossMessage" } }
+    },
+    "BossCommitmentsAnswer": {
+      "type": "object",
+      "required": ["commitments"],
+      "description": "Everything the boss committed on the person's behalf, oldest first, never a selection. Added in 0.4.1.",
+      "properties": { "commitments": { "type": "array", "items": { "$ref": "#/$defs/BossCommitment" } } }
+    },
+    "BossCommitment": {
+      "type": "object",
+      "required": ["id", "at", "kind", "to", "what", "build", "version", "reply"],
+      "description": "One thing the boss committed: what, to whom, and when. Added in 0.4.1.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Words" },
+        "at": { "$ref": "#/$defs/Time" },
+        "kind": { "enum": ["routed", "proposed", "started", "dropped"], "description": "routed: a directive posted into a stage's chat. proposed: a proposal made to the person. started: a build started on the person's confirmation. dropped: a stage told that work is no longer wanted." },
+        "to": { "$ref": "#/$defs/Words", "description": "Whom, in words: the agent at a stage, or the person." },
+        "stage": { "$ref": "#/$defs/StageId" },
+        "what": { "$ref": "#/$defs/Words" },
+        "build": { "$ref": "#/$defs/Words" },
+        "version": { "$ref": "#/$defs/Words" },
+        "reply": { "$ref": "#/$defs/Words", "description": "The boss's message it was made in." },
+        "message_id": { "$ref": "#/$defs/Words", "description": "routed and dropped: the message posted in the stage's chat." },
+        "withdraws": { "$ref": "#/$defs/Words", "description": "dropped: the commitment whose work was withdrawn." },
+        "proposal": { "$ref": "#/$defs/BossProposal" },
+        "answer": {
+          "type": "object",
+          "required": ["state"],
+          "description": "proposed: the person's answer.",
+          "properties": { "state": { "enum": ["open", "taken", "declined", "closed"] }, "by": { "$ref": "#/$defs/Words" }, "at": { "$ref": "#/$defs/Time" } }
+        },
+        "confirmation": {
+          "type": "object",
+          "required": ["message_id", "by", "at"],
+          "description": "started: the person's message that confirmed it.",
+          "properties": { "message_id": { "$ref": "#/$defs/Words" }, "by": { "$ref": "#/$defs/Words" }, "at": { "$ref": "#/$defs/Time" } }
+        }
+      }
     }
   }
 }
