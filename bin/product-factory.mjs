@@ -77,12 +77,16 @@ async function main() {
   if (!existsSync(join(config.adlc, "agents", "spec-writer"))) notes.push(`There is no CommonAgent/adlc checkout at ${config.adlc}, so builds will stop at Requirements. Set "adlc" in ${config.file}.`);
   const { missing } = modelEnv(config, process.env);
   if (missing.length) notes.push(`The model settings are read from ${missing.join(", ")}, which ${missing.length === 1 ? "is" : "are"} not set, so Requirements and Test will stop and say so.`);
-  if (!config.code.harness) notes.push(`No coding harness is set, so Code will stop and say so. Set "code.harness" in ${config.file}.`);
+  if (config.code.holder === "pull-request") {
+    if (!String(process.env[config.repository.token] ?? "").trim()) notes.push(`Code goes to a pull request on ${config.repository.repo}, and the token is read from ${config.repository.token}, which is not set, so Code will stop and say so.`);
+    else console.log(`Code goes to a pull request on ${config.repository.repo}. Product Factory checks it for pushes every ${config.repository.poll_seconds} seconds.`);
+  } else if (!config.code.harness) notes.push(`No coding harness is set, so Code will stop and say so. Set "code.harness" in ${config.file}.`);
   for (const n of notes) console.log(`Note: ${n}`);
   if (notes.length) console.log("");
   console.log("Press Ctrl+C to stop it. A build that is running then runs its stage again the next time it starts.");
 
   await runner.resumeAll();
+  runner.watch();
   const stop = async () => { await runner.stopAll(); await service.close(); process.exit(0); };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);

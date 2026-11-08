@@ -1,9 +1,10 @@
 // A stand-in for the reference code writer's handoff.mjs: the same command
 // line. It lays out <work>/build with the agent's files, the suite, a stub
-// script, AGENTS.md and .adlc/check.mjs, and files a stand-in "archive" that
-// names the folder.
-import { cpSync, readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+// script, AGENTS.md, .adlc/check.mjs and build.lock.json, and files a
+// stand-in "archive" that names the folder.
+import { cpSync, readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { createHash } from "node:crypto";
 
 const o = { files: [] };
 const a = process.argv.slice(2);
@@ -35,6 +36,19 @@ writeFileSync(join(dir, "scripts", "count.mjs"), "export function count() { thro
 writeFileSync(join(dir, "AGENTS.md"), "# Writing the scripts\n\nWrite scripts/count.mjs so that `node .adlc/check.mjs` exits 0.\n");
 writeFileSync(join(dir, ".adlc", "suite.mjs"), readFileSync(new URL("./suite.mjs", import.meta.url)));
 writeFileSync(join(dir, ".adlc", "check.mjs"), "import { dirname } from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\nimport { runSuite } from \"./suite.mjs\";\nif (process.env.WORKSPACE || process.env.RECORDS) { console.error(\"a build folder's check reads no WORKSPACE or RECORDS\"); process.exit(2); }\nrunSuite(dirname(dirname(fileURLToPath(import.meta.url))));\n");
+// build.lock.json as the reference hand-off writes it: the digest of every file outside scripts/,
+// records/ and the lock, and the scripts the folder starts with.
+const digests = {};
+const walk = (d, rel = "") => {
+  for (const name of readdirSync(d).sort()) {
+    const r = rel ? `${rel}/${name}` : name;
+    if (r === "scripts" || r === "records" || r === "build.lock.json") continue;
+    if (statSync(join(d, name)).isDirectory()) walk(join(d, name), r);
+    else digests[r] = `sha256:${createHash("sha256").update(readFileSync(join(d, name))).digest("hex")}`;
+  }
+};
+walk(dir);
+writeFileSync(join(dir, "build.lock.json"), `${JSON.stringify({ build_lock: "v1", digests, scripts: [{ path: "scripts/count.mjs", from: "stub", names: ["count"] }] }, null, 2)}\n`);
 mkdirSync(join(o.job, "out"), { recursive: true });
 writeFileSync(join(o.job, "out", "build-folder.tar.gz"), dir);
 writeFileSync(join(o.job, "pieces.json"), JSON.stringify([{ name: "the build folder", step: "pack-the-build-folder", path: "out/build-folder.tar.gz", media_type: "application/gzip", about: "the build folder" }], null, 2));
