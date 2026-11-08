@@ -10,7 +10,7 @@ with only open-source pieces. [BUILD.md](BUILD.md) lists the milestones after it
 ## What milestone 1 does
 
 `npx product-factory` starts a small service on `127.0.0.1`. It answers the
-lifecycle API (version 0.4) that the [adlc console](https://github.com/CommonAgent/adlc-console)
+lifecycle API (version 0.4.1) that the [adlc console](https://github.com/CommonAgent/adlc-console)
 reads, so the console shows your builds and lets you act at your gates. The
 same command starts the console against it and opens it in your browser. It
 keeps everything in files: the lifecycle document and one folder per build.
@@ -406,6 +406,47 @@ action now. You confirm it with the action, so a change always goes back
 through its gate. A stage held by a person, an outside tool, or your own
 coding harness is not answered here, and the reply says so.
 
+## The boss
+
+Each product has a boss: the agent you talk to about the whole product,
+holding Agent Roles §39 ([the boss](https://agentroles.ai/boss.html)). It sits
+on top of the runner, which keeps running each build's stages. The lifecycle
+API 0.4.1 answers it:
+
+```
+GET  /v1/lifecycle/products/<name>/boss/messages      your conversation with the boss
+POST /v1/lifecycle/products/<name>/boss/messages      { "text": "..." }, or { "text": "Yes.", "confirms": "<proposal id>" }
+GET  /v1/lifecycle/products/<name>/boss/commitments   everything it committed on your behalf, in full
+```
+
+From the product's record, the boss does three things:
+
+- It answers a question about the product (versions, stages, artifacts, who
+  holds what, why something waits) and says where in the record the answer
+  comes from.
+- It routes a directive to the stage whose agent owns it, such as a case the
+  tests should cover: it posts it into that stage's chat, with the product,
+  the build, its version and your own words, and the reply says where it went
+  (`routed`). That stage's agent answers in its chat.
+- It breaks a larger request across the stages (`plan`), in the order the
+  lifecycle runs them, naming the gate you will meet at each. When the
+  request changes the agent's statement, it proposes starting the next
+  version, with the newest build as its prototype; you confirm that with
+  `confirms`, and it starts the build through the same start path as
+  `POST /builds` (`started`). Then it proposes Ask for changes on the new
+  build's Requirements with your words, which you confirm with the build's
+  own action once the spec writer's first draft waits on you.
+
+It never answers a gate, never changes an artifact, and takes no action of a
+build itself: you take each one with the actions route, so every change goes
+back through its gate. It commits no money, accepts no price, starts no build
+you have not confirmed, and messages nobody outside the product's stages.
+Asked to do any of those, it says no and why. Anyone who may see the product
+may talk to it; a gate's action is proposed only to someone who may answer
+that gate. Its conversation is kept in the build records beside the stage
+chats, and each commitment is written once: every message it posted, every
+proposal with your answer, and every build it started with the confirmation.
+
 ## Analytics
 
 Product Factory keeps a history of every build in an SQLite file beside the
@@ -516,7 +557,7 @@ and look the person up in `people.json` by its email.
 
 ## Standards it uses
 
-- Lifecycle API 0.4 and stages.json 1.2.0 (CommonAgent/adlc, copies in `standards/`).
+- Lifecycle API 0.4.1 and stages.json 1.2.0 (CommonAgent/adlc, copies in `standards/`).
 - The lifecycle document 0.1, through the adlc console's store, with `approvers`
   (CommonAgent/adlc#121). The console's store checks each entry's shape, so a
   wrong entry makes the file invalid, named in words, like any other wrong

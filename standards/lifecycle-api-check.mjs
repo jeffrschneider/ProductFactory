@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Checks a running service against the lifecycle API (lifecycle-api.schema.json,
-// version 0.4): every answer against the schema, and the rules a schema cannot
+// version 0.4.1): every answer against the schema, and the rules a schema cannot
 // say. It only reads. It asks who the key belongs to, reads who holds each
 // role and which stages the lifecycle uses, lists the builds, reads each one, reads its tries, and opens the first
 // file each build handed back (every file with --all-files).
@@ -44,6 +44,18 @@
 //   - an open gate's actions are actions the build offers at that stage;
 //   - a chat is oldest first, each message at the stage asked about, and a
 //     proposal names an action the build offers now.
+// Version 0.4.1's boss answers are checked by checkBossMessages, checkBossReply
+// and checkBossCommitments. Their rules beyond the schema:
+//   - the boss's conversation is oldest first; a route, a drop and each step of
+//     a plan are at stages of stages.json, and a plan is in the lifecycle's
+//     order with each stage once;
+//   - a start_version proposal names the version; a proposal of a build's
+//     action names one the build offers now, with its needs, or says when
+//     the build will offer it;
+//   - a build is started only on a message that confirms a proposal;
+//   - commitments are oldest first; a route or a drop names the stage and the
+//     message posted there, a proposal carries the person's answer, and a
+//     started build carries the confirmation it was started on.
 //
 //   node standards/lifecycle-api-check.mjs <base> [--key-file <path>] [--stages <path>] [--limit <n>] [--all-files]
 //
@@ -391,6 +403,81 @@ export function checkMessageReply(body, build) {
     if (!action) p.push(`body.reply.proposes.action: "${prop.action}" is not an action the build offers now`);
     else for (const n of action.needs ?? []) if (isObj(n) && !n.optional && !(n.name in (prop.needs ?? {}))) p.push(`body.reply.proposes.needs: has no ${n.name}, which "${prop.action}" needs`);
   }
+  return p;
+}
+
+// ---------- the boss (added in 0.4.1) ----------
+
+/** A boss message's routes and plan: stages of stages.json, the plan in the lifecycle's order with each stage once, and a start_version proposal naming its version. */
+function bossMessageRules(m, ids, at) {
+  const p = [];
+  if (!isObj(m)) return p;
+  for (const [k, r] of [["routed", m.routed], ...(Array.isArray(m.dropped) ? m.dropped.map((d, i) => [`dropped[${i}]`, d]) : [])]) {
+    if (isObj(r) && typeof r.stage === "string" && !ids.includes(r.stage)) p.push(`${at}.${k}.stage: "${r.stage}" is not a stage in stages.json`);
+  }
+  if (Array.isArray(m.plan)) {
+    let last = -1;
+    const seen = new Set();
+    m.plan.forEach((s, i) => {
+      if (!isObj(s) || typeof s.stage !== "string") return;
+      const n = ids.indexOf(s.stage);
+      if (n < 0) p.push(`${at}.plan[${i}].stage: "${s.stage}" is not a stage in stages.json`);
+      else if (n < last) p.push(`${at}.plan[${i}]: ${s.stage} comes before the stage above it in the lifecycle, and a plan is in the lifecycle's order`);
+      if (seen.has(s.stage)) p.push(`${at}.plan[${i}]: ${s.stage} is in the plan twice`);
+      seen.add(s.stage);
+      last = Math.max(last, n);
+    });
+  }
+  const prop = isObj(m.proposes) ? m.proposes : null;
+  if (prop?.action === "start_version" && !(isObj(prop.needs) && typeof prop.needs.version === "string" && prop.needs.version)) p.push(`${at}.proposes.needs: has no version, which start_version needs`);
+  return p;
+}
+
+/** GET /products/{name}/boss/messages (added in 0.4.1): oldest first, with routes and plans at stages of stages.json. */
+export function checkBossMessages(body, ids) {
+  const p = validate("BossMessagesAnswer", body);
+  (isObj(body) && Array.isArray(body.messages) ? body.messages : []).forEach((m, i, all) => {
+    if (!isObj(m)) return;
+    if (i > 0 && isObj(all[i - 1]) && Date.parse(all[i - 1].at) > Date.parse(m.at)) p.push(`body.messages[${i}]: the conversation is oldest first, and this message is older than the one above it`);
+    if (ids) p.push(...bossMessageRules(m, ids, `body.messages[${i}]`));
+  });
+  return p;
+}
+
+/**
+ * POST /products/{name}/boss/messages (added in 0.4.1). A build is started only
+ * on a message that confirms a proposal, and a proposal of a build's action
+ * names one the build offers now, with its needs, when the caller has that
+ * build's answer (build, as { build }).
+ */
+export function checkBossReply(body, ids, build) {
+  const p = validate("BossReplyAnswer", body);
+  if (!isObj(body)) return p;
+  const reply = isObj(body.reply) ? body.reply : null;
+  if (ids && reply) p.push(...bossMessageRules(reply, ids, "body.reply"));
+  if (reply?.started && !(isObj(body.message) && typeof body.message.confirms === "string")) p.push("body.reply.started: the boss started a build, and the person's message confirmed no proposal");
+  const prop = isObj(reply?.proposes) ? reply.proposes : null;
+  const b = isObj(build) ? build.build : null;
+  if (prop && prop.action !== "start_version" && isObj(b) && b.id === prop.build) {
+    const action = (Array.isArray(b.actions) ? b.actions : []).find((a) => isObj(a) && a.name === prop.action);
+    if (!action && !(typeof prop.when === "string" && prop.when)) p.push(`body.reply.proposes.action: "${prop.action}" is not an action the build offers now, and the proposal does not say when it will be`);
+    else for (const n of action?.needs ?? []) if (isObj(n) && !n.optional && !(n.name in (prop.needs ?? {}))) p.push(`body.reply.proposes.needs: has no ${n.name}, which "${prop.action}" needs`);
+  }
+  return p;
+}
+
+/** GET /products/{name}/boss/commitments (added in 0.4.1): oldest first, each kind carrying what makes it checkable against the record. */
+export function checkBossCommitments(body, ids) {
+  const p = validate("BossCommitmentsAnswer", body);
+  (isObj(body) && Array.isArray(body.commitments) ? body.commitments : []).forEach((c, i, all) => {
+    if (!isObj(c)) return;
+    const at = `body.commitments[${i}]`;
+    if (i > 0 && isObj(all[i - 1]) && Date.parse(all[i - 1].at) > Date.parse(c.at)) p.push(`${at}: the list is oldest first, and this one is older than the one above it`);
+    if ((c.kind === "routed" || c.kind === "dropped") && (typeof c.stage !== "string" || typeof c.message_id !== "string")) p.push(`${at}: is ${c.kind}, so it names the stage and the message posted there`);
+    if (c.kind === "proposed" && (!isObj(c.proposal) || !isObj(c.answer))) p.push(`${at}: is proposed, so it carries the proposal and the person's answer`);
+    if (c.kind === "started" && !isObj(c.confirmation)) p.push(`${at}: is started, so it carries the confirmation it was started on`);
+    if (ids && typeof c.stage === "string" && !ids.includes(c.stage)) p.push(`${at}.stage: "${c.stage}" is not a stage in stages.json`);
+  });
   return p;
 }
 
