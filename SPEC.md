@@ -159,6 +159,52 @@ once that exists. It answers, never estimated:
   settings. The factory hands them to the runtime the team brought; it does
   not run the product itself.
 
+### 5.10 Impacts
+
+Impact is a stage, and it is also a view that is always on.
+
+- **The graph.** Every artifact a build makes is a node: the statement of the
+  job, the architecture record, the suite, the programs, the findings, the
+  security record, the package, the build record, the AgentDoc, the run plan.
+  Each artifact records what it was made from, by version and digest (the
+  stage's given), and those links are the edges: the suite was made from
+  statement v4, the programs pass suite v1, the AgentDoc describes package
+  0.1.0. Other products and processes that use this product are nodes too,
+  linked by what they use (an offering, an output format, a price).
+- **Stale.** When a node gets a new version, every node made from the old one
+  is marked stale until it is made again or checked again against the new
+  one. Changing how the agent works lights up the statement, the docs and
+  every dependent at once.
+- **The Impact stage** stays the gate: before a version ships, the impact
+  analyst names every dependent as compatible, breaking or a change of
+  behavior, and a person approves or refuses the version from that report.
+- The product page shows the graph, with stale nodes flagged and each one's
+  reason.
+
+### 5.11 Backlog
+
+The backlog is what is owed on a product. Every item points at a stage or an
+artifact, so it says where the work goes, not just that work exists.
+
+- **An item** names: what is owed, in words; the artifact or stage it is
+  against; why it exists (the change that made something stale, a reviewer's
+  note outside the change, a role with no holder, a person's request); who it
+  is owed to (this product's owner, or another product's owner when a change
+  breaks their use of it); and what it blocks, if anything (for example
+  Deploy). This is the same shape the reference impact analyst already files
+  for each dependent a change breaks.
+- **Where items come from:** the graph when a node goes stale; reviewers'
+  findings outside the change; the run plan when a role has no holder; the
+  boss when a person asks for something; and by hand.
+- **How an item is cleared:** the artifact it is against gets a new version
+  that the stage's gate passes, or a person closes it with a reason. Nothing
+  is cleared silently.
+- **The boss works from it.** Asked what is outstanding, the boss reads the
+  backlog and proposes the next version as a set of items, sending each to
+  the stage that owns it.
+- The shape is lifecycle-shaped but not agent-specific, so it carries over to
+  general software.
+
 ## 6. How it is put together
 
 | Part | What it does | Status |

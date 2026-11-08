@@ -61,6 +61,24 @@ deploy" gate waits for the person's yes, and then both files go to the command
 under `runtime.command`. With no runtime, Deploy waits for the person to hand
 them over. Built: lib/runtime.mjs and the reference runtime, runtimes/folder.mjs.
 
+## The boss
+
+A product-level agent holding the boss role (Agent Roles section 39, on top
+of the manager interface): it answers questions about the product, routes a
+directive to the stage agent that owns it, and breaks a larger request
+across the stages, proposing each stage's own action. It never answers a
+gate. In progress.
+
+## Backlog and impacts
+
+The always-on impact graph (artifacts as nodes, "made from" links by version
+and digest, dependents as nodes; a new version marks everything made from
+the old one stale) and the backlog (items against a stage or artifact, with
+why, owed to whom, and what they block). Items come from stale nodes,
+reviewers' notes outside the change, roles with no holder, the boss and by
+hand. The boss proposes versions that clear items. Product page tabs:
+Backlog and Impacts. SPEC.md sections 5.10 and 5.11.
+
 ## General software
 
 A new kind of product is added by naming its shape, its package and its
