@@ -1,10 +1,10 @@
-# ProductFactory: specification
+# Product Factory: specification
 
 Version 0.1, 2026-11-08.
 
 ## 1. What it is
 
-ProductFactory turns a request into a shipped, managed product. It runs an
+Product Factory turns a request into a shipped, managed product. It runs an
 organization's own development lifecycle, the
 [agentic development lifecycle](https://agenticdevelopment.ai) (ADLC) as that
 organization has tailored it, and every role in that lifecycle and every tool
@@ -58,9 +58,14 @@ each kind names its standard shape, its package and where it is installed.
 | Agent | Common Agent | Agent Package | AgentMesh, or any platform that installs Agent Packages |
 | Process | Agent Processes document | Signed process record | An orchestrator |
 
-Version 0.1 builds these two. A new kind (a web service, a container, a
-library) is added by naming its shape, its package and its install target;
-the lifecycle and the factory stay the same.
+Version 0.1 builds these two.
+
+**Design assumption: general software comes later.** Product Factory will
+build general software too (a web service, a container, a library, an app).
+That is out of scope for version 1, but nothing in version 1 may assume the
+product is an agent or a process. A new kind is added by naming its shape,
+its package and its install target; the lifecycle, the stages, the roles and
+the factory stay the same.
 
 ## 4. Terms
 
@@ -154,21 +159,27 @@ Read from the build records, never estimated:
 | Console | The page people use: lifecycles, builds, gates, board, analytics | Open source, github.com/CommonAgent/adlc-console; lifecycles and builds exist, board and analytics to build |
 | Lifecycle API | What any factory service answers, so the console and other tools can read builds and act at gates | Published at agenticdevelopment.ai/api.html (0.3 in review) |
 | Lifecycle store | Lifecycles and build records | Files, per the lifecycle document schema |
-| Orchestrator | Runs each build as a process document | Any Agent Processes orchestrator |
+| Orchestrator | Runs each build as a process document | An open-source orchestrator ships with Product Factory; any Agent Processes orchestrator can replace it |
 | Reference agents | Default holders for the roles | Open source, github.com/CommonAgent/adlc |
 | Connectors | Tracker, repository host, notifications, identity | To build; each one small, each behind its own published interface |
 
-## 7. Not in scope
+## 7. Open source
+
+All of Product Factory is open source under Apache-2.0: the console, the
+lifecycle store, the orchestrator, the connectors and the reference agents.
+Nothing needed to define a lifecycle or run a build is closed.
+
+## 8. Not in scope
 
 - Writing code. That is the coding harness's job.
 - Hosting models, running CI, tracking issues, running the finished product.
 - A competing protocol, package format or process format.
+- General software as a kind of product, in version 1 (see the design
+  assumption in section 3).
 
-## 8. Open questions
+## 9. Decisions
 
-1. Where this lives and whether it is open source: this repository is private
-   for now. Which parts are open (the console and lifecycle store already are)
-   and which belong to a hosted offering.
-2. Kinds beyond agents and processes: whether 0.2 adds a general software
-   kind, and which one first.
-3. The name: ProductFactory is the working name.
+1. All of Product Factory is open source (section 7).
+2. General software is a design assumption and out of scope for version 1
+   (section 3).
+3. The name is Product Factory.

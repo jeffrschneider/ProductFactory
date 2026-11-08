@@ -1,4 +1,4 @@
-# ProductFactory
+# Product Factory
 
 A product factory on the [agentic development lifecycle](https://agenticdevelopment.ai):
 it runs your own lifecycle, and you bring everything around it. Your coding
