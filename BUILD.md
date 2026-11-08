@@ -47,10 +47,15 @@ through the organization's single sign-on, or local accounts.
 
 ## Run stages handed to a runtime
 
-Deploy and the stages after it (Conformance, Monitor, Eval, Incident, Cost,
-Update, Rollback, Decommission) become bindings the build records and hands
-to the runtime the team brings. The factory installs nothing and runs nothing
-itself.
+Deploy and the stages after it (Publish, Retract, Monitor, Eval, Incident
+response, Cost, Update, Reconfigure, Rollback, Decommission) become bindings
+the build records and hands to the runtime the team brings. The factory
+installs nothing and runs nothing itself. After Package the build writes a
+run plan beside the package (each stage's role, holder, settings, interface,
+and whether the holder is chosen). The process document's "approve the
+deploy" gate waits for the person's yes, and then both files go to the command
+under `runtime.command`. With no runtime, Deploy waits for the person to hand
+them over. Built: lib/runtime.mjs and the reference runtime, runtimes/folder.mjs.
 
 ## General software
 
