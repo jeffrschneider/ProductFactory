@@ -1,0 +1,41 @@
+// A stand-in for the reference code writer's handoff.mjs: the same command
+// line. It lays out <work>/build with the agent's files, the suite, a stub
+// script, AGENTS.md and .adlc/check.mjs, and files a stand-in "archive" that
+// names the folder.
+import { cpSync, readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
+
+const o = { files: [] };
+const a = process.argv.slice(2);
+for (let i = 0; i < a.length; i++) {
+  if (a[i] === "--job") o.job = a[++i];
+  else if (a[i] === "--records") o.records = a[++i];
+  else if (a[i] === "--work") o.work = a[++i];
+  else if (a[i] === "--message") o.message = a[++i];
+  else if (a[i] === "--file") o.files.push(a[++i].split("::")[0]);
+}
+if (!o.job || !o.records || !o.work) { console.error("--job, --records and --work are required"); process.exit(2); }
+if (!/^hand off the code/i.test(readFileSync(o.message, "utf8"))) { console.log(JSON.stringify({ ok: true, code: 0, escalate: true, reply: "" })); process.exit(0); }
+const dir = join(o.work, "build");
+mkdirSync(join(dir, "scripts"), { recursive: true });
+mkdirSync(join(dir, "test"), { recursive: true });
+mkdirSync(join(dir, ".adlc"), { recursive: true });
+let suite = 0;
+for (const f of o.files) {
+  const n = basename(f);
+  if (["agent-descriptor.json", "agent-runtime-requirements.json", "plugin.json"].includes(n)) cpSync(f, join(dir, n));
+  else if (n === "SKILL.md") { mkdirSync(join(dir, "skills", basename(dirname(f))), { recursive: true }); cpSync(f, join(dir, "skills", basename(dirname(f)), n)); }
+  else if (n.endsWith(".test.mjs")) { cpSync(f, join(dir, "test", n)); suite++; }
+}
+if (!existsSync(join(dir, "agent-descriptor.json")) || !suite) {
+  console.log(JSON.stringify({ ok: false, code: 3, reply: "Nothing is laid out: the agent's files or the suite did not arrive." }));
+  process.exit(3);
+}
+writeFileSync(join(dir, "scripts", "count.mjs"), "export function count() { throw new Error(\"not written yet\"); }\n");
+writeFileSync(join(dir, "AGENTS.md"), "# Writing the scripts\n\nWrite scripts/count.mjs so that `node .adlc/check.mjs` exits 0.\n");
+writeFileSync(join(dir, ".adlc", "suite.mjs"), readFileSync(new URL("./suite.mjs", import.meta.url)));
+writeFileSync(join(dir, ".adlc", "check.mjs"), "import { dirname } from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\nimport { runSuite } from \"./suite.mjs\";\nif (process.env.WORKSPACE || process.env.RECORDS) { console.error(\"a build folder's check reads no WORKSPACE or RECORDS\"); process.exit(2); }\nrunSuite(dirname(dirname(fileURLToPath(import.meta.url))));\n");
+mkdirSync(join(o.job, "out"), { recursive: true });
+writeFileSync(join(o.job, "out", "build-folder.tar.gz"), dir);
+writeFileSync(join(o.job, "pieces.json"), JSON.stringify([{ name: "the build folder", step: "pack-the-build-folder", path: "out/build-folder.tar.gz", media_type: "application/gzip", about: "the build folder" }], null, 2));
+console.log(JSON.stringify({ ok: true, code: 0, reply: `Laid out the build folder: 1 script to write, ${suite} test file${suite === 1 ? "" : "s"}, AGENTS.md and .adlc/.` }));

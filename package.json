@@ -1,0 +1,43 @@
+{
+  "name": "product-factory",
+  "version": "0.1.0",
+  "description": "Runs your own agentic development lifecycle on this computer and answers the lifecycle API the adlc console reads. You bring the coding harness, the model and the role holders.",
+  "type": "module",
+  "bin": {
+    "product-factory": "bin/product-factory.mjs"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "standards/",
+    "vendor/",
+    "processes/",
+    "LICENSE",
+    "README.md",
+    "BUILD.md",
+    "SPEC.md"
+  ],
+  "scripts": {
+    "start": "node bin/product-factory.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "adlc",
+    "agents",
+    "lifecycle",
+    "agentic development",
+    "product factory"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeffrschneider/ProductFactory.git"
+  },
+  "private": true,
+  "dependencies": {
+    "adlc-console": "github:CommonAgent/adlc-console#9e11b5019e09815375c9d50341a9a5e1d176dc74"
+  }
+}
