@@ -5,6 +5,8 @@
 //
 //   the person's words name "MODEL-FAILS"   it answers { ok: false } as a failed call does
 //   they ask for a change ("change")        an answer, and the change in "change"
+//   they name a feature ("feature: <name> - <does>", or "feature F1: ..." to change F1)
+//                                           an answer, and the feature in "features" (one per line)
 //   otherwise                               an answer naming the files it was shown
 //
 // It prints one JSON object, as the real caller does: { ok, text, model, protocol }.
@@ -16,6 +18,8 @@ for (const k of ["MODEL_NAME", "MODEL_ENDPOINT", "MODEL_PROTOCOL"]) {
 }
 const prompt = readFileSync(process.env.PROMPT_FILE, "utf8");
 const said = prompt.split("The person says:\n").pop().trim();
+// Features (lifecycle API 0.4.3): each line "feature[ F1]: <name> - <does>" is one feature proposed, in the offering "Count".
+const features = [...said.matchAll(/^.*?\bfeature(?: (F\d+))?:\s*(.+?)\s+-\s+(.+)$/gim)].map((m) => ({ id: m[1] ?? null, name: m[2].trim(), does: m[3].trim(), offering: "Count" }));
 if (/MODEL-FAILS/.test(said)) {
   console.log(JSON.stringify({ ok: false, error: "the model service at model.example answered 503: busy", status: 503 }));
   process.exit(1);
@@ -32,6 +36,7 @@ if (/MODEL-FAILS/.test(said)) {
 //   otherwise                   an answer quoting where the record says the build is
 if (/^You are the boss of the product /.test(prompt)) {
   const out = (o) => console.log(JSON.stringify({ ok: true, text: JSON.stringify(o), model: process.env.MODEL_NAME, protocol: process.env.MODEL_PROTOCOL }));
+  if (features.length) { out({ kind: "answer", answer: `That is a feature of the product: ${features.map((f) => f.name).join(", ")}.`, features }); process.exit(0); }
   const newest = /^- (\S+), build (\S+): ([^\n]*?)\. Started/m.exec(prompt);
   if (/what did you commit/i.test(said)) out({ kind: "commitments", answer: "" });
   else if (/\b(approve|accept)\b/i.test(said)) out({ kind: "gate", answer: "I will not." });
@@ -42,6 +47,10 @@ if (/^You are the boss of the product /.test(prompt)) {
   else if (/\btests?\b/i.test(said) && /\bshould\b/i.test(said)) out({ kind: "route", stage: "test", directive: `Add a test: ${said}`, answer: "That is the test writer's." });
   else if (/\balso\b|change what/i.test(said)) out({ kind: "plan", statement_change: true, change: said, answer: "That changes what the agent does.", plan: [{ stage: "requirements", words: "The spec writer revises the statement to say it." }, { stage: "test", words: "The test writer adds cases for it." }] });
   else out({ kind: "answer", answer: newest ? `From the record: ${newest[1]} (build ${newest[2]}) is ${newest[3]}.` : "The record does not say." });
+  process.exit(0);
+}
+if (features.length) {
+  console.log(JSON.stringify({ ok: true, text: JSON.stringify({ answer: `I would add ${features.map((f) => f.name).join(", ")} to the statement. Approve each one below.`, change: null, features }), model: process.env.MODEL_NAME, protocol: process.env.MODEL_PROTOCOL }));
   process.exit(0);
 }
 const files = [...prompt.matchAll(/^File (\S+):$/gm)].map((m) => m[1]);

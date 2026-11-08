@@ -2,8 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/CommonAgent/adlc/main/standards/lifecycle-api.schema.json",
   "title": "The lifecycle API",
-  "version": "0.4.2",
-  "description": "What any service implementing the Agent Development Lifecycle answers, so that one client works against more than one service. Every request and answer is JSON, at the path /v1/lifecycle on the service. Times are ISO 8601 with a zone. Auth is Authorization: Bearer <key>, where the key is one the person makes for their own account, as the service says. A build lists the 24 stages of stages.json, one entry each, and a stage the service does not run is reported as not_offered. A client draws one button for each action the build offers, and nothing else. An organization chooses who holds each role of stages.json (the roles operations): the service's reference agent, its own agent, a contracted supplier, a person or an outside tool. A holder outside the service hands its evidence back in one of the open formats stages.json lists, and the service reads it onto the stage. An organization also chooses which stages its lifecycle uses (the stages operations), for the whole organization or for one project; when nothing is chosen every stage is used, and a build keeps the choice in effect when it started. The schema changes only by adding: a client ignores a field it does not know, and a service never removes or retypes one. Version 0.2 adds the roles operations, the evidence operation and new fields, and it also adds values to two lists, the holder's kinds and the stage's states; a client that does not know a state draws the stage as not_offered, and one that does not know a holder's kind shows the holder's name. Version 0.3 adds the stages operations, the state not_used, and the build's lifecycle field; a client that knows only 0.2 draws a not_used stage as not_offered. Version 0.4 adds products, stage workspaces, each stage's chat and the build's artifacts: a product is every build of one name, one build per version; each stage of a build is a workspace with what it was given, what it handed back as versioned artifacts, and its gate; and each stage has a chat with the agent holding it, kept per product per stage across builds. Answering in a chat changes nothing: a change the person asks for comes back as a proposal of the build's existing action, which the person takes with the actions operation, so a change always goes back through its gate. A client that knows only 0.3 ignores the artifacts field, and a service that does not offer the 0.4 operations answers them 404. Version 0.4.1 adds the product's boss (Agent Roles, role-boss): a conversation at the product level with an agent that answers from the product's record, routes a directive into the chat of the stage that owns it, and plans a larger request across the stages, proposing each stage's existing action; it never answers a gate, never changes an artifact, and lists everything it committed on the person's behalf. A service that does not offer the boss answers its operations 404. Version 0.4.2 adds each stage's cadence from stages.json 1.3.0 (every_build, setup or when_needed) to the build's stages and the stage workspace; carried, on a setup stage whose holder and settings are the same as an earlier version's; and two lists on a product: setup, each stage set up once per product with its holder, settings and the version it has held since, and when_needed, each action on the product with whether the service can run it now and, when it cannot, why. A client shows a build's steps from its every_build stages, and the others on the product. A client that knows only 0.4.1 ignores them. The operations list names the definition each request and answer must match; lifecycle-api-check.mjs checks a running service against it, together with the rules a schema cannot say.",
+  "version": "0.4.3",
+  "description": "What any service implementing the Agent Development Lifecycle answers, so that one client works against more than one service. Every request and answer is JSON, at the path /v1/lifecycle on the service. Times are ISO 8601 with a zone. Auth is Authorization: Bearer <key>, where the key is one the person makes for their own account, as the service says. A build lists the 24 stages of stages.json, one entry each, and a stage the service does not run is reported as not_offered. A client draws one button for each action the build offers, and nothing else. An organization chooses who holds each role of stages.json (the roles operations): the service's reference agent, its own agent, a contracted supplier, a person or an outside tool. A holder outside the service hands its evidence back in one of the open formats stages.json lists, and the service reads it onto the stage. An organization also chooses which stages its lifecycle uses (the stages operations), for the whole organization or for one project; when nothing is chosen every stage is used, and a build keeps the choice in effect when it started. The schema changes only by adding: a client ignores a field it does not know, and a service never removes or retypes one. Version 0.2 adds the roles operations, the evidence operation and new fields, and it also adds values to two lists, the holder's kinds and the stage's states; a client that does not know a state draws the stage as not_offered, and one that does not know a holder's kind shows the holder's name. Version 0.3 adds the stages operations, the state not_used, and the build's lifecycle field; a client that knows only 0.2 draws a not_used stage as not_offered. Version 0.4 adds products, stage workspaces, each stage's chat and the build's artifacts: a product is every build of one name, one build per version; each stage of a build is a workspace with what it was given, what it handed back as versioned artifacts, and its gate; and each stage has a chat with the agent holding it, kept per product per stage across builds. Answering in a chat changes nothing: a change the person asks for comes back as a proposal of the build's existing action, which the person takes with the actions operation, so a change always goes back through its gate. A client that knows only 0.3 ignores the artifacts field, and a service that does not offer the 0.4 operations answers them 404. Version 0.4.1 adds the product's boss (Agent Roles, role-boss): a conversation at the product level with an agent that answers from the product's record, routes a directive into the chat of the stage that owns it, and plans a larger request across the stages, proposing each stage's existing action; it never answers a gate, never changes an artifact, and lists everything it committed on the person's behalf. A service that does not offer the boss answers its operations 404. Version 0.4.2 adds each stage's cadence from stages.json 1.3.0 (every_build, setup or when_needed) to the build's stages and the stage workspace; carried, on a setup stage whose holder and settings are the same as an earlier version's; and two lists on a product: setup, each stage set up once per product with its holder, settings and the version it has held since, and when_needed, each action on the product with whether the service can run it now and, when it cannot, why. A client shows a build's steps from its every_build stages, and the others on the product. A client that knows only 0.4.1 ignores them. Version 0.4.3 adds features: the statement of the job carries a feature list, each feature with a stable id, a name, what it does and the offering it belongs to. A stage's agent or the boss proposes a new or changed feature in a reply (features), and the person approves it there, one feature at a time, as a recorded gate decision of Requirements, or says not now, which keeps it proposed as a backlog item; a person who may not answer Requirements asks an approver instead. Tests name the feature they check, a round of the gate reports its results per feature, and a matrix shows each feature against the spec, the tests, the code, the review and the docs, with each feature's history across the stages. A service that does not offer features answers their operations 404. The operations list names the definition each request and answer must match; lifecycle-api-check.mjs checks a running service against it, together with the rules a schema cannot say.",
   "basePath": "/v1/lifecycle",
   "operations": [
     { "method": "GET", "path": "/me", "answer": "#/$defs/MeAnswer", "does": "Who is asking, and the service's name." },
@@ -31,7 +31,13 @@
     { "method": "POST", "path": "/products/{name}/stages/{stage}/messages", "request": "#/$defs/MessageRequest", "answer": "#/$defs/MessageReplyAnswer", "does": "Say something to the agent holding a stage, on the product's newest build or the build named. The agent answers in words from the stage's outputs, what it was given and the build's record, and the person's message and the reply are kept. Answering changes nothing. When the person asks for a change, the reply proposes the build's existing action for it with its needs filled, only when the person may take that action now. Anyone who may read the build may post. It answers 400 in words for a stage the build's lifecycle leaves out or one held by a person, an outside tool or anyone the service cannot send messages to, and 409 when no agent can answer now, such as when the model is not set. Added in 0.4." },
     { "method": "GET", "path": "/products/{name}/boss/messages", "answer": "#/$defs/BossMessagesAnswer", "does": "The conversation with the product's boss (Agent Roles, role-boss), oldest first, each message naming the product's newest build and its version when it was said. A proposal kept on a message says whether it is still open. Added in 0.4.1." },
     { "method": "POST", "path": "/products/{name}/boss/messages", "request": "#/$defs/BossMessageRequest", "answer": "#/$defs/BossReplyAnswer", "does": "Say something to the product's boss, or confirm or decline one of its proposals. It answers from the product's record; routes a directive into the chat of the stage that owns it and says where it went (routed); breaks a larger request into a plan naming each stage in order and the gate the person meets at each (plan); and proposes the first stage's existing action, or first the start of the next version when the request changes the agent's statement (proposes). It never answers a gate, never changes an artifact, and takes no action: a stage's action is taken with the actions operation, and the next version starts only when the person confirms that proposal here (started). Anyone who may read the product may post; a proposal of a gate's action is made only to a person who may answer that gate. It answers 400 in words for an empty message or a proposal that is not open, and 409 when the boss cannot answer now, such as when the model is not set. Added in 0.4.1." },
-    { "method": "GET", "path": "/products/{name}/boss/commitments", "answer": "#/$defs/BossCommitmentsAnswer", "does": "Everything the boss committed on the person's behalf, oldest first, in full: each message it posted into a stage's chat, each proposal with the person's answer, each build it started with the confirmation it started it on, and each stage it told to drop work. Added in 0.4.1." }
+    { "method": "GET", "path": "/products/{name}/boss/commitments", "answer": "#/$defs/BossCommitmentsAnswer", "does": "Everything the boss committed on the person's behalf, oldest first, in full: each message it posted into a stage's chat, each proposal with the person's answer, each build it started with the confirmation it started it on, and each stage it told to drop work. Added in 0.4.1." },
+    { "method": "GET", "path": "/builds/{id}/features", "answer": "#/$defs/FeaturesAnswer", "does": "The build's features as a matrix: one row per feature the build carries, one cell per column (spec, tests, code, review, docs) saying whether that artifact covers it, and a badge saying whether the feature is new, changed or unchanged in this build's version. Added in 0.4.3." },
+    { "method": "POST", "path": "/builds/{id}/features/{feature}/approve", "request": "#/$defs/FeatureDecisionRequest", "answer": "#/$defs/FeatureDecisionAnswer", "does": "Approve one proposed feature: a gate decision of Requirements for that feature alone, recorded with who gave it, when, and the message it was given on. The statement of the job gets a new version with the feature in it. Only a person who may answer the Requirements gate may approve; anyone else gets 403 in words, and asks instead. It answers 400 in words for a proposal that is not open. Added in 0.4.3." },
+    { "method": "POST", "path": "/builds/{id}/features/{feature}/not_now", "request": "#/$defs/FeatureDecisionRequest", "answer": "#/$defs/FeatureDecisionAnswer", "does": "Leave one proposed feature for later: it stays proposed, as a backlog item linked to the conversation it came from. Anyone who may read the build may say not now. Added in 0.4.3." },
+    { "method": "POST", "path": "/builds/{id}/features/{feature}/ask", "request": "#/$defs/FeatureDecisionRequest", "answer": "#/$defs/FeatureDecisionAnswer", "does": "Ask the people who may answer the Requirements gate to approve one proposed feature. Each is told through the service's notices, and sees the same proposal with its approve button. Added in 0.4.3." },
+    { "method": "GET", "path": "/products/{name}/features", "answer": "#/$defs/FeaturesAnswer", "does": "The product's features as a matrix, for its newest build, or with ?version=<version> for the build of that version. Added in 0.4.3." },
+    { "method": "GET", "path": "/products/{name}/features/{feature}", "answer": "#/$defs/FeatureAnswer", "does": "One feature of the product and its history across the stages and the versions, oldest first: proposed in a chat, approved, tests added, code changed, reviewed, docs updated, each entry linked to the message or the artifact. It answers 404 for a feature the product does not have. Added in 0.4.3." }
   ],
   "errors": "#/$defs/ErrorAnswer",
   "$defs": {
@@ -383,7 +389,16 @@
         "label": { "$ref": "#/$defs/Words" },
         "verdict": { "$ref": "#/$defs/Words" },
         "back": { "type": "boolean", "description": "True when this round sent the work back." },
-        "words": { "$ref": "#/$defs/Words" }
+        "words": { "$ref": "#/$defs/Words" },
+        "by_feature": {
+          "type": "array",
+          "description": "A round that ran the suite: its results for each feature the suite's tests name, a test naming its feature by starting with the feature's id in square brackets, such as \"[F3] counts an empty passage as none\". Added in 0.4.3.",
+          "items": {
+            "type": "object",
+            "required": ["feature", "passed", "total"],
+            "properties": { "feature": { "$ref": "#/$defs/FeatureId" }, "passed": { "type": "integer", "minimum": 0 }, "total": { "type": "integer", "minimum": 0 } }
+          }
+        }
       }
     },
     "File": {
@@ -536,7 +551,22 @@
         "refuses": { "type": "array", "items": { "$ref": "#/$defs/Words" } },
         "records": { "type": "array", "items": { "$ref": "#/$defs/Words" } },
         "price": { "$ref": "#/$defs/Words" },
-        "open": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "The questions the spec writer left for the person." }
+        "open": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "The questions the spec writer left for the person." },
+        "features": {
+          "type": "array",
+          "description": "The feature list the statement carries: every feature approved, and every one proposed and not yet approved. Added in 0.4.3.",
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "does", "offering", "state"],
+            "properties": {
+              "id": { "$ref": "#/$defs/FeatureId" },
+              "name": { "$ref": "#/$defs/Words" },
+              "does": { "$ref": "#/$defs/Words" },
+              "offering": { "$ref": "#/$defs/Words" },
+              "state": { "enum": ["approved", "proposed"] }
+            }
+          }
+        }
       }
     },
     "SuiteSummary": {
@@ -743,7 +773,18 @@
           "properties": { "by": { "$ref": "#/$defs/Words" }, "at": { "$ref": "#/$defs/Time" }, "action": { "$ref": "#/$defs/Words" } }
         },
         "closed": { "$ref": "#/$defs/Words", "description": "Why it closed without an answer, such as a newer push to the pull request." },
-        "who_may": { "$ref": "#/$defs/Words", "description": "Who may answer it, in words." }
+        "who_may": { "$ref": "#/$defs/Words", "description": "Who may answer it, in words." },
+        "open": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "At Requirements: what the statement still leaves open for the person, such as its price. Added in 0.4.3." },
+        "features": {
+          "type": "object",
+          "required": ["approved", "to_approve", "backlog"],
+          "description": "At Requirements, when the build carries features: what the gate starts building with. Features already approved in a chat are listed as approved and not asked about again; approving the gate approves to_approve; backlog stays proposed. Added in 0.4.3.",
+          "properties": {
+            "approved": { "type": "array", "items": { "$ref": "#/$defs/Feature" } },
+            "to_approve": { "type": "array", "items": { "$ref": "#/$defs/Feature" } },
+            "backlog": { "type": "array", "items": { "$ref": "#/$defs/Feature" } }
+          }
+        }
       }
     },
     "MessagesAnswer": {
@@ -774,7 +815,8 @@
         "to": { "type": "object", "required": ["role"], "properties": { "role": { "$ref": "#/$defs/RoleId" } }, "description": "The role a person addressed." },
         "text": { "$ref": "#/$defs/Words", "description": "Plain words." },
         "attachments": { "type": "array", "items": { "$ref": "#/$defs/ArtifactId" } },
-        "proposes": { "$ref": "#/$defs/Proposal" }
+        "proposes": { "$ref": "#/$defs/Proposal" },
+        "features": { "type": "array", "items": { "$ref": "#/$defs/FeatureProposal" }, "description": "The new or changed features the agent proposes in this reply, each with its own answer. Added in 0.4.3." }
       }
     },
     "Proposal": {
@@ -838,7 +880,8 @@
           "description": "The build the boss started, only on the person's confirmation of a start_version proposal.",
           "properties": { "build": { "$ref": "#/$defs/Words" }, "version": { "$ref": "#/$defs/Words" } }
         },
-        "dropped": { "type": "array", "items": { "$ref": "#/$defs/BossRoute" }, "description": "Each stage the boss told that withdrawn work is no longer wanted, with the message it posted there." }
+        "dropped": { "type": "array", "items": { "$ref": "#/$defs/BossRoute" }, "description": "Each stage the boss told that withdrawn work is no longer wanted, with the message it posted there." },
+        "features": { "type": "array", "items": { "$ref": "#/$defs/FeatureProposal" }, "description": "The new or changed features the boss proposes in this reply, each with its own answer. Added in 0.4.3." }
       }
     },
     "BossRoute": {
@@ -923,6 +966,146 @@
           "properties": { "message_id": { "$ref": "#/$defs/Words" }, "by": { "$ref": "#/$defs/Words" }, "at": { "$ref": "#/$defs/Time" } }
         }
       }
+    },
+    "FeatureId": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,63}$", "description": "A feature's id: stable across the product's versions and never given to another feature, such as F3. Added in 0.4.3." },
+    "Feature": {
+      "type": "object",
+      "required": ["id", "name", "does", "offering"],
+      "description": "One feature of the statement of the job. Added in 0.4.3.",
+      "properties": {
+        "id": { "$ref": "#/$defs/FeatureId" },
+        "name": { "$ref": "#/$defs/Words", "description": "A few words." },
+        "does": { "$ref": "#/$defs/Words", "description": "What it does, in one sentence." },
+        "offering": { "$ref": "#/$defs/Words", "description": "The offering of the statement it belongs to, by name." }
+      }
+    },
+    "FeatureProposal": {
+      "type": "object",
+      "required": ["proposal", "feature", "name", "does", "offering", "change", "state", "you_may_approve"],
+      "description": "A new or changed feature proposed in a reply, and where its answer stands, as the person reading it sees it. Added in 0.4.3.",
+      "properties": {
+        "proposal": { "$ref": "#/$defs/Words", "description": "The proposal's id, which the feature operations name." },
+        "feature": { "$ref": "#/$defs/FeatureId", "description": "The feature's id: a new feature's is given when it is proposed." },
+        "name": { "$ref": "#/$defs/Words" },
+        "does": { "$ref": "#/$defs/Words" },
+        "offering": { "$ref": "#/$defs/Words" },
+        "change": { "enum": ["new", "changed"] },
+        "was": { "type": "object", "required": ["name", "does", "offering"], "description": "changed: the feature as it was approved before.", "properties": { "name": { "$ref": "#/$defs/Words" }, "does": { "$ref": "#/$defs/Words" }, "offering": { "$ref": "#/$defs/Words" } } },
+        "state": { "enum": ["open", "asked", "approved", "not_now", "replaced"], "description": "open: not answered yet. asked: someone asked the approvers, and it waits on them. approved: approved, in a chat or by the Requirements gate. not_now: left for later, a backlog item. replaced: a newer proposal of the same feature came after it." },
+        "you_may_approve": { "type": "boolean", "description": "Whether the person reading it may answer the Requirements gate, so may approve it. One who may not asks instead." },
+        "approvers": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "Who may approve it, in words; empty when anyone may." },
+        "answered": { "type": "object", "required": ["decision", "by", "at"], "properties": { "decision": { "enum": ["approved", "not_now"] }, "by": { "$ref": "#/$defs/Words" }, "at": { "$ref": "#/$defs/Time" } } },
+        "asked": { "type": "object", "required": ["by", "at", "to"], "properties": { "by": { "$ref": "#/$defs/Words" }, "at": { "$ref": "#/$defs/Time" }, "to": { "type": "array", "items": { "$ref": "#/$defs/Words" } } } }
+      }
+    },
+    "FeatureDecisionRequest": {
+      "type": "object",
+      "required": ["proposal"],
+      "description": "An answer to one feature proposal. Added in 0.4.3.",
+      "properties": {
+        "proposal": { "$ref": "#/$defs/Words", "description": "The proposal answered." },
+        "message": { "$ref": "#/$defs/Words", "description": "The message the answer was given on, when it was answered in a chat." }
+      }
+    },
+    "FeatureDecisionAnswer": {
+      "type": "object",
+      "required": ["feature", "proposal"],
+      "description": "The feature after the answer, and the proposal as the person now sees it. Added in 0.4.3.",
+      "properties": {
+        "feature": { "$ref": "#/$defs/FeatureEntry" },
+        "proposal": { "$ref": "#/$defs/FeatureProposal" },
+        "statement": { "$ref": "#/$defs/Words", "description": "approve: the statement of the job's new version, with the feature in it." },
+        "told": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "ask: who was asked." }
+      }
+    },
+    "FeatureEntry": {
+      "type": "object",
+      "required": ["id", "name", "does", "offering", "state", "backlog"],
+      "description": "A feature as the product holds it now. Added in 0.4.3.",
+      "properties": {
+        "id": { "$ref": "#/$defs/FeatureId" },
+        "name": { "$ref": "#/$defs/Words" },
+        "does": { "$ref": "#/$defs/Words" },
+        "offering": { "$ref": "#/$defs/Words" },
+        "state": { "enum": ["approved", "proposed"], "description": "approved: approved at least once; a change waiting for an answer is pending. proposed: never approved yet." },
+        "backlog": { "type": "boolean", "description": "True when its newest proposal was left for later (not now)." },
+        "approved": { "type": "object", "required": ["by", "at", "build", "version"], "description": "Its newest approval.", "properties": { "by": { "$ref": "#/$defs/Words" }, "at": { "$ref": "#/$defs/Time" }, "build": { "$ref": "#/$defs/Words" }, "version": { "$ref": "#/$defs/Words" } } },
+        "pending": { "$ref": "#/$defs/FeatureProposal", "description": "The proposal waiting for an answer, when one is." }
+      }
+    },
+    "FeatureCell": {
+      "type": "object",
+      "required": ["state", "words"],
+      "description": "One feature against one artifact. Added in 0.4.3.",
+      "properties": {
+        "state": { "enum": ["done", "stale", "missing", "failing"], "description": "done: the artifact covers the feature as approved. stale: it covers an older version of the feature, or was made before an artifact it depends on changed. missing: it does not cover the feature, or is not made. failing: tests naming the feature fail." },
+        "words": { "$ref": "#/$defs/Words", "description": "Short, such as \"Tests 6/6\"." },
+        "tests": { "type": "object", "required": ["passed", "total"], "description": "tests and code: the tests naming the feature, and how many passed in the newest round that ran them (passed is null when none has).", "properties": { "passed": { "type": ["integer", "null"], "minimum": 0 }, "total": { "type": "integer", "minimum": 0 } } },
+        "link": {
+          "type": "object",
+          "required": ["build", "artifact", "feature"],
+          "description": "Where the artifact is opened at this feature.",
+          "properties": { "build": { "$ref": "#/$defs/Words" }, "stage": { "$ref": "#/$defs/StageId" }, "artifact": { "$ref": "#/$defs/ArtifactId" }, "feature": { "$ref": "#/$defs/FeatureId" } }
+        }
+      }
+    },
+    "FeatureRow": {
+      "type": "object",
+      "required": ["id", "name", "does", "offering", "state", "backlog", "badge", "cells"],
+      "description": "One feature of the matrix. Added in 0.4.3.",
+      "properties": {
+        "id": { "$ref": "#/$defs/FeatureId" },
+        "name": { "$ref": "#/$defs/Words" },
+        "does": { "$ref": "#/$defs/Words" },
+        "offering": { "$ref": "#/$defs/Words" },
+        "state": { "enum": ["approved", "proposed"] },
+        "backlog": { "type": "boolean" },
+        "badge": { "enum": ["new", "changed", "unchanged"], "description": "Against the product's version before this one: new when it was not approved there, changed when its name, what it does or its offering differ, unchanged otherwise." },
+        "cells": {
+          "type": "object",
+          "required": ["spec", "tests", "code", "review", "docs"],
+          "properties": { "spec": { "$ref": "#/$defs/FeatureCell" }, "tests": { "$ref": "#/$defs/FeatureCell" }, "code": { "$ref": "#/$defs/FeatureCell" }, "review": { "$ref": "#/$defs/FeatureCell" }, "docs": { "$ref": "#/$defs/FeatureCell" } }
+        }
+      }
+    },
+    "FeaturesAnswer": {
+      "type": "object",
+      "required": ["product", "build", "version", "versions", "columns", "features"],
+      "description": "The features matrix for one build of a product. Added in 0.4.3.",
+      "properties": {
+        "product": { "$ref": "#/$defs/Words" },
+        "build": { "$ref": "#/$defs/Words", "description": "The build the matrix is for." },
+        "version": { "$ref": "#/$defs/Words", "description": "That build's version." },
+        "versions": { "type": "array", "description": "The product's versions, newest first, each once, for a version filter.", "items": { "type": "object", "required": ["version", "build"], "properties": { "version": { "$ref": "#/$defs/Words" }, "build": { "$ref": "#/$defs/Words" } } } },
+        "columns": { "type": "array", "items": { "enum": ["spec", "tests", "code", "review", "docs"] }, "description": "The columns, in this order: spec, tests, code, review, docs." },
+        "features": { "type": "array", "items": { "$ref": "#/$defs/FeatureRow" } },
+        "words": { "$ref": "#/$defs/Words", "description": "When there are no features, how they are added." }
+      }
+    },
+    "FeatureHistoryEntry": {
+      "type": "object",
+      "required": ["at", "kind", "words", "build", "version"],
+      "description": "One thing that happened to a feature. Added in 0.4.3.",
+      "properties": {
+        "at": { "$ref": "#/$defs/Time" },
+        "kind": { "enum": ["proposed", "approved", "not_now", "asked", "spec", "tests", "code", "review", "docs"], "description": "proposed, approved, not_now, asked: its proposals and their answers. spec, tests, code, review, docs: an artifact that covers it was made or changed." },
+        "words": { "$ref": "#/$defs/Words" },
+        "by": { "$ref": "#/$defs/Words" },
+        "build": { "$ref": "#/$defs/Words" },
+        "version": { "$ref": "#/$defs/Words" },
+        "link": {
+          "type": "object",
+          "required": ["kind"],
+          "description": "message: the chat message, at its stage (no stage for the boss's conversation). artifact: the artifact, opened at this feature.",
+          "properties": { "kind": { "enum": ["message", "artifact"] }, "stage": { "$ref": "#/$defs/StageId" }, "message": { "$ref": "#/$defs/Words" }, "artifact": { "$ref": "#/$defs/ArtifactId" }, "feature": { "$ref": "#/$defs/FeatureId" } }
+        }
+      }
+    },
+    "FeatureAnswer": {
+      "type": "object",
+      "required": ["feature", "history"],
+      "description": "One feature and its history, oldest first. Added in 0.4.3.",
+      "properties": { "feature": { "$ref": "#/$defs/FeatureEntry" }, "history": { "type": "array", "items": { "$ref": "#/$defs/FeatureHistoryEntry" } } }
     }
   }
 }

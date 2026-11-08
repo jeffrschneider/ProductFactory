@@ -10,7 +10,7 @@ with only open-source pieces. [BUILD.md](BUILD.md) lists the milestones after it
 ## What milestone 1 does
 
 `npx product-factory` starts a small service on `127.0.0.1`. It answers the
-lifecycle API (version 0.4.2) that the [adlc console](https://github.com/CommonAgent/adlc-console)
+lifecycle API (version 0.4.3) that the [adlc console](https://github.com/CommonAgent/adlc-console)
 reads, so the console shows your builds and lets you act at your gates. The
 same command starts the console against it and opens it in your browser. It
 keeps everything in files: the lifecycle document and one folder per build.
@@ -477,6 +477,45 @@ that gate. Its conversation is kept in the build records beside the stage
 chats, and each commitment is written once: every message it posted, every
 proposal with your answer, and every build it started with the confirmation.
 
+## Features
+
+The statement of the job carries a feature list (lifecycle API 0.4.3): each
+feature has a stable id (F1, F2, ...), a name, what it does, and the offering
+it belongs to. Features are settled in a chat, mostly the Requirements chat
+with the spec writer, or with the boss. When the conversation lands on a new
+or changed feature, the reply proposes it with two buttons:
+
+- **Approve feature**: a gate decision of Requirements for that one feature,
+  kept with who, when and the message (`POST /builds/:id/features/:feature/approve`).
+  The statement of the job gets a new version with it.
+- **Not now**: it stays proposed, a backlog item linked to the conversation.
+
+Someone who may not answer the Requirements gate sees **Ask <approver> to
+approve** instead: the approvers are told through the gate notices (event
+`feature_approval`) and see the same proposal, with its approve button, on
+the same message. At the end of Requirements the gate asks only what is
+still open and to start building with the features; those approved in a chat
+are not asked again, and the ones still waiting are approved with the gate.
+
+The approved features reach the spec writer and the test writer as lines of
+the run's material aimed at their phases (`[write-the-spec] ...`,
+`[write-the-suite] ...`), which the process runner hands to that phase
+alone; the reference agents read them as part of what they were asked. The
+test writer is asked to start each test's name with the feature's id in
+square brackets (`[F3] counts an empty passage as none`), so every round at
+Code reports its results per feature (`by_feature`, and "By feature: F1 2
+of 2 pass" in its words and on the pull request).
+
+`GET /products/:name/features[?version=]` and `GET /builds/:id/features`
+answer the Features matrix: one row per feature, with a new, changed or
+unchanged badge against the version before, and one cell for each of Spec,
+Tests, Code, Review and Docs that is done, stale, missing or failing ("Tests
+6/6") and opens that artifact at that feature. `GET
+/products/:name/features/:feature` is a feature's history across stages and
+versions: proposed, approved, tests added, code changed, reviewed, each linked
+to its message or artifact. Everything is kept as events in each build's
+record (`feature_log`), never rewritten (lib/features.mjs).
+
 ## Analytics
 
 Product Factory keeps a history of every build in an SQLite file beside the
@@ -587,7 +626,7 @@ and look the person up in `people.json` by its email.
 
 ## Standards it uses
 
-- Lifecycle API 0.4.2 and stages.json 1.3.0 (CommonAgent/adlc, copies in `standards/`).
+- Lifecycle API 0.4.3 and stages.json 1.3.0 (CommonAgent/adlc, copies in `standards/`).
 - The lifecycle document 0.1, through the adlc console's store, with `approvers`
   (CommonAgent/adlc#121). The console's store checks each entry's shape, so a
   wrong entry makes the file invalid, named in words, like any other wrong
@@ -655,7 +694,11 @@ document, keys, each permission, and gate approvers by person and by team. Issue
 notices run against the same fake GitHub and a fake webhook receiver: a
 labelled issue starting one build, an unlabelled one starting none, the
 comments at a gate and at the end, the webhook and command notices, and a
-notice that fails without stopping the build.
+notice that fails without stopping the build. Features: a chat proposing one,
+Approve feature with its new statement version, Not now, the Ask path with
+its notice, tests named per feature and the results per feature, the matrix's
+cells and badges, a feature's history, the small Requirements gate, and the
+boss proposing one.
 Set `PF_TEST_TMP` to keep test folders somewhere other than the system's.
 
 ## License
