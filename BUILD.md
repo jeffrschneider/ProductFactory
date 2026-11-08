@@ -45,6 +45,10 @@ An organization, its teams and projects, and people with roles (member,
 approver, admin). Who may approve which gate is set per lifecycle. Sign-in
 through the organization's single sign-on, or local accounts.
 
+Built with local accounts: people.json, a key for each person, and
+`approvers` in the lifecycle document (README, Teams). Single sign-on is
+not built; OIDC plugs in at `identify()` in lib/people.mjs.
+
 ## Run stages handed to a runtime
 
 Deploy and the stages after it (Publish, Retract, Monitor, Eval, Incident
