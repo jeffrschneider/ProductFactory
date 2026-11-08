@@ -68,6 +68,7 @@
         "kind": { "enum": ["reference_agent", "your_agent", "contracted", "person", "outside_tool"] },
         "name": { "$ref": "#/$defs/Words" },
         "handle": { "$ref": "#/$defs/Words", "description": "Its handle on the mesh. A your_agent or contracted holder has one." },
+        "settings": { "type": "object", "description": "The holder's settings for this role, as the holder reads them: any JSON object, such as how often a watcher checks or the most a product may spend. A service keeps them with the build and hands them to the holder unchanged. Never a key or other secret value." },
         "evidence": {
           "type": "object",
           "required": ["formats"],

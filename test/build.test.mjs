@@ -43,7 +43,7 @@ test("a build runs every stage: spec, your approval, suite, a failed round, your
   assert.match(stageOf(b, "review").given, /^Not part of this build's lifecycle: the organization leaves it out\.$/);
   assert.equal(stageOf(b, "docs").state, "not_used");
   assert.equal(stageOf(b, "security").state, "not_offered");
-  assert.match(stageOf(b, "deploy").given, /milestone 1 ends at Package/);
+  assert.match(stageOf(b, "deploy").given, /hands the package to the runtime you bring/);
 
   // Ask for changes: the spec writer gets them as a revision, with its earlier files attached.
   const changed = await f.post(`/builds/${id}/actions/changes`, { changes: "name: word-counter" });
@@ -113,26 +113,34 @@ test("a build runs every stage: spec, your approval, suite, a failed round, your
   assert.equal(pkg.holder.kind, "outside_tool");
   assert.match(pkg.handed_back.words[0], /Packed word-counter 0\.1\.0 as an Agent Package/);
   assert.deepEqual(pkg.handed_back.files.map((x) => x.path), ["package/word-counter-0.1.0.tar.gz", "package/word-counter-build.json", "package/validation.json"]);
-  assert.equal(b.summary, "Packed and validated · word-counter 0.1.0");
-  assert.deepEqual(actionNames(b), ["archive"]);
+  // The process document's "approve the deploy" gate waits on the person, with the run plan to read.
+  assert.equal(stageOf(b, "deploy").state, "waiting_on_you");
+  assert.equal(b.summary, "Packed and validated · word-counter 0.1.0 · Approve the deploy");
+  assert.deepEqual(actionNames(b), ["approve", "stop"]);
+  // Approved: with no runtime set, Deploy waits on the person to hand the package over (runtime.test.mjs has the rest).
+  ok((await f.post(`/builds/${id}/actions/approve`)).json.build);
+  b = await f.settled(id);
+  ok(b);
+  assert.equal(b.summary, "Packed and validated · word-counter 0.1.0 · Hand this package to your runtime");
+  assert.deepEqual(actionNames(b), ["resume", "archive"]);
   assert.ok(existsSync(join(f.store.folder(id), "stages", "package", "r1", "source", "skills", "count", "scripts", "count.mjs")), "the skill carries its script, as plugin.json's build entry names it");
 
-  // The process runner ran the build: every phase milestone 1 runs closed, and the run ended before Deploy.
+  // The process runner ran the build: every phase milestone 1 runs closed, the deploy was approved, and the run ended before deploy-the-agent.
   const run = f.store.read(id).run;
   assert.equal(run.process.name, "make a new agent");
   assert.equal(run.status, "closed");
   assert.equal(run.outcome, "ended");
-  for (const p of ["write-the-spec", "approve-the-spec", "write-the-suite", "write-the-scripts", "make-the-package"]) assert.equal(run.phases[p].status, "closed", p);
-  assert.deepEqual(run.open, ["approve-the-deploy", "deploy-the-agent", "check-conformance", "publish-the-agent"]);
-  assert.deepEqual(run.approvals.map((a) => [a.phase, a.by]), [["write-the-spec", "person@example.com"], ["approve-the-spec", "person@example.com"], ["write-the-scripts", "person@example.com"]]);
+  for (const p of ["write-the-spec", "approve-the-spec", "write-the-suite", "write-the-scripts", "make-the-package", "approve-the-deploy"]) assert.equal(run.phases[p].status, "closed", p);
+  assert.deepEqual(run.open, ["deploy-the-agent", "check-conformance", "publish-the-agent"]);
+  assert.deepEqual(run.approvals.map((a) => [a.phase, a.by]), [["write-the-spec", "person@example.com"], ["approve-the-spec", "person@example.com"], ["write-the-scripts", "person@example.com"], ["approve-the-deploy", "person@example.com"]]);
   assert.deepEqual(run.deviations.map((d) => d.key), ["changes"]);
   assert.ok(existsSync(join(f.store.folder(id), "run", run.run_id, "events.jsonl")), "the run is kept on disk the process runner's way too");
 
   const list = (await f.get("/builds")).json;
   assert.deepEqual(checkBuildList(list), []);
-  assert.equal(list.builds[0].at.summary, "Packed and validated · word-counter 0.1.0");
-  assert.equal(list.builds[0].at.stage, "package");
-  assert.equal(list.builds[0].at.state, "done");
+  assert.equal(list.builds[0].at.summary, "Packed and validated · word-counter 0.1.0 · Hand this package to your runtime");
+  assert.equal(list.builds[0].at.stage, "deploy");
+  assert.equal(list.builds[0].at.state, "waiting_on_you");
 });
 
 test("a walked build's timeline has one bar per phase per round, each with its stage", async (t) => {
@@ -146,6 +154,8 @@ test("a walked build's timeline has one bar per phase per round, each with its s
   await f.post(`/builds/${id}/actions/approve`);
   await f.settled(id);
   await f.post(`/builds/${id}/actions/accept`);
+  await f.settled(id);
+  await f.post(`/builds/${id}/actions/approve`);
   b = await f.settled(id);
   ok(b);
   const bars = b.timeline;
@@ -161,6 +171,7 @@ test("a walked build's timeline has one bar per phase per round, each with its s
   assert.deepEqual([...new Set(at("write-the-suite").map((x) => x.stage))], ["test"]);
   assert.deepEqual([...new Set(at("write-the-scripts").map((x) => x.stage))], ["code"]);
   assert.deepEqual([...new Set(at("make-the-package").map((x) => x.stage))], ["package"]);
+  assert.deepEqual([...new Set(at("approve-the-deploy").map((x) => x.stage))], ["deploy"]);
   // Done: every bar closed, ordered by start, each with its duration.
   for (const x of bars) assert.equal(x.duration_ms, Date.parse(x.end) - Date.parse(x.start), x.phase);
   const starts = bars.map((x) => Date.parse(x.start));
@@ -250,6 +261,8 @@ test("asking for changes needs words, and a refused spec runs again with them", 
   await f.post(`/builds/${id}/actions/accept`);
   const done = await f.settled(id);
   assert.equal(stageOf(done, "package").state, "done");
+  await f.post(`/builds/${id}/actions/approve`);
+  await f.settled(id);
   assert.equal(f.store.read(id).run.outcome, "ended");
 });
 

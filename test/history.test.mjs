@@ -7,6 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createStore, RECORD_FORMAT } from "../lib/store.mjs";
 import { createHistory, rowsOf, weekOf, median, HISTORY_FILE } from "../lib/history.mjs";
 import { factory, tempDir } from "./helpers.mjs";
@@ -157,7 +158,8 @@ test("the history follows each save, and is built again from the build files whe
 });
 
 test("GET /v1/lifecycle/analytics: Product Factory's own route, from real walked builds", async (t) => {
-  const f = await factory({ failRounds: 1 });
+  // The walked build goes through the deploy gate to the reference runtime, so it finishes.
+  const f = await factory({ failRounds: 1, runtime: { command: ["node", fileURLToPath(new URL("../runtimes/folder.mjs", import.meta.url)), "--into", "./installed"] } });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage.", project: "web" })).json.build.id;
   await f.settled(id);
@@ -166,6 +168,8 @@ test("GET /v1/lifecycle/analytics: Product Factory's own route, from real walked
   await f.post(`/builds/${id}/actions/approve`);
   await f.settled(id);
   await f.post(`/builds/${id}/actions/accept`);
+  await f.settled(id);
+  await f.post(`/builds/${id}/actions/approve`);
   await f.settled(id);
   const other = (await f.post("/builds", { does: "Count the words." })).json.build.id;
   await f.settled(other);
@@ -183,8 +187,8 @@ test("GET /v1/lifecycle/analytics: Product Factory's own route, from real walked
   assert.equal(sum(a.builds, "started"), 2);
   assert.equal(sum(a.builds, "finished"), 1);
   assert.equal(sum(a.builds, "stopped"), 1);
-  // The walked build ran Requirements, Test, Code and Package, each now finished with a time.
-  assert.deepEqual(a.stage_times.map((x) => x.stage), ["requirements", "test", "code", "package"]);
+  // The walked build ran Requirements, Test, Code and Package, and the deploy gate, each now finished with a time.
+  assert.deepEqual(a.stage_times.map((x) => x.stage), ["requirements", "test", "code", "package", "deploy"]);
   // Code's first round failed the suite and Requirements was sent back with changes.
   const backs = Object.fromEntries(a.send_backs.map((x) => [x.stage, x]));
   assert.equal(backs.code.back, 1);
