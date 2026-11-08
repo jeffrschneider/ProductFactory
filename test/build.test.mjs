@@ -135,6 +135,38 @@ test("a build runs every stage: spec, your approval, suite, a failed round, your
   assert.equal(list.builds[0].at.state, "done");
 });
 
+test("a walked build's timeline has one bar per phase per round, each with its stage", async (t) => {
+  const f = await factory({ failRounds: 1 });
+  t.after(f.close);
+  const id = (await f.post("/builds", { does: "Count the words in a passage." })).json.build.id;
+  let b = await f.settled(id);
+  // While the spec waits on the person, its gate is an open bar at Requirements.
+  const open = b.timeline.filter((x) => x.end === null);
+  assert.ok(open.some((x) => x.stage === "requirements" && x.kind === "person"), JSON.stringify(open));
+  await f.post(`/builds/${id}/actions/approve`);
+  await f.settled(id);
+  await f.post(`/builds/${id}/actions/accept`);
+  b = await f.settled(id);
+  ok(b);
+  const bars = b.timeline;
+  assert.ok(bars.length > 0);
+  for (const x of bars) {
+    for (const k of ["phase", "stage", "round", "holder", "kind", "start", "end", "duration_ms", "status"]) assert.ok(k in x, `${x.phase}: ${k}`);
+    assert.ok(STAGE_IDS.includes(x.stage), `${x.phase} is at a stage of stages.json`);
+    assert.ok(["agent", "person", "external"].includes(x.kind));
+  }
+  const at = (phase) => bars.filter((x) => x.phase === phase);
+  assert.deepEqual([...new Set(at("write-the-spec").map((x) => x.stage))], ["requirements"]);
+  assert.deepEqual([...new Set(at("approve-the-spec").map((x) => x.stage))], ["requirements"]);
+  assert.deepEqual([...new Set(at("write-the-suite").map((x) => x.stage))], ["test"]);
+  assert.deepEqual([...new Set(at("write-the-scripts").map((x) => x.stage))], ["code"]);
+  assert.deepEqual([...new Set(at("make-the-package").map((x) => x.stage))], ["package"]);
+  // Done: every bar closed, ordered by start, each with its duration.
+  for (const x of bars) assert.equal(x.duration_ms, Date.parse(x.end) - Date.parse(x.start), x.phase);
+  const starts = bars.map((x) => Date.parse(x.start));
+  assert.deepEqual(starts, [...starts].sort((p, q) => p - q));
+});
+
 test("a build keeps the lifecycle it started under; a later change does not touch it", async (t) => {
   const f = await factory({ doc: leftOut });
   t.after(f.close);
