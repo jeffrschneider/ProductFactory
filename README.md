@@ -11,7 +11,8 @@ with only open-source pieces. [BUILD.md](BUILD.md) lists the milestones after it
 
 `npx product-factory` starts a small service on `127.0.0.1`. It answers the
 lifecycle API (version 0.3) that the [adlc console](https://github.com/CommonAgent/adlc-console)
-reads, so the console shows your builds and lets you act at your gates. It
+reads, so the console shows your builds and lets you act at your gates. The
+same command starts the console against it and opens it in your browser. It
 keeps everything in files: the lifecycle document and one folder per build.
 
 A build follows the lifecycle in effect when it started, and runs these stages:
@@ -79,37 +80,57 @@ and not run.
 
 ## Run it
 
-You need Node 22 or later, git, a checkout of
-[CommonAgent/adlc](https://github.com/CommonAgent/adlc) (the reference agents),
-and a checkout of [CommonAgent/adlc-console](https://github.com/CommonAgent/adlc-console)
-(the page).
+You need Node 22 or later, git, and a checkout of
+[CommonAgent/adlc](https://github.com/CommonAgent/adlc) (the reference agents).
+The [adlc console](https://github.com/CommonAgent/adlc-console) (the page)
+comes with Product Factory, so you need no checkout of it.
+
+In the folder you want to work in, run one command:
 
 ```
-git clone https://github.com/jeffrschneider/ProductFactory.git
-cd ProductFactory
-npm install                    # fetches adlc-console at a pinned commit; nothing else
-npx product-factory init       # writes product-factory.json here
+npx github:jeffrschneider/ProductFactory
 ```
 
-Edit `product-factory.json` (below), set the model settings in your
-environment, and start it:
+Or, from a clone: `npm install`, then `npm start` (the same as
+`npx product-factory`).
+
+It starts Product Factory and the console in one process, opens your browser
+on the console, and prints one line with its address:
 
 ```
-npx product-factory            # or: npm start
+Product Factory and its console are at http://127.0.0.1:52827/ (press Ctrl+C to stop both).
 ```
 
-It prints its address and the command that opens the console against it:
+The console holds Product Factory's key in memory, so you copy no key and
+open no second terminal. The key is made on first start, kept in the data
+folder, readable only by you, and sent only to this service.
+
+The first time, with no `product-factory.json` in the folder, it writes the
+starter file (what `npx product-factory init` does), starts anyway, and opens
+the console on the Lifecycle page. Edit `product-factory.json` (below) and set
+the model settings in your environment. Until then it says what is missing,
+on the terminal and in each build that stops for it.
+
+Start a build from the console's New build form, and act at the gates there.
+Ctrl+C stops both. A build that was running sends its phase out again the
+next time it starts.
+
+`--port <n>` sets the service's port and `--console-port <n>` the console's
+(0 takes any free port). `--no-open` prints the address without opening the
+browser.
+
+To start only the service, for a console you run some other way, give
+`--no-console`. It then prints the command that opens a console against it:
 
 ```
 node bin/adlc-console.mjs --service http://127.0.0.1:4510 --key-file <data folder>/service-key
 ```
 
-Run that in your checkout of adlc-console. The key is made on first start,
-kept in the data folder, readable only by you, and sent only to this service.
-Start a build from the console's New build form, and act at the gates there.
-
-Press Ctrl+C to stop Product Factory. A build that was running sends its
-phase out again the next time it starts.
+If `npx` fails on Windows with `EISDIR: illegal operation on a directory,
+symlink` or `Lock compromised`, npm's cache is on a drive formatted exFAT or
+FAT32. Those drives cannot hold the links and locks `npx` makes. Point npm's
+cache at a folder on an NTFS drive (`npm config set cache <folder>`), or run
+`npm start` in a clone.
 
 ## product-factory.json
 
