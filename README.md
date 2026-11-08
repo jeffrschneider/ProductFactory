@@ -33,7 +33,7 @@ later milestone hands to the runtime you bring.
 
 ## What milestone 1 does not do
 
-No board, no analytics, no tracker, no repository host but GitHub, no teams
+No board, no tracker, no repository host but GitHub, no teams
 or accounts, no deploy, no try-it, and agents only (no processes or general
 software). By default the build folder is a folder on this computer, and its
 path is in the Code stage's log; Code can be a pull request on GitHub instead
@@ -259,10 +259,52 @@ The console's Lifecycle page works against the service: choose stages for
 the organization or a project, and who holds each role. A build keeps the
 choices in effect when it started.
 
+## Analytics
+
+Product Factory keeps a history of every build in an SQLite file beside the
+build files, `<data>/history.sqlite`, through Node's built-in `node:sqlite`:
+no server and no dependency. The build files stay the source of truth. Each
+time a build moves, its rows are written again from its `build.json`; if the
+file is missing it is built again from the build folders, and a build changed
+while Product Factory was stopped is caught up when it starts. Deleting the
+file loses nothing.
+
+The history has four tables: `builds` (project, status, start, end),
+`stages` (holder, start, end, time, time waiting on a person and time with an
+agent working, rounds, rounds sent back), `rounds` (each round of a stage, as
+the build's record keeps it) and `steps` (each bar of the build's timeline,
+with its split between a person and an agent).
+
+It answers one read-only route:
+
+```
+GET /v1/lifecycle/analytics?window=7d|30d|all&project=<name>
+```
+
+This route is Product Factory's own. It is not part of the lifecycle API
+standard, and another lifecycle service need not answer it; the adlc console
+shows its Analytics page only when the service does. `window` is 30d when not
+given, and `project` narrows every answer to one project's builds. Weeks start
+on Monday, 00:00 UTC. It answers four things, never estimated:
+
+- `builds`: per week, the builds started, finished and stopped.
+- `stage_times`: per stage, per week, the median time of the stages that
+  finished that week (every round, the agent's work and any wait on a person,
+  as the console's Dashboard counts it).
+- `send_backs`: per stage over the window, the rounds, the rounds sent back,
+  and the rate.
+- `waiting`: per week, the time spent waiting on a person and the time an
+  agent was working, from the timeline steps that ended that week.
+
+`node:sqlite` is built into Node 22.13 and later. On Node 22.5 to 22.12 start
+Product Factory with `node --experimental-sqlite`; on an older Node it says so
+when it starts, keeps no history, and does not offer the route.
+
 ## What is on disk
 
 ```
 <data>/service-key                 the key, made once
+<data>/history.sqlite              the history analytics reads, rebuilt from the build folders when missing
 <data>/builds/<id>/build.json      the build's record: the lifecycle it started under, each stage, the run
 <data>/builds/<id>/run/            the process document, and the run as the process runner keeps it
 <data>/builds/<id>/stages/         every job folder, record, log and file each stage made
@@ -325,7 +367,10 @@ a local HTTP stub with a small git in memory), with stand-in reviewers:
 opening the pull request, a failing push and a passing one, the fence
 refusing changes outside what the coding step may change, a reviewer's open
 finding, your OK taking the passing commit and refused for a newer one, Send
-back to Test, and starting again while it waits on pushes.
+back to Test, and starting again while it waits on pushes. The history's
+tests build it again from the build files, answer the four analytics
+questions over hand-made builds where every number is known, and call the
+analytics route.
 Set `PF_TEST_TMP` to keep test folders somewhere other than the system's.
 
 ## License
