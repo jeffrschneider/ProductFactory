@@ -33,7 +33,7 @@ later milestone hands to the runtime you bring.
 
 ## What milestone 1 does not do
 
-No board, no analytics, no tracker or repository host, no teams or accounts,
+No board, no analytics, no tracker or repository host, no single sign-on,
 no deploy, no try-it, and agents only (no processes or general software).
 There is no pull request: the build folder is a folder on this computer, and
 its path is in the Code stage's log. The package's build record is unsigned.
@@ -203,10 +203,67 @@ The console's Lifecycle page works against the service: choose stages for
 the organization or a project, and who holds each role. A build keeps the
 choices in effect when it started.
 
+## Teams
+
+An organization, its teams and projects, and people with roles, kept in
+`people.json` beside the lifecycle document:
+
+```json
+{
+  "organization": "Example Org",
+  "people": [
+    { "name": "Ana Lee", "email": "ana@example.com", "role": "approver" },
+    { "name": "Max Kim", "email": "max@example.com", "role": "member" }
+  ],
+  "teams": [{ "name": "Platform", "members": ["ana@example.com", "max@example.com"] }],
+  "projects": [{ "name": "billing", "teams": ["Platform"] }]
+}
+```
+
+| Role | May |
+|---|---|
+| member | start builds, stop and resume them, and see everything |
+| approver | also answer the gates the lifecycle names them for |
+| admin | also change the lifecycle, and people (with the command line) |
+
+Who may approve each gate is set per lifecycle, in the lifecycle document's
+`approvers`, by stage id. A project's list for a stage replaces the
+organization's. Anyone may answer a gate whose stage is listed nowhere;
+otherwise only an approver or admin named there, or in a team named there.
+
+```json
+"organization": { "approvers": { "requirements": [{ "team": "Platform" }], "code": [{ "person": "ana@example.com" }] } }
+```
+
+Each person has their own key. An admin makes it, and it is printed once:
+
+```
+npx product-factory person add ana@example.com --role approver --name "Ana Lee"
+npx product-factory team add Platform --member ana@example.com --member max@example.com
+npx product-factory project add billing --team Platform
+npx product-factory people            # list them, and any problem with the file
+npx product-factory person key ana@example.com      # a new key; the old one stops working
+npx product-factory person revoke ana@example.com   # no key works
+```
+
+The person keeps the key in a file and opens the console with
+`--key-file <that file>`. Every call is then made as them: the console's top
+bar says who they are, a gate they may not answer says who may instead of
+showing the button, and the People page lists people, teams and roles. A
+refused act answers 403 with the reason in words. The service's own key
+keeps working, as an admin. `people.json` is checked on start and on every
+request, and problems are shown in words; `GET /v1/lifecycle/people` returns
+them too.
+
+Single sign-on is not built. It plugs in at `identify()` in
+`lib/people.mjs`: verify the organization's OIDC ID token instead of a key,
+and look the person up in `people.json` by its email.
+
 ## What is on disk
 
 ```
-<data>/service-key                 the key, made once
+<data>/service-key                 the service's key, made once; it acts as an admin
+<data>/people-keys.json            each person's key, kept only as its SHA-256
 <data>/builds/<id>/build.json      the build's record: the lifecycle it started under, each stage, the run
 <data>/builds/<id>/run/            the process document, and the run as the process runner keeps it
 <data>/builds/<id>/stages/         every job folder, record, log and file each stage made
@@ -215,7 +272,9 @@ choices in effect when it started.
 ## Standards it uses
 
 - Lifecycle API 0.3 and stages.json 1.2.0 (CommonAgent/adlc, copies in `standards/`).
-- The lifecycle document 0.1, through the adlc console's store.
+- The lifecycle document 0.1, through the adlc console's store, with `approvers`
+  (CommonAgent/adlc#121). The console's store does not know `approvers` yet,
+  so it is handed the file without them, and they are put back when it writes.
 - Agent Processes, through the process runner, for "make a new agent".
 - The Common Agent package format, through `@common-agent/package`.
 
@@ -258,7 +317,9 @@ console's contract checks and the lifecycle API's own check
 (`standards/lifecycle-api-check.mjs`), and builds walked through every stage:
 both gates, asking for changes, a failed suite round, rounds running out, a
 left-out stage, a project's lifecycle, the reference code writer, a refused
-spec started again, stopping, archiving, and starting again mid-stage.
+spec started again, stopping, archiving, and starting again mid-stage; and
+teams: the people document, keys, each permission, and gate approvers by
+person and by team.
 Set `PF_TEST_TMP` to keep test folders somewhere other than the system's.
 
 ## License

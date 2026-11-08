@@ -11,6 +11,7 @@ import { createStore } from "../lib/store.mjs";
 import { createLifecycle } from "../lib/lifecycle.mjs";
 import { createRunner } from "../lib/runner.mjs";
 import { createService } from "../lib/server.mjs";
+import { createPeople, KEYS_FILE } from "../lib/people.mjs";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 export const FAKE_ADLC = join(HERE, "fixtures", "fake-adlc");
@@ -25,8 +26,9 @@ export const MODEL_VARS = { PF_T_MODEL_NAME: "stand-in-model", PF_T_MODEL_ENDPOI
 /**
  * A Product Factory with fake holders. doc: a lifecycle document to start from.
  * holder: "harness" or "code-writer". failRounds: how many harness rounds write the wrong code.
+ * people: a people.json to start from; with it, each person's own key works (f.people).
  */
-export async function factory({ doc = null, holder = "harness", rounds = 3, failRounds = 0, model = true, harness = true } = {}) {
+export async function factory({ doc = null, holder = "harness", rounds = 3, failRounds = 0, model = true, harness = true, people = null } = {}) {
   const dir = await tempDir("factory");
   const stubLog = join(dir, "harness-calls.jsonl");
   if (doc) await writeFile(join(dir, "lifecycle.json"), JSON.stringify(doc, null, 2));
@@ -46,7 +48,9 @@ export async function factory({ doc = null, holder = "harness", rounds = 3, fail
   const person = { name: "Test Person", email: "person@example.com" };
   const runner = createRunner({ store, lifecycle, config, env, person });
   const key = store.key();
-  const service = createService({ store, lifecycle, runner, key: key.value, person });
+  if (people) await writeFile(join(dir, "people.json"), JSON.stringify(people, null, 2));
+  const access = people ? createPeople({ file: join(dir, "people.json"), keysFile: join(config.data, KEYS_FILE), lifecycle: lifecycle.file, serviceKey: key.value, admin: person }) : null;
+  const service = createService({ store, lifecycle, runner, key: key.value, person, people: access });
   const base = await service.listen(0);
   const call = async (method, path, body, { auth = key.value, raw = false } = {}) => {
     const r = await fetch(`${base}/v1/lifecycle${path}`, {
@@ -60,7 +64,7 @@ export async function factory({ doc = null, holder = "harness", rounds = 3, fail
     return { status: r.status, json, text: raw ? text : undefined, type: r.headers.get("content-type") };
   };
   return {
-    dir, config, store, lifecycle, runner, service, base, key, stubLog, call, env,
+    dir, config, store, lifecycle, runner, service, base, key, stubLog, call, env, people: access,
     get: (p) => call("GET", p),
     post: (p, b = {}) => call("POST", p, b),
     put: (p, b) => call("PUT", p, b),

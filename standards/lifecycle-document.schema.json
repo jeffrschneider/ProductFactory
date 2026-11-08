@@ -40,8 +40,21 @@
           "type": "array",
           "description": "Stages of this scope's own, each placed after a stage.",
           "items": { "$ref": "#/$defs/AddedStage" }
+        },
+        "approvers": {
+          "type": "object",
+          "description": "Who may answer each stage's person gate, by stage id: people and teams, as the organization's list of people names them. A stage listed here replaces the wider scope's list for that stage. Anyone may answer a gate whose stage is listed nowhere. Optional.",
+          "propertyNames": { "$ref": "#/$defs/Id" },
+          "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/Approver" } }
         }
       }
+    },
+    "Approver": {
+      "description": "One person, by email, or one team, by name.",
+      "anyOf": [
+        { "type": "object", "required": ["person"], "additionalProperties": false, "properties": { "person": { "$ref": "#/$defs/Words", "description": "The person's email." } } },
+        { "type": "object", "required": ["team"], "additionalProperties": false, "properties": { "team": { "$ref": "#/$defs/Words", "description": "The team's name." } } }
+      ]
     },
     "Holder": {
       "type": "object",

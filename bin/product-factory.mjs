@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // npx product-factory [--config <path>] [--port <n>]
 // npx product-factory init [--config <path>]
+// npx product-factory people | person ... | team add ... | project add ...   (lib/people.mjs)
 
 import { parseArgs } from "node:util";
 import { readFileSync, existsSync } from "node:fs";
@@ -10,6 +11,7 @@ import { createStore } from "../lib/store.mjs";
 import { createLifecycle } from "../lib/lifecycle.mjs";
 import { createRunner } from "../lib/runner.mjs";
 import { createService } from "../lib/server.mjs";
+import { createPeople, peopleCommand, peoplePath, PEOPLE_HELP, KEYS_FILE } from "../lib/people.mjs";
 
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
@@ -24,12 +26,13 @@ lifecycle API the adlc console reads.
   --config <path>   the settings file (default ./${CONFIG_FILE})
   --port <n>        listen on this port, overriding the settings (0 takes any free port)
   --help            show this
-`;
+
+${PEOPLE_HELP}`;
 
 async function main() {
   let parsed;
   try {
-    parsed = parseArgs({ allowPositionals: true, options: { config: { type: "string" }, port: { type: "string" }, help: { type: "boolean", short: "h", default: false } } });
+    parsed = parseArgs({ allowPositionals: true, options: { config: { type: "string" }, port: { type: "string" }, help: { type: "boolean", short: "h", default: false }, role: { type: "string" }, name: { type: "string" }, member: { type: "string", multiple: true }, team: { type: "string", multiple: true } } });
   } catch (e) {
     console.error(`${e.message}\n\n${HELP}`);
     process.exit(2);
@@ -42,6 +45,13 @@ async function main() {
     if (writeStarter(configPath)) console.log(`Wrote ${configPath}. Set "adlc" to your checkout of CommonAgent/adlc and "code.harness" to your coding harness, then run npx product-factory.`);
     else console.log(`${configPath} is already there; it was left as it is.`);
     return;
+  }
+  if (["people", "person", "team", "project"].includes(positionals[0])) {
+    let config;
+    try { config = loadConfig(configPath); } catch (e) { console.error(e.message); process.exit(2); }
+    const { code, out } = peopleCommand(positionals, values, config);
+    (code ? console.error : console.log)(out);
+    process.exit(code);
   }
   if (positionals.length) { console.error(`There is no command ${positionals[0]}.\n\n${HELP}`); process.exit(2); }
 
@@ -60,7 +70,10 @@ async function main() {
   const key = store.key();
   const person = localPerson();
   const runner = createRunner({ store, lifecycle, config, person });
-  const service = createService({ store, lifecycle, runner, key: key.value, person, version: pkg.version });
+  const people = createPeople({ file: peoplePath(config.lifecycle), keysFile: join(config.data, KEYS_FILE), lifecycle: lifecycle.file, serviceKey: key.value, admin: person });
+  const peopleProblems = people.list().problems;
+  if (peopleProblems.length) console.error(`People: ${peopleProblems.join(" ")}`);
+  const service = createService({ store, lifecycle, runner, key: key.value, person, people, version: pkg.version });
   let base;
   try { base = await service.listen(config.port); } catch (e) {
     console.error(e.code === "EADDRINUSE" ? `Port ${config.port} is in use. Set another "port" in ${config.file}, or give --port.` : e.message);
