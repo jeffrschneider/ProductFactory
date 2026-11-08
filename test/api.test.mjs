@@ -35,7 +35,7 @@ test("every answer has the contract's shape, and the lifecycle API check finds n
   await f.post(`/builds/${done}/actions/accept`);
   await f.settled(done);
   await f.post(`/builds/${stopped}/actions/stop`);
-  assert.equal((await f.get(`/builds/${done}`)).json.build.summary, "Packed and validated · finished 0.1.0");
+  assert.equal((await f.get(`/builds/${done}`)).json.build.summary, "Packed and validated · finished 0.1.0 · Approve the deploy");
 
   // The console's checks.
   const list = await f.get("/builds");

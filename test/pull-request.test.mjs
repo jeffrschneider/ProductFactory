@@ -128,6 +128,10 @@ test("Code opens a Write the scripts pull request; a failing push, then a passin
   assert.equal(gh.filesAt("main")[SCRIPT], RIGHT);
   const packed = readFileSync(join(f.store.folder(id), "stages", "package", "r1", "source", "skills", "count", "scripts", "count.mjs"), "utf8");
   assert.equal(packed, RIGHT);
+  // The process document's "approve the deploy" gate waits on the person; the run ends once they say yes.
+  assert.deepEqual(actionNames(b), ["approve", "stop"]);
+  await f.post(`/builds/${id}/actions/approve`);
+  await f.settled(id);
   const run = f.store.read(id).run;
   assert.ok(run.approvals.some((a) => a.phase === "write-the-scripts" && a.text === `OK'd in the console at ${good.slice(0, 7)}`));
   assert.equal(run.outcome, "ended");
@@ -263,6 +267,8 @@ test("Send back to Test: the test writer revises the suite, and the revised test
   await f.post(`/builds/${id}/actions/accept`);
   b = await f.settled(id);
   assert.equal(stageOf(b, "package").state, "done");
+  await f.post(`/builds/${id}/actions/approve`);
+  await f.settled(id);
 
   // The run records the document's way back from Code, in the person's words, and the spec's gate answered again.
   const run = f.store.read(id).run;

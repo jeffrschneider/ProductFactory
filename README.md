@@ -24,20 +24,53 @@ A build follows the lifecycle in effect when it started, and runs these stages:
 | Code | your coding harness | The build folder is laid out with `AGENTS.md`, and your harness writes the scripts in it. The suite runs after each round; if it fails, the harness gets another round, up to the number you set. |
 | | you, in the console | You give your OK on the code. |
 | Package | the Common Agent packer | The agent's files and the scripts are packed as an Agent Package and validated. |
+| | you, in the console | The run plan is written beside the package. You read it with the package's build record, and approve the deploy. |
+| Deploy | the runtime you bring | The package and the run plan are handed to your runtime's command. With no runtime set, Deploy waits for you to hand them over. |
 
 A stage your lifecycle leaves out reads "not used". Stages milestone 1 does
 not run read "not offered", and say so in plain words: the stages between
 Requirements and Package that it does not run yet (Architecture, Impact,
-Source, Review, Security review), and Deploy and everything after it, which a
-later milestone hands to the runtime you bring.
+Source, Review, Security review), and Release, Conformance, Acceptance and
+Docs after it.
+
+## Run stages handed to your runtime
+
+Product Factory does not run the product. The stages after Package (Deploy,
+Publish, Retract, Monitor, Eval, Incident response, Cost, Update,
+Reconfigure, Rollback, Decommission) are bindings: the stage's "hands back"
+line in stages.json is the interface its holder meets, and your lifecycle
+says who holds each role and with what `settings` (a JSON object on the
+holder in the lifecycle document, such as `{ "every_minutes": 5 }` for the
+watcher). At the end of a build Product Factory writes `run-plan.json` beside
+the package. For each of those stages it records:
+
+- the role;
+- the holder;
+- the settings;
+- the interface (the stage's "hands back" line);
+- whether the holder is chosen.
+
+A stage your lifecycle leaves out reads "not used"; a role nobody holds reads
+"not chosen". The build shows each stage as the plan records it.
+
+Then it asks the process document's "approve the deploy" gate: you read the
+package's build record and the run plan, and approve the deploy in the
+console. Only then does it hand the package and the run plan to the command
+under `runtime.command`, with the two paths as its last two words, and
+records the answer on Deploy. A command that ends with code 0 took it; one that prints a
+JSON object may say `said` (its words) and `handle` (where the product
+answers). The reference runtime, `runtimes/folder.mjs`, copies both files
+into a folder, so the hand-off can be seen with no platform. With no runtime
+set, Deploy waits: "Hand this package to your runtime", with both paths.
 
 ## What milestone 1 does not do
 
-No board, no tracker, no repository host but GitHub, no teams
-or accounts, no deploy, no try-it, and agents only (no processes or general
-software). By default the build folder is a folder on this computer, and its
-path is in the Code stage's log; Code can be a pull request on GitHub instead
-(see [Code on a pull request](#code-on-a-pull-request)). The package's build
+No board, no tracker, no repository host but GitHub, no teams or accounts,
+nothing installed by Product Factory itself (Deploy hands the package to your
+runtime), no try-it, and agents only (no processes or general software). By
+default the build folder is a folder on this computer, and its path is in the
+Code stage's log; Code can be a pull request on GitHub instead (see
+[Code on a pull request](#code-on-a-pull-request)). The package's build
 record is unsigned.
 Role bindings in your lifecycle other than the reference agents are kept, and
 the build's log says when milestone 1 sent a stage to someone else instead.
@@ -97,7 +130,8 @@ an environment variable, and a value there is refused.
     "rounds": 3,
     "minutes": 30
   },
-  "package": { "packer": ["npx", "--yes", "@common-agent/package@0.1.0"] }
+  "package": { "packer": ["npx", "--yes", "@common-agent/package@0.1.0"] },
+  "runtime": { "command": ["node", "runtimes/folder.mjs", "--into", "./installed"] }
 }
 ```
 
@@ -115,6 +149,8 @@ an environment variable, and a value there is refused.
   names where (see [Code on a pull request](#code-on-a-pull-request)).
 - `package.packer`: the Common Agent packer, `common-agent-pack`, or any
   command that takes the same two command lines.
+- `runtime.command` (optional): the runtime you bring, given the package's
+  path and the run plan's path. It runs in the settings file's folder.
 
 ## Point it at your coding harness
 
@@ -343,9 +379,10 @@ Where milestone 1 differs from one of them:
   to Test on a pull request takes `[conflict]`, and the same answer passes the
   spec's gate again with the spec as approved; the test writer then revises
   the suite from your words. The run records both, in your words.
-- **The process runner.** A run that reaches Deploy closes with the outcome
-  `ended` and its open phases listed; the runner leaves the outcome's words
-  to whoever closes a run.
+- **The process runner.** The run asks the document's "approve the deploy"
+  gate. Once you say yes, the run closes with the outcome `ended` before
+  deploy-the-agent, with its open phases listed, and the package goes to your
+  runtime; the runner leaves the outcome's words to whoever closes a run.
 
 ## Tests
 

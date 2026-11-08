@@ -27,7 +27,7 @@ export const MODEL_VARS = { PF_T_MODEL_NAME: "stand-in-model", PF_T_MODEL_ENDPOI
  * A Product Factory with fake holders. doc: a lifecycle document to start from.
  * holder: "harness" or "code-writer". failRounds: how many harness rounds write the wrong code.
  */
-export async function factory({ doc = null, holder = "harness", rounds = 3, failRounds = 0, model = true, harness = true, github = null, review = undefined, history: withHistory = true } = {}) {
+export async function factory({ doc = null, holder = "harness", rounds = 3, failRounds = 0, model = true, harness = true, github = null, review = undefined, history: withHistory = true, runtime = null } = {}) {
   const dir = await tempDir("factory");
   const stubLog = join(dir, "harness-calls.jsonl");
   if (doc) await writeFile(join(dir, "lifecycle.json"), JSON.stringify(doc, null, 2));
@@ -42,6 +42,7 @@ export async function factory({ doc = null, holder = "harness", rounds = 3, fail
     ...(github ? { repository: { host: "github", repo: github.repo, token: "PF_T_GITHUB_TOKEN", api: github.url, poll_seconds: 3600 } } : {}),
     ...(review !== undefined ? { review } : {}),
     package: { packer: ["node", STUB_PACKER] },
+    ...(runtime ? { runtime } : {}),
   }, dir);
   const env = { ...process.env, ...(model ? MODEL_VARS : {}), PF_STUB_LOG: stubLog, PF_STUB_FAIL_ROUNDS: String(failRounds), ...(github ? { PF_T_GITHUB_TOKEN: github.token } : {}) };
   if (!model) for (const k of Object.keys(MODEL_VARS)) delete env[k];
