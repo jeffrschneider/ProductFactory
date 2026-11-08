@@ -275,13 +275,16 @@ Each notice carries a short JSON message:
 
 ```json
 { "build": "b_…", "name": "word-counter", "event": "waiting", "gate": "Approve the spec",
-  "waiting_on": "you", "stage": "requirements", "state": "waiting", "link": "…",
-  "text": "word-counter (b_…) waits on you at Requirements: Approve the spec." }
+  "waiting_on": "Ana Lee (ana@example.com) or an approver in the team Platform",
+  "stage": "requirements", "state": "waiting", "link": "…",
+  "text": "word-counter (b_…) waits at Requirements: Approve the spec. Who may answer: Ana Lee (ana@example.com) or an approver in the team Platform." }
 ```
 
 At the end `event` is `ended`, `state` is `done` or `stopped`, and `gate` is
-null. A build that is refused counts as waiting on you. `link` is the build's
-issue when it came from one, otherwise its address on the lifecycle API.
+null. `waiting_on` names the gate's approvers when the lifecycle names any
+(people and teams, from people.json), and otherwise says `anyone`. A build
+that is refused counts as waiting, and anyone may run it again. `link` is the
+build's issue when it came from one, otherwise its address on the lifecycle API.
 
 - `webhook` posts the message to the address in the environment variable
   `url_env` names (never the address itself). A Slack or Teams incoming
@@ -289,7 +292,12 @@ issue when it came from one, otherwise its address on the lifecycle API.
 - `command` runs the command, as a list of words and without a shell, with
   the message on stdin. Use it for email or anything else.
 
-A notice that fails is said in the build's log, and the build goes on.
+Each notice goes out once. Its key (a gate's wait at a stage and round, or the
+build's end) is kept in build.json under `notices` before it is sent, so a
+repeated save or a restart never sends it twice. A notice goes out once the
+build has stopped moving, so a run that ends at Package and goes straight on to
+your runtime is told only where it stops. A notice that fails is said in the
+build's log, and the build goes on.
 
 ## How a build is run
 

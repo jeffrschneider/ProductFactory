@@ -15,6 +15,7 @@ import { STAGE_IDS } from "../lib/standards.mjs";
 import { readConfig } from "../lib/config.mjs";
 
 const SINK = fileURLToPath(new URL("./fixtures/bin/notice-sink.mjs", import.meta.url));
+const RUNTIME = { command: ["node", fileURLToPath(new URL("../runtimes/folder.mjs", import.meta.url)), "--into", "./installed"] };
 const ok = (b) => assert.deepEqual(checkBuild({ build: b }, STAGE_IDS), []);
 const leftOut = { version: "0.1", organization: { used: { review: false, docs: false } } };
 
@@ -41,7 +42,7 @@ async function settled(f, id) {
 
 async function fromIssues(t) {
   const gh = await fakeGitHub();
-  const f = await factory({ doc: leftOut, github: gh, intake: { github_issues: { label: "product-factory", poll_seconds: 3600 } } });
+  const f = await factory({ doc: leftOut, runtime: RUNTIME, github: gh, intake: { github_issues: { label: "product-factory", poll_seconds: 3600 } } });
   t.after(async () => { await f.close(); await gh.close(); });
   return { gh, f };
 }
@@ -75,19 +76,23 @@ test("the build comments on its issue when a gate waits on a person and when it 
 
   let b = await settled(f, id);
   assert.equal(b.summary, "Waiting on you at Requirements");
-  assert.deepEqual(on(), [`Product Factory build \`${id}\` waits on Test Person at **Requirements**: Approve the spec.`]);
+  assert.deepEqual(on(), [`Product Factory build \`${id}\` waits at **Requirements**: Approve the spec. Who may answer: anyone.`]);
 
   await f.post(`/builds/${id}/actions/approve`);
   b = await settled(f, id);
   assert.equal(b.summary, "Waiting on you at Code");
-  assert.equal(on()[1], `Product Factory build \`${id}\` waits on Test Person at **Code**: OK the code.`);
+  assert.equal(on()[1], `Product Factory build \`${id}\` waits at **Code**: OK the code. Who may answer: anyone.`);
 
   await f.post(`/builds/${id}/actions/accept`);
   b = await settled(f, id);
+  assert.equal(on()[2], `Product Factory build \`${id}\` waits at **Deploy**: Approve the deploy. Who may answer: anyone.`);
+
+  await f.post(`/builds/${id}/actions/approve`);
+  b = await settled(f, id);
   ok(b);
-  assert.match(b.summary, /^Packed and validated/);
-  assert.equal(on().length, 3);
-  assert.match(on()[2], new RegExp(`^Product Factory build \`${id}\` ended \\(done\\): Packed and validated`));
+  assert.match(b.summary, /^Handed to your runtime/);
+  assert.equal(on().length, 4);
+  assert.match(on()[3], new RegExp(`^Product Factory build \`${id}\` ended \\(done\\): Handed to your runtime`));
 });
 
 test("the webhook and command notices are sent when a gate waits and when a build ends", async (t) => {
@@ -104,10 +109,10 @@ test("the webhook and command notices are sent when a gate waits and when a buil
   assert.match(first.type, /application\/json/);
   assert.equal(first.body.build, id);
   assert.equal(first.body.gate, "Approve the spec");
-  assert.equal(first.body.waiting_on, "Test Person");
+  assert.equal(first.body.waiting_on, "anyone", "the lifecycle names no approvers");
   assert.equal(first.body.event, "waiting");
   assert.ok("link" in first.body);
-  assert.equal(first.body.text, `word-counter (${id}) waits on Test Person at Requirements: Approve the spec.`, "Slack and Teams show the text field");
+  assert.equal(first.body.text, `word-counter (${id}) waits at Requirements: Approve the spec. Who may answer: anyone.`, "Slack and Teams show the text field");
 
   await f.post(`/builds/${id}/actions/stop`);
   await settled(f, id);
@@ -141,6 +146,51 @@ test("a notice that fails is said in the build's log and never stops the build",
   await f.post(`/builds/${id}/actions/approve`);
   const after = await settled(f, id);
   assert.equal(after.summary, "Waiting on you at Code", "the build went on");
+});
+
+test("waiting_on names the gate's approvers, people and teams, as the lifecycle names them", async (t) => {
+  const hook = await receiver();
+  const people = {
+    organization: "Example Org",
+    people: [{ name: "Ana Lee", email: "ana@example.com", role: "approver" }, { name: "Bo Diaz", email: "bo@example.com", role: "approver" }],
+    teams: [{ name: "Platform", members: ["bo@example.com"] }],
+    projects: [],
+  };
+  const doc = { version: "0.1", organization: { approvers: { requirements: [{ person: "ana@example.com" }, { team: "Platform" }] } } };
+  const f = await factory({ doc, people, notify: [{ kind: "webhook", url_env: "PF_T_HOOK" }], extraEnv: { PF_T_HOOK: hook.url } });
+  t.after(async () => { await f.close(); await hook.close(); });
+
+  const id = (await f.post("/builds", { does: "Count the words in a passage." })).json.build.id;
+  await settled(f, id);
+  assert.equal(hook.got.length, 1);
+  assert.equal(hook.got[0].body.waiting_on, "Ana Lee (ana@example.com) or an approver in the team Platform");
+  assert.ok(hook.got[0].body.text.endsWith("Who may answer: Ana Lee (ana@example.com) or an approver in the team Platform."));
+});
+
+test("each notice is sent once: a repeated save of the same wait or the same end sends nothing more", async (t) => {
+  const hook = await receiver();
+  const f = await factory({ notify: [{ kind: "webhook", url_env: "PF_T_HOOK" }], extraEnv: { PF_T_HOOK: hook.url } });
+  t.after(async () => { await f.close(); await hook.close(); });
+  const flip = async (id, to, back) => {
+    await f.store.update(id, (b) => { b.status = to; });
+    await f.store.update(id, (b) => { b.status = back; });
+    await f.notices.idle();
+  };
+
+  const id = (await f.post("/builds", { does: "Count the words in a passage." })).json.build.id;
+  await settled(f, id);
+  assert.equal(hook.got.length, 1);
+  await flip(id, "working", "waiting");
+  await flip(id, "working", "waiting");
+  assert.equal(hook.got.length, 1, "the same gate's wait at the same round is told once");
+  assert.deepEqual(f.store.read(id).notices, ["wait:requirements:1.1:Approve the spec"]);
+
+  await f.post(`/builds/${id}/actions/stop`);
+  await settled(f, id);
+  assert.equal(hook.got.length, 2);
+  await flip(id, "working", "stopped");
+  assert.equal(hook.got.length, 2, "the end is told once");
+  assert.deepEqual(f.store.read(id).notices, ["wait:requirements:1.1:Approve the spec", "end:stopped"]);
 });
 
 test("intake and notify are checked when the settings are read", () => {

@@ -74,13 +74,13 @@ async function main() {
   const person = localPerson();
   const history = createHistory({ store });
   let base;
-  const notices = createNotices({ config, store, person, linkOf: (r) => (base ? `${base}/v1/lifecycle/builds/${r.id}` : null) });
-  notices.watch();
   const runner = createRunner({ store, lifecycle, config, person });
   const people = createPeople({ file: peoplePath(config.lifecycle), keysFile: join(config.data, KEYS_FILE), lifecycle: lifecycle.file, serviceKey: key.value, admin: person });
   const peopleProblems = people.list().problems;
   if (peopleProblems.length) console.error(`People: ${peopleProblems.join(" ")}`);
   const service = createService({ store, lifecycle, runner, key: key.value, person, people, version: pkg.version, history });
+  const notices = createNotices({ config, store, people, settled: (id) => runner.idle(id), linkOf: (r) => (base ? `${base}/v1/lifecycle/builds/${r.id}` : null) });
+  notices.watch();
   const intake = createIssueIntake({ config, store, runner, log: (said) => console.log(said) });
   try { base = await service.listen(config.port); } catch (e) {
     console.error(e.code === "EADDRINUSE" ? `Port ${config.port} is in use. Set another "port" in ${config.file}, or give --port.` : e.message);
