@@ -12,7 +12,7 @@ import { factory, stageOf, actionNames } from "./helpers.mjs";
 import { fakeGitHub } from "./fixtures/fake-github.mjs";
 import { createKeys, KEYS_FILE } from "../lib/people.mjs";
 import { checkBuild } from "adlc-console/lib/contract.mjs";
-import { validate } from "../standards/lifecycle-api-check.mjs";
+import { validate, checkProducts, checkProduct, checkStageWorkspace, checkMessages, checkMessageReply } from "../standards/lifecycle-api-check.mjs";
 import { STAGE_IDS } from "../lib/standards.mjs";
 
 const BRANCH = "adlc/counter-0.1.0";
@@ -38,7 +38,12 @@ async function toCodeGate(f, gh, id) {
   return f.settled(id);
 }
 
-const ws = (f, id, stage) => f.get(`/builds/${id}/stages/${stage}`);
+/** A stage workspace, held to the lifecycle API 0.4 check against the build as it stands. */
+async function ws(f, id, stage) {
+  const got = await f.get(`/builds/${id}/stages/${stage}`);
+  if (got.status === 200) assert.deepEqual(checkStageWorkspace(got.json, STAGE_IDS, stage, (await f.get(`/builds/${id}`)).json), [], stage);
+  return got;
+}
 const say = (f, stage, text, extra = {}, call = f.call) => call("POST", `/products/counter/stages/${stage}/messages`, { text, ...extra });
 
 test("products, a product's builds and activity, and each stage's workspace, from a walked build", async (t) => {
@@ -47,6 +52,7 @@ test("products, a product's builds and activity, and each stage's workspace, fro
   // The product list: one product per build name, with its newest build.
   let list = await f.get("/products");
   assert.equal(list.status, 200);
+  assert.deepEqual(checkProducts(list.json), []);
   assert.deepEqual(list.json.products, [{ name: "counter", latest: { build: id, version: "0.1.0", state: "waiting_on_you", at: { stage: "requirements", state: "waiting_on_you", summary: "Waiting on you at Requirements" } }, versions: ["0.1.0"] }]);
 
   // Requirements: the gate is open, with the build's live actions and who may answer.
@@ -102,6 +108,7 @@ test("products, a product's builds and activity, and each stage's workspace, fro
 
   // The product: its builds, the newest run plan, and one line per stage event, newest first.
   const p = (await f.get("/products/counter")).json;
+  assert.deepEqual(checkProduct(p, "counter"), []);
   assert.deepEqual(p.builds.map((x) => [x.id, x.version, x.state]), [[id, "0.1.0", "waiting_on_you"]]);
   assert.equal(p.run_plan.build, id);
   assert.ok(p.run_plan.summary.stages.some((e) => e.stage === "monitor"));
@@ -130,6 +137,7 @@ test("the agent holding a stage answers a question from its outputs, and the cha
 
   const got = await say(f, "test", "What happens with an empty message?");
   assert.equal(got.status, 200);
+  assert.deepEqual(checkMessageReply(got.json, (await f.get(`/builds/${id}`)).json), []);
   const { message, reply } = got.json;
   assert.deepEqual({ ...message, id: "x", at: "x" }, { id: "x", at: "x", build: id, version: "0.1.0", from: { kind: "person", name: "Test Person", stage: "test" }, to: { role: "test-writer" }, text: "What happens with an empty message?" });
   assert.equal(reply.from.kind, "agent");
@@ -151,7 +159,9 @@ test("the agent holding a stage answers a question from its outputs, and the cha
   assert.deepEqual(after.stages, before.stages);
 
   // The chat at Test holds both; the chat at Requirements holds neither.
-  const chat = (await f.get("/products/counter/stages/test/messages")).json.messages;
+  const chatAnswer = (await f.get("/products/counter/stages/test/messages")).json;
+  assert.deepEqual(checkMessages(chatAnswer, "test"), []);
+  const chat = chatAnswer.messages;
   assert.deepEqual(chat.map((m) => [m.from.kind, m.build, m.version]), [["person", id, "0.1.0"], ["agent", id, "0.1.0"]]);
   assert.deepEqual((await f.get("/products/counter/stages/requirements/messages")).json.messages, []);
 
@@ -182,6 +192,7 @@ test("a change request proposes the stage's existing action with its needs fille
   // At Code's gate: the test writer proposes sending the build back to Test.
   await toCodeGate(f, gh, id);
   got = await say(f, "test", "Change the suite so an empty passage has no words.");
+  assert.deepEqual(checkMessageReply(got.json, (await f.get(`/builds/${id}`)).json), []);
   assert.deepEqual(got.json.reply.proposes, { action: "back_to_test", needs: { changes: "Change the suite so an empty passage has no words." } });
   // The spec is approved and Requirements offers nothing now: the spec writer says so and proposes nothing.
   got = await say(f, "requirements", "Change the name to tally.");

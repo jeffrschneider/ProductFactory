@@ -2,8 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/CommonAgent/adlc/main/standards/lifecycle-api.schema.json",
   "title": "The lifecycle API",
-  "version": "0.3",
-  "description": "What any service implementing the Agent Development Lifecycle answers, so that one client works against more than one service. Every request and answer is JSON, at the path /v1/lifecycle on the service. Times are ISO 8601 with a zone. Auth is Authorization: Bearer <key>, where the key is one the person makes for their own account, as the service says. A build lists the 24 stages of stages.json, one entry each, and a stage the service does not run is reported as not_offered. A client draws one button for each action the build offers, and nothing else. An organization chooses who holds each role of stages.json (the roles operations): the service's reference agent, its own agent, a contracted supplier, a person or an outside tool. A holder outside the service hands its evidence back in one of the open formats stages.json lists, and the service reads it onto the stage. An organization also chooses which stages its lifecycle uses (the stages operations), for the whole organization or for one project; when nothing is chosen every stage is used, and a build keeps the choice in effect when it started. The schema changes only by adding: a client ignores a field it does not know, and a service never removes or retypes one. Version 0.2 adds the roles operations, the evidence operation and new fields, and it also adds values to two lists, the holder's kinds and the stage's states; a client that does not know a state draws the stage as not_offered, and one that does not know a holder's kind shows the holder's name. Version 0.3 adds the stages operations, the state not_used, and the build's lifecycle field; a client that knows only 0.2 draws a not_used stage as not_offered. The operations list names the definition each request and answer must match; lifecycle-api-check.mjs checks a running service against it, together with the rules a schema cannot say.",
+  "version": "0.4",
+  "description": "What any service implementing the Agent Development Lifecycle answers, so that one client works against more than one service. Every request and answer is JSON, at the path /v1/lifecycle on the service. Times are ISO 8601 with a zone. Auth is Authorization: Bearer <key>, where the key is one the person makes for their own account, as the service says. A build lists the 24 stages of stages.json, one entry each, and a stage the service does not run is reported as not_offered. A client draws one button for each action the build offers, and nothing else. An organization chooses who holds each role of stages.json (the roles operations): the service's reference agent, its own agent, a contracted supplier, a person or an outside tool. A holder outside the service hands its evidence back in one of the open formats stages.json lists, and the service reads it onto the stage. An organization also chooses which stages its lifecycle uses (the stages operations), for the whole organization or for one project; when nothing is chosen every stage is used, and a build keeps the choice in effect when it started. The schema changes only by adding: a client ignores a field it does not know, and a service never removes or retypes one. Version 0.2 adds the roles operations, the evidence operation and new fields, and it also adds values to two lists, the holder's kinds and the stage's states; a client that does not know a state draws the stage as not_offered, and one that does not know a holder's kind shows the holder's name. Version 0.3 adds the stages operations, the state not_used, and the build's lifecycle field; a client that knows only 0.2 draws a not_used stage as not_offered. Version 0.4 adds products, stage workspaces, each stage's chat and the build's artifacts: a product is every build of one name, one build per version; each stage of a build is a workspace with what it was given, what it handed back as versioned artifacts, and its gate; and each stage has a chat with the agent holding it, kept per product per stage across builds. Answering in a chat changes nothing: a change the person asks for comes back as a proposal of the build's existing action, which the person takes with the actions operation, so a change always goes back through its gate. A client that knows only 0.3 ignores the artifacts field, and a service that does not offer the 0.4 operations answers them 404. The operations list names the definition each request and answer must match; lifecycle-api-check.mjs checks a running service against it, together with the rules a schema cannot say.",
   "basePath": "/v1/lifecycle",
   "operations": [
     { "method": "GET", "path": "/me", "answer": "#/$defs/MeAnswer", "does": "Who is asking, and the service's name." },
@@ -23,7 +23,12 @@
     { "method": "DELETE", "path": "/roles/{role}", "answer": "#/$defs/RolesAnswer", "does": "Remove the organization's binding of a role, or with ?project=<name> that project's, so the role falls back to the organization's binding, then to the service's reference agent, then to nobody. Added in 0.2." },
     { "method": "GET", "path": "/stages", "answer": "#/$defs/StagesAnswer", "does": "Every stage of stages.json, in its order, each saying whether the organization's lifecycle uses it, where that choice comes from, and whether this service can run its builds without it. With ?project=<name>, as a build started under that project would see them. When nothing is chosen, every stage is used. Added in 0.3." },
     { "method": "PUT", "path": "/stages/{stage}", "request": "#/$defs/StageChoiceRequest", "answer": "#/$defs/StagesAnswer", "does": "Choose whether the organization's lifecycle uses a stage, or with ?project=<name> whether that project's does. A build started later keeps the choice; a build already started does not change. It answers 400 for a stage stages.json does not name, or for used: false on a stage this service cannot leave out; 403 for a member who is not an admin of the organization; and 409 when the choice could not be saved. Added in 0.3." },
-    { "method": "DELETE", "path": "/stages/{stage}", "answer": "#/$defs/StagesAnswer", "does": "Remove the organization's choice for a stage, or with ?project=<name> that project's, so the stage falls back to the organization's choice, then to the default, which uses it. It answers 403 and 409 as PUT does. Added in 0.3." }
+    { "method": "DELETE", "path": "/stages/{stage}", "answer": "#/$defs/StagesAnswer", "does": "Remove the organization's choice for a stage, or with ?project=<name> that project's, so the stage falls back to the organization's choice, then to the default, which uses it. It answers 403 and 409 as PUT does. Added in 0.3." },
+    { "method": "GET", "path": "/products", "answer": "#/$defs/ProductsAnswer", "does": "Every product: the builds of one name, each product with its newest build and its versions. A product whose builds are all archived is left out unless the request adds ?archived=1. Added in 0.4." },
+    { "method": "GET", "path": "/products/{name}", "answer": "#/$defs/ProductAnswer", "does": "One product: its builds, newest first, the run plan of its newest build that has one, and a short activity feed, one line per stage event, newest first. It answers 404 for a name no build has. Added in 0.4." },
+    { "method": "GET", "path": "/builds/{id}/stages/{stage}", "answer": "#/$defs/StageWorkspace", "does": "One stage of a build as a workspace: what it was given (earlier stages' artifacts), what it handed back (its artifacts), what done means for it, and its gate. It answers 404 for a stage stages.json does not name. Added in 0.4." },
+    { "method": "GET", "path": "/products/{name}/stages/{stage}/messages", "answer": "#/$defs/MessagesAnswer", "does": "The chat with the agent holding a stage, across the product's builds, oldest first, each message naming the build and version it was said in. A gate is not a message: it is on the stage's workspace. Added in 0.4." },
+    { "method": "POST", "path": "/products/{name}/stages/{stage}/messages", "request": "#/$defs/MessageRequest", "answer": "#/$defs/MessageReplyAnswer", "does": "Say something to the agent holding a stage, on the product's newest build or the build named. The agent answers in words from the stage's outputs, what it was given and the build's record, and the person's message and the reply are kept. Answering changes nothing. When the person asks for a change, the reply proposes the build's existing action for it with its needs filled, only when the person may take that action now. Anyone who may read the build may post. It answers 400 in words for a stage the build's lifecycle leaves out or one held by a person, an outside tool or anyone the service cannot send messages to, and 409 when no agent can answer now, such as when the model is not set. Added in 0.4." }
   ],
   "errors": "#/$defs/ErrorAnswer",
   "$defs": {
@@ -165,7 +170,8 @@
             "at": { "$ref": "#/$defs/Time", "description": "When the build took the choice: when it started." }
           }
         },
-        "timeline": { "type": "array", "items": { "$ref": "#/$defs/TimelineBar" }, "description": "The build's run as one bar per step per round, ordered by start; empty when the service keeps no run for it. Steps that run at the same time keep their own bars, so overlaps show. Added in 0.1." }
+        "timeline": { "type": "array", "items": { "$ref": "#/$defs/TimelineBar" }, "description": "The build's run as one bar per step per round, ordered by start; empty when the service keeps no run for it. Steps that run at the same time keep their own bars, so overlaps show. Added in 0.1." },
+        "artifacts": { "type": "array", "items": { "$ref": "#/$defs/Artifact" }, "description": "What the build has made and will make, in stage order, only for stages its lifecycle uses. Added in 0.4." }
       }
     },
     "TimelineBar": {
@@ -471,6 +477,273 @@
     "WrongRequest": {
       "type": "object",
       "properties": { "why": { "$ref": "#/$defs/Words", "description": "Why the answer is wrong." } }
+    },
+
+    "ArtifactId": { "type": "string", "minLength": 1, "description": "An artifact's id, unique within its build, such as \"statement\" or \"suite\". Added in 0.4." },
+    "Artifact": {
+      "type": "object",
+      "required": ["id", "stage", "name", "by", "state", "kind"],
+      "description": "Something a build has made or will make: one per stage output. Added in 0.4.",
+      "properties": {
+        "id": { "$ref": "#/$defs/ArtifactId" },
+        "stage": { "$ref": "#/$defs/StageId", "description": "The stage that makes it." },
+        "name": { "$ref": "#/$defs/Words", "description": "Its name as a person reads it, such as \"Statement of the job\"." },
+        "by": { "$ref": "#/$defs/Words", "description": "Who makes it, in words: the holder's name." },
+        "state": {
+          "enum": ["made", "next", "later", "not_made", "not_run"],
+          "description": "made: it is there. next: the next one the build will make. later: the build will make it after that. not_made: its stage ran, or the build ended, and it was not made (summary.words says why). not_run: its stage is in the lifecycle and the service does not run it (summary.words says why)."
+        },
+        "kind": {
+          "enum": ["statement", "architecture", "suite", "programs", "findings", "security", "package", "build_record", "run_plan", "attestation", "agentdoc", "other"],
+          "description": "What it is, which says the shape of its summary. A client that does not know a kind reads summary.words, or the name."
+        },
+        "version": { "$ref": "#/$defs/Words", "description": "Which version of it, in words, such as \"v4\" or a short commit." },
+        "digest": { "$ref": "#/$defs/Words", "description": "Its digest, as sha256:<hex>, when it has one." },
+        "at": { "$ref": "#/$defs/Time", "description": "When it was made." },
+        "summary": {
+          "type": "object",
+          "description": "What it says, readable, never raw file content. The shape is the kind's: statement StatementSummary, suite SuiteSummary, programs ProgramsSummary, findings FindingsSummary, security SecuritySummary, package PackageSummary, run_plan RunPlanSummary, any other kind or any artifact not made WordsSummary."
+        },
+        "files": { "type": "array", "items": { "$ref": "#/$defs/File" }, "description": "The files it is, at links the service answers with the same key." }
+      }
+    },
+    "StatementSummary": {
+      "type": "object",
+      "required": ["agent", "offerings", "refuses", "records", "open"],
+      "description": "The statement of the job, from the agent's own files. Added in 0.4.",
+      "properties": {
+        "agent": { "$ref": "#/$defs/Words", "description": "The agent's name and version." },
+        "offerings": { "type": "array", "items": { "type": "object", "required": ["name", "does"], "properties": { "name": { "$ref": "#/$defs/Words" }, "does": { "$ref": "#/$defs/Words" } } } },
+        "refuses": { "type": "array", "items": { "$ref": "#/$defs/Words" } },
+        "records": { "type": "array", "items": { "$ref": "#/$defs/Words" } },
+        "price": { "$ref": "#/$defs/Words" },
+        "open": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "The questions the spec writer left for the person." }
+      }
+    },
+    "SuiteSummary": {
+      "type": "object",
+      "required": ["count", "tests"],
+      "description": "The suite. Added in 0.4.",
+      "properties": { "count": { "type": "integer", "minimum": 0 }, "tests": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "Each test's name, as written." } }
+    },
+    "ProgramsSummary": {
+      "type": "object",
+      "required": ["scripts"],
+      "description": "The programs Code wrote. Added in 0.4.",
+      "properties": {
+        "scripts": { "type": "array", "items": { "type": "object", "required": ["path", "lines"], "properties": { "path": { "$ref": "#/$defs/Words" }, "lines": { "type": "integer", "minimum": 0 }, "does": { "$ref": "#/$defs/Words", "description": "What the script says it does." } } } },
+        "commit": { "$ref": "#/$defs/Words", "description": "The commit they are from, short." },
+        "pr": { "type": "object", "required": ["number", "url"], "properties": { "number": { "type": "integer", "minimum": 1 }, "url": { "$ref": "#/$defs/Words" } }, "description": "The pull request they were written on." }
+      }
+    },
+    "FindingsSummary": {
+      "type": "object",
+      "required": ["open", "verdict"],
+      "description": "The code critic's findings. Added in 0.4.",
+      "properties": {
+        "open": { "type": "array", "items": { "type": "object", "required": ["place", "claim", "consequence"], "properties": { "place": { "$ref": "#/$defs/Words" }, "claim": { "$ref": "#/$defs/Words" }, "consequence": { "$ref": "#/$defs/Words" } } }, "description": "The findings still open, each to answer by a change or a reason." },
+        "verdict": { "$ref": "#/$defs/Words" },
+        "outside": { "type": "array", "items": { "type": "object", "required": ["place", "claim"], "properties": { "place": { "$ref": "#/$defs/Words" }, "claim": { "$ref": "#/$defs/Words" } } }, "description": "Notes outside the change, which hold nothing up." }
+      }
+    },
+    "SecuritySummary": {
+      "type": "object",
+      "required": ["reach", "spend", "never", "verdict"],
+      "description": "The security record. Added in 0.4.",
+      "properties": {
+        "reach": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "What the agent may reach, each with its access and reason." },
+        "spend": { "$ref": "#/$defs/Words", "description": "What it may spend." },
+        "never": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "What it must never do." },
+        "verdict": { "$ref": "#/$defs/Words" }
+      }
+    },
+    "PackageSummary": {
+      "type": "object",
+      "required": ["file", "validated"],
+      "description": "The package. Added in 0.4.",
+      "properties": { "file": { "$ref": "#/$defs/Words" }, "digest": { "$ref": "#/$defs/Words" }, "validated": { "type": "boolean" } }
+    },
+    "RunPlanSummary": {
+      "type": "object",
+      "required": ["stages"],
+      "description": "The run plan: for each stage after Package, who holds it. Added in 0.4.",
+      "properties": {
+        "stages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["stage", "holder", "settings", "reads"],
+            "properties": {
+              "stage": { "$ref": "#/$defs/StageId" },
+              "name": { "$ref": "#/$defs/Words" },
+              "holder": { "type": ["string", "null"], "description": "The holder's name; null when nobody holds the role." },
+              "settings": { "$ref": "#/$defs/Words", "description": "The holder's settings, in words." },
+              "reads": { "$ref": "#/$defs/Words", "description": "chosen, not chosen, or not used." }
+            }
+          }
+        }
+      }
+    },
+    "WordsSummary": {
+      "type": "object",
+      "required": ["words"],
+      "description": "Any other artifact, or one not made: what it is or why it is not there, in words. Added in 0.4.",
+      "properties": { "words": { "$ref": "#/$defs/Words" } }
+    },
+
+    "BuildState": {
+      "enum": ["working", "waiting_on_you", "refused", "stopped", "done"],
+      "description": "Where a build stands as a whole. Added in 0.4."
+    },
+    "ProductsAnswer": {
+      "type": "object",
+      "required": ["products"],
+      "description": "Every product. Added in 0.4.",
+      "properties": { "products": { "type": "array", "items": { "$ref": "#/$defs/ProductListItem" } } }
+    },
+    "ProductListItem": {
+      "type": "object",
+      "required": ["name", "latest", "versions"],
+      "properties": {
+        "name": { "$ref": "#/$defs/Words", "description": "The product's name: the name its builds share. Not a project, which is the lifecycle's team scope." },
+        "latest": {
+          "type": "object",
+          "required": ["build", "version", "state", "at"],
+          "description": "Its newest build.",
+          "properties": {
+            "build": { "$ref": "#/$defs/Words" },
+            "version": { "$ref": "#/$defs/Words" },
+            "state": { "$ref": "#/$defs/BuildState" },
+            "at": { "$ref": "#/$defs/BuildAt" }
+          }
+        },
+        "versions": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "Its versions, newest first." }
+      }
+    },
+    "BuildAt": {
+      "type": "object",
+      "required": ["stage", "state"],
+      "description": "The stage a build is at, as the build list's at. Added in 0.4.",
+      "properties": { "stage": { "$ref": "#/$defs/StageId" }, "state": { "$ref": "#/$defs/State" }, "summary": { "$ref": "#/$defs/Words" } }
+    },
+    "ProductAnswer": {
+      "type": "object",
+      "required": ["name", "builds", "activity"],
+      "description": "One product. Added in 0.4.",
+      "properties": {
+        "name": { "$ref": "#/$defs/Words" },
+        "builds": {
+          "type": "array",
+          "description": "Newest first.",
+          "items": {
+            "type": "object",
+            "required": ["id", "version", "state", "at"],
+            "properties": { "id": { "$ref": "#/$defs/Words" }, "version": { "$ref": "#/$defs/Words" }, "state": { "$ref": "#/$defs/BuildState" }, "at": { "$ref": "#/$defs/BuildAt" }, "created": { "$ref": "#/$defs/Time" } }
+          }
+        },
+        "run_plan": {
+          "type": "object",
+          "required": ["build", "version", "summary"],
+          "description": "The run plan of the newest build that has one.",
+          "properties": { "build": { "$ref": "#/$defs/Words" }, "version": { "$ref": "#/$defs/Words" }, "at": { "type": ["string", "null"] }, "summary": { "$ref": "#/$defs/RunPlanSummary" }, "files": { "type": "array", "items": { "$ref": "#/$defs/File" } } }
+        },
+        "activity": {
+          "type": "array",
+          "description": "One line per stage event, newest first: a short feed, not the chat.",
+          "items": {
+            "type": "object",
+            "required": ["at", "build", "stage", "words"],
+            "properties": { "at": { "$ref": "#/$defs/Time" }, "build": { "$ref": "#/$defs/Words" }, "version": { "$ref": "#/$defs/Words" }, "stage": { "$ref": "#/$defs/StageId" }, "words": { "$ref": "#/$defs/Words" } }
+          }
+        }
+      }
+    },
+    "StageWorkspace": {
+      "type": "object",
+      "required": ["stage", "state", "holder", "given", "outputs", "done_when"],
+      "description": "One stage of a build as a workspace. Added in 0.4.",
+      "properties": {
+        "stage": { "$ref": "#/$defs/StageId" },
+        "name": { "$ref": "#/$defs/Words", "description": "The stage's name in stages.json." },
+        "state": { "$ref": "#/$defs/State", "description": "The same as the build's stage." },
+        "holder": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/Holder" }] },
+        "given": { "type": "array", "items": { "$ref": "#/$defs/ArtifactId" }, "description": "The artifacts of earlier stages it was given, as ids in the build's artifacts, only those made." },
+        "outputs": { "type": "array", "items": { "$ref": "#/$defs/Artifact" }, "description": "The build's artifacts this stage makes." },
+        "done_when": { "$ref": "#/$defs/Words", "description": "What done means for the stage: its done_when in stages.json." },
+        "gate": { "$ref": "#/$defs/StageGate" }
+      }
+    },
+    "StageGate": {
+      "type": "object",
+      "required": ["actions", "state", "who_may"],
+      "description": "The last time the stage waited on a person, or waits now. Absent when it never has. Added in 0.4.",
+      "properties": {
+        "actions": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "Open: the names of the build's actions at this stage that this person may take now, so its buttons are the build's. Answered: the actions it offered." },
+        "state": { "enum": ["open", "answered"] },
+        "answered": {
+          "type": "object",
+          "required": ["by", "at", "action"],
+          "description": "Who answered it, when, and with which action. Absent on an open gate, and on one that closed without an answer (closed says why).",
+          "properties": { "by": { "$ref": "#/$defs/Words" }, "at": { "$ref": "#/$defs/Time" }, "action": { "$ref": "#/$defs/Words" } }
+        },
+        "closed": { "$ref": "#/$defs/Words", "description": "Why it closed without an answer, such as a newer push to the pull request." },
+        "who_may": { "$ref": "#/$defs/Words", "description": "Who may answer it, in words." }
+      }
+    },
+    "MessagesAnswer": {
+      "type": "object",
+      "required": ["messages"],
+      "description": "A stage's chat, oldest first. Added in 0.4.",
+      "properties": { "messages": { "type": "array", "items": { "$ref": "#/$defs/Message" } } }
+    },
+    "Message": {
+      "type": "object",
+      "required": ["id", "at", "build", "version", "from", "text"],
+      "description": "One message in a stage's chat. Added in 0.4.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Words" },
+        "at": { "$ref": "#/$defs/Time" },
+        "build": { "$ref": "#/$defs/Words", "description": "The build it was said in." },
+        "version": { "$ref": "#/$defs/Words", "description": "That build's version." },
+        "from": {
+          "type": "object",
+          "required": ["kind", "name", "stage"],
+          "properties": {
+            "kind": { "enum": ["person", "agent", "system"], "description": "system: the service itself, such as when the agent could not answer." },
+            "name": { "$ref": "#/$defs/Words" },
+            "role": { "$ref": "#/$defs/RoleId", "description": "The role an agent answers as." },
+            "stage": { "$ref": "#/$defs/StageId" }
+          }
+        },
+        "to": { "type": "object", "required": ["role"], "properties": { "role": { "$ref": "#/$defs/RoleId" } }, "description": "The role a person addressed." },
+        "text": { "$ref": "#/$defs/Words", "description": "Plain words." },
+        "attachments": { "type": "array", "items": { "$ref": "#/$defs/ArtifactId" } },
+        "proposes": { "$ref": "#/$defs/Proposal" }
+      }
+    },
+    "Proposal": {
+      "type": "object",
+      "required": ["action", "needs"],
+      "description": "A change the agent proposes: one of the build's existing actions, with its needs filled. The person takes it with the actions operation. Added in 0.4.",
+      "properties": {
+        "action": { "$ref": "#/$defs/Words", "description": "The action's name, one the build offers this person now." },
+        "needs": { "type": "object", "additionalProperties": { "type": "string" }, "description": "The action's request, one member per need." }
+      }
+    },
+    "MessageRequest": {
+      "type": "object",
+      "required": ["text"],
+      "description": "What the person says to the agent holding a stage. Added in 0.4.",
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "build": { "$ref": "#/$defs/Words", "description": "The build it is about; the product's newest when absent." }
+      }
+    },
+    "MessageReplyAnswer": {
+      "type": "object",
+      "required": ["message", "reply"],
+      "description": "The person's message as kept, and the reply. Added in 0.4.",
+      "properties": { "message": { "$ref": "#/$defs/Message" }, "reply": { "$ref": "#/$defs/Message" } }
     }
   }
 }

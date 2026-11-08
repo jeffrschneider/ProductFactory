@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Checks a running service against the lifecycle API (lifecycle-api.schema.json,
-// version 0.3): every answer against the schema, and the rules a schema cannot
+// version 0.4): every answer against the schema, and the rules a schema cannot
 // say. It only reads. It asks who the key belongs to, reads who holds each
 // role and which stages the lifecycle uses, lists the builds, reads each one, reads its tries, and opens the first
 // file each build handed back (every file with --all-files).
@@ -31,6 +31,19 @@
 //     project only when one was asked about;
 //   - a stage the service cannot leave out says why not, and is used;
 //   - a stage at the default is used.
+//
+// Version 0.4's answers are checked by the functions below (checkArtifacts,
+// checkProducts, checkProduct, checkStageWorkspace, checkMessages,
+// checkMessageReply), which a service's own tests and a client call; run()
+// reads the 0.3 operations, so a service that does not offer 0.4 still passes.
+// Their rules beyond the schema:
+//   - an artifact is made at a stage of stages.json, its id is used once in a
+//     build, and its summary has its kind's shape (WordsSummary when not made);
+//   - a stage workspace's outputs are artifacts of that stage, and what it was
+//     given are artifacts the build made;
+//   - an open gate's actions are actions the build offers at that stage;
+//   - a chat is oldest first, each message at the stage asked about, and a
+//     proposal names an action the build offers now.
 //
 //   node standards/lifecycle-api-check.mjs <base> [--key-file <path>] [--stages <path>] [--limit <n>] [--all-files]
 //
@@ -287,6 +300,97 @@ export function checkBuild(body, ids, id, roles) {
   (Array.isArray(b.actions) ? b.actions : []).forEach((a, i) => {
     if (isObj(a) && typeof a.stage === "string" && !offered.has(a.stage)) p.push(`body.build.actions[${i}]: "${a.name}" acts at ${a.stage}, a stage the build does not offer`);
   });
+  // The build's artifacts (added in 0.4).
+  if (Array.isArray(b.artifacts)) p.push(...checkArtifacts(b.artifacts, ids, "body.build.artifacts"));
+  return p;
+}
+
+// The summary's shape for each kind of artifact (added in 0.4).
+const SUMMARY_OF = { statement: "StatementSummary", suite: "SuiteSummary", programs: "ProgramsSummary", findings: "FindingsSummary", security: "SecuritySummary", package: "PackageSummary", run_plan: "RunPlanSummary" };
+
+/** A build's artifacts (added in 0.4): each at a stage of stages.json, each id once, each summary in its kind's shape. */
+export function checkArtifacts(list, ids, at = "body.artifacts") {
+  const p = [];
+  const seen = new Set();
+  (Array.isArray(list) ? list : []).forEach((a, i) => {
+    const here = `${at}[${i}]`;
+    p.push(...validate("Artifact", a, here));
+    if (!isObj(a)) return;
+    if (typeof a.stage === "string" && !ids.includes(a.stage)) p.push(`${here}.stage: "${a.stage}" is not a stage in stages.json`);
+    if (seen.has(a.id)) p.push(`${here}.id: "${a.id}" is used twice`);
+    seen.add(a.id);
+    if (isObj(a.summary)) {
+      const def = a.state === "made" ? SUMMARY_OF[a.kind] ?? "WordsSummary" : "WordsSummary";
+      if (a.state === "made" || a.state === "not_made" || a.state === "not_run") p.push(...validate(def, a.summary, `${here}.summary`));
+    } else if (a.state === "not_made" || a.state === "not_run") p.push(`${here}: is ${a.state}, so its summary says why in words`);
+  });
+  return p;
+}
+
+/** GET /products (added in 0.4). */
+export function checkProducts(body) {
+  const p = validate("ProductsAnswer", body);
+  const names = (isObj(body) && Array.isArray(body.products) ? body.products : []).map((x) => x?.name);
+  for (const n of new Set(names)) if (names.filter((x) => x === n).length > 1) p.push(`body.products: "${n}" appears more than once`);
+  return p;
+}
+
+/** GET /products/{name} (added in 0.4): the product asked for, its activity newest first. */
+export function checkProduct(body, name) {
+  const p = validate("ProductAnswer", body);
+  if (!isObj(body)) return p;
+  if (name !== undefined && body.name !== name) p.push(`body.name: is ${JSON.stringify(body.name)}, not the product asked for (${name})`);
+  (Array.isArray(body.activity) ? body.activity : []).forEach((e, i, all) => {
+    if (i > 0 && isObj(e) && isObj(all[i - 1]) && Date.parse(all[i - 1].at) < Date.parse(e.at)) p.push(`body.activity[${i}]: the feed is newest first, and this line is newer than the one above it`);
+  });
+  return p;
+}
+
+/**
+ * GET /builds/{id}/stages/{stage} (added in 0.4). build: the build's answer
+ * ({ build }), when the caller has it, to hold the workspace to it.
+ */
+export function checkStageWorkspace(body, ids, stage, build) {
+  const p = validate("StageWorkspace", body);
+  if (!isObj(body)) return p;
+  if (stage !== undefined && body.stage !== stage) p.push(`body.stage: is ${JSON.stringify(body.stage)}, not the stage asked for (${stage})`);
+  if (Array.isArray(body.outputs)) {
+    p.push(...checkArtifacts(body.outputs, ids, "body.outputs"));
+    body.outputs.forEach((a, i) => { if (isObj(a) && a.stage !== body.stage) p.push(`body.outputs[${i}]: is made at ${a.stage}, not at ${body.stage}`); });
+  }
+  const b = isObj(build) ? build.build : null;
+  if (isObj(b)) {
+    const made = new Set((Array.isArray(b.artifacts) ? b.artifacts : []).filter((a) => isObj(a) && a.state === "made").map((a) => a.id));
+    (Array.isArray(body.given) ? body.given : []).forEach((id, i) => { if (!made.has(id)) p.push(`body.given[${i}]: "${id}" is not an artifact the build made`); });
+    if (isObj(body.gate) && body.gate.state === "open" && Array.isArray(body.gate.actions)) {
+      const offered = new Set((Array.isArray(b.actions) ? b.actions : []).filter((a) => isObj(a) && a.stage === body.stage).map((a) => a.name));
+      body.gate.actions.forEach((n, i) => { if (!offered.has(n)) p.push(`body.gate.actions[${i}]: "${n}" is not an action the build offers at ${body.stage}`); });
+    }
+  }
+  return p;
+}
+
+/** GET /products/{name}/stages/{stage}/messages (added in 0.4): oldest first, each at the stage asked about. */
+export function checkMessages(body, stage) {
+  const p = validate("MessagesAnswer", body);
+  (isObj(body) && Array.isArray(body.messages) ? body.messages : []).forEach((m, i, all) => {
+    if (!isObj(m)) return;
+    if (i > 0 && isObj(all[i - 1]) && Date.parse(all[i - 1].at) > Date.parse(m.at)) p.push(`body.messages[${i}]: the chat is oldest first, and this message is older than the one above it`);
+    if (stage !== undefined && isObj(m.from) && m.from.stage !== stage) p.push(`body.messages[${i}].from.stage: is ${JSON.stringify(m.from.stage)}, not the stage asked about (${stage})`);
+  });
+  return p;
+}
+
+/** POST /products/{name}/stages/{stage}/messages (added in 0.4). build: the build's answer, to hold a proposal to its actions. */
+export function checkMessageReply(body, build) {
+  const p = validate("MessageReplyAnswer", body);
+  const prop = isObj(body) && isObj(body.reply) && isObj(body.reply.proposes) ? body.reply.proposes : null;
+  const b = isObj(build) ? build.build : null;
+  if (prop && isObj(b)) {
+    const action = (Array.isArray(b.actions) ? b.actions : []).find((a) => isObj(a) && a.name === prop.action);
+    if (!action) p.push(`body.reply.proposes.action: "${prop.action}" is not an action the build offers now`);
+    else for (const n of action.needs ?? []) if (isObj(n) && !n.optional && !(n.name in (prop.needs ?? {}))) p.push(`body.reply.proposes.needs: has no ${n.name}, which "${prop.action}" needs`);
+  }
   return p;
 }
 
