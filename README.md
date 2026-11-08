@@ -10,7 +10,7 @@ with only open-source pieces. [BUILD.md](BUILD.md) lists the milestones after it
 ## What milestone 1 does
 
 `npx product-factory` starts a small service on `127.0.0.1`. It answers the
-lifecycle API (version 0.4.1) that the [adlc console](https://github.com/CommonAgent/adlc-console)
+lifecycle API (version 0.4.2) that the [adlc console](https://github.com/CommonAgent/adlc-console)
 reads, so the console shows your builds and lets you act at your gates. The
 same command starts the console against it and opens it in your browser. It
 keeps everything in files: the lifecycle document and one folder per build.
@@ -406,6 +406,36 @@ action now. You confirm it with the action, so a change always goes back
 through its gate. A stage held by a person, an outside tool, or your own
 coding harness is not answered here, and the reply says so.
 
+## Cadence: every build, set up once, when needed
+
+stages.json 1.3.0 gives each stage a cadence, and every stage of a build and
+of each stage workspace carries it (`cadence`):
+
+- **Every build**, the routine: Requirements, Test, Code, Review, Security
+  review, Package, Release, Deploy, Conformance, Acceptance and Docs. These are
+  a build's steps. Review and Security review run inside Code's gate when Code
+  is on a pull request, and their stages say what the gate's reviewers said on
+  the commit Code's work is from: done, or refused with the reviewer's words,
+  one round per push they read. The findings and the security record are their
+  outputs. A reviewer the gate did not ask says why. With Code held on this
+  computer, the suite is the gate and they are not asked.
+- **Set up once** per product: Source, Architecture and Design, Publish,
+  Monitor, Eval, Incident response, Cost and Update. Who holds each, and with
+  what settings, comes from the lifecycle and is carried forward. A new
+  version whose holder and settings for one of them are the same as an earlier
+  version's reads "Unchanged since 0.1.0" (`carried`), so nothing is asked
+  again. Changing a holder or its settings holds from the next version.
+- **When needed**, actions on the product: Impact, Retract, Reconfigure,
+  Rollback and Decommission. Product Factory runs none of them yet, so each
+  says why.
+
+`GET /v1/lifecycle/products/<name>` lists both: `setup`, each setup stage with
+its role, its holder or null, its settings, `chosen`, `not_chosen` or
+`not_used`, and the version it has held since (null when it holds from the
+next version), as the lifecycle of the newest build's project has it now; and
+`when_needed`, each action with `can_run` and, when it cannot run, `why_not`.
+A holder is chosen with `PUT /v1/lifecycle/roles/<role>`.
+
 ## The boss
 
 Each product has a boss: the agent you talk to about the whole product,
@@ -557,7 +587,7 @@ and look the person up in `people.json` by its email.
 
 ## Standards it uses
 
-- Lifecycle API 0.4.1 and stages.json 1.2.0 (CommonAgent/adlc, copies in `standards/`).
+- Lifecycle API 0.4.2 and stages.json 1.3.0 (CommonAgent/adlc, copies in `standards/`).
 - The lifecycle document 0.1, through the adlc console's store, with `approvers`
   (CommonAgent/adlc#121). The console's store checks each entry's shape, so a
   wrong entry makes the file invalid, named in words, like any other wrong
