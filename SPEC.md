@@ -123,9 +123,16 @@ done when, asset, build, process, step, orchestrator. Two more:
 - Each card shows what is waiting and on whom. A filter shows only the builds
   waiting on me.
 
-### 5.6 Analytics
+### 5.6 Dashboard and analytics
 
-Read from the build records, never estimated:
+**Dashboard (now):** a light view of the current builds: median time per
+stage, how often work is sent back per stage, and what is waiting right now
+on a person or an agent.
+
+**Analytics (later):** questions over time, from a queryable history the
+factory keeps beside the build files (an SQLite file through Node's built-in
+`node:sqlite`; no server, no dependency). The word analytics is used only
+once that exists. It answers, never estimated:
 
 - Time per stage and per build, and where builds wait longest.
 - Rounds per stage, and how often work is sent back.
@@ -156,7 +163,7 @@ Read from the build records, never estimated:
 
 | Part | What it does | Status |
 |---|---|---|
-| Console | The page people use: lifecycles, builds, gates, board, analytics | Open source, github.com/CommonAgent/adlc-console; lifecycles and builds exist, board and analytics to build |
+| Console | The page people use: lifecycles, builds, gates, board, dashboard, analytics | Open source, github.com/CommonAgent/adlc-console; lifecycles, builds and board exist, dashboard in progress, analytics later |
 | Lifecycle API | What any factory service answers, so the console and other tools can read builds and act at gates | Published at agenticdevelopment.ai/api.html (0.3 in review) |
 | Lifecycle store | Lifecycles and build records | Files, per the lifecycle document schema |
 | Orchestrator | Runs each build as a process document | An open-source orchestrator ships with Product Factory; any Agent Processes orchestrator can replace it |

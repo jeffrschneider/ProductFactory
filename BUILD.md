@@ -10,9 +10,16 @@ per build, placed by the stage it is at. Each card says what is waiting and
 on whom, with a filter for the builds waiting on me. Built in the console,
 read from the same lifecycle API.
 
+## Dashboard
+
+A light view of the current builds: median time per stage, send-backs per
+stage, and what is waiting now on a person or an agent. Built in the console
+from the lifecycle API. Not called analytics.
+
 ## Analytics
 
-Read from the build records, never estimated: time per stage and per build,
+Questions over time, from an SQLite history the factory keeps beside the
+build files (`node:sqlite`, built into Node). Never estimated: time per stage and per build,
 where builds wait longest, rounds per stage and how often work is sent back,
 spend where holders report it, and how each holder performs.
 
