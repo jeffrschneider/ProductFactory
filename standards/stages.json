@@ -1,6 +1,6 @@
 {
-  "version": "1.2.0",
-  "about": "The 24 stages of the reference Agent Development Lifecycle, in order, in seven phases, as written on https://agenticdevelopment.ai/stages.html (the assets each stage makes are from https://agenticdevelopment.ai/assets.html). The site, the auditor and the console read this file; the site's tools/check-stages.mjs fails when the page and this file differ. Each stage: its role, the reference agent that holds it (null where none does; reference_holders lists every reference agent on its card), what it is given, what it hands back, when it is done, the asset it makes (assets lists every one), and person_gate, true where a person approves or decides at that stage. A list in a field is written as lines starting with \"- \". aliases are older names for a stage that still point at it. roles lists the lifecycle roles of https://agentroles.ai: each role's id, its name, its contract (the role's page), the offering an agent holding it answers (role-<id>), the stages it holds, and the agent in this repository that holds it for reference (null where none does). Each stage's role_ids names the roles that hold it. An organization may bind each role to the reference agent, its own agent, a contracted supplier, a person or an outside tool; the requester is always the person who asked. evidence_formats lists the open formats a holder outside the service may hand its evidence back in, and what each is read for. A change here is a new version.",
+  "version": "1.3.0",
+  "about": "The 24 stages of the reference Agent Development Lifecycle, in order, in seven phases, as written on https://agenticdevelopment.ai/stages.html (the assets each stage makes are from https://agenticdevelopment.ai/assets.html). The site, the auditor and the console read this file; the site's tools/check-stages.mjs fails when the page and this file differ. Each stage: its role, the reference agent that holds it (null where none does; reference_holders lists every reference agent on its card), what it is given, what it hands back, when it is done, the asset it makes (assets lists every one), and person_gate, true where a person approves or decides at that stage. A list in a field is written as lines starting with \"- \". aliases are older names for a stage that still point at it. roles lists the lifecycle roles of https://agentroles.ai: each role's id, its name, its contract (the role's page), the offering an agent holding it answers (role-<id>), the stages it holds, and the agent in this repository that holds it for reference (null where none does). Each stage's role_ids names the roles that hold it. An organization may bind each role to the reference agent, its own agent, a contracted supplier, a person or an outside tool; the requester is always the person who asked. evidence_formats lists the open formats a holder outside the service may hand its evidence back in, and what each is read for. Each stage also has a cadence (added in 1.3.0), one of the ids in cadences: every_build, a stage that runs on every build of a product (the routine); setup, a stage set up once per product, whose holder and settings are carried forward to each later version until someone changes them; or when_needed, an action on the product run when something happens, not as part of a build. A change here is a new version.",
   "phases": [
     {
       "id": "define",
@@ -29,6 +29,23 @@
     {
       "id": "change",
       "name": "Change"
+    }
+  ],
+  "cadences": [
+    {
+      "id": "every_build",
+      "name": "Every build",
+      "about": "The routine: the stage runs on every build of the product, for each new version."
+    },
+    {
+      "id": "setup",
+      "name": "Set up once",
+      "about": "Set up once per product: who holds the stage and with what settings is chosen once and carried forward to each later version until someone changes it."
+    },
+    {
+      "id": "when_needed",
+      "name": "When needed",
+      "about": "An action on the product, run when something happens, not as part of a build."
     }
   ],
   "roles": [
@@ -286,6 +303,7 @@
       "done_when": "a package could be built from it, and nothing unsettled was invented",
       "asset": "Statement of the job",
       "person_gate": true,
+      "cadence": "every_build",
       "why": "Whoever builds from it can't ask what you meant, so it says everything, and never invents a name, a price or a permission.",
       "reference_holders": [
         "spec-writer",
@@ -313,6 +331,7 @@
       "done_when": "every system is named and bound in each environment it will run in, every decision has a reason, and every design step uses only systems the architecture named",
       "asset": "Architecture record",
       "person_gate": false,
+      "cadence": "setup",
       "why": "The systems named here become the package's runtime requirements, and the bindings are what Deploy places.",
       "reference_holders": [
         "spec-writer",
@@ -355,6 +374,7 @@
       "done_when": "every dependent is named and answered, and the person approves before anything is built",
       "asset": "Impact report",
       "person_gate": true,
+      "cadence": "when_needed",
       "why": "A change that's safe for its owner can break everyone who depends on it.",
       "reference_holders": [],
       "assets": [
@@ -377,6 +397,7 @@
       "done_when": "every step has an answer, and every \"build one\" says why",
       "asset": "Catalog answers",
       "person_gate": false,
+      "cadence": "setup",
       "why": "The cheapest step is one somebody already built and checked.",
       "reference_holders": [
         "catalog"
@@ -401,6 +422,7 @@
       "done_when": "the suite fails against empty stand-ins, and notices each program removed",
       "asset": "Test suite",
       "person_gate": false,
+      "cadence": "every_build",
       "why": "Tests come before the program, from the statement, so a test can't pass by agreeing with a mistake. (Yes, people argue about this.)",
       "reference_holders": [
         "test-writer"
@@ -425,6 +447,7 @@
       "done_when": "the suite passes, each program removed is noticed, and the tests and statement are unchanged",
       "asset": "Code",
       "person_gate": true,
+      "cadence": "every_build",
       "why": "Any code writer can hold it; your prototype is read as the spec and written again against the suite.",
       "reference_holders": [
         "code-writer"
@@ -449,6 +472,7 @@
       "done_when": "every finding is answered, by a change or a reason",
       "asset": "Review findings",
       "person_gate": false,
+      "cadence": "every_build",
       "why": "A review is already an artifact everywhere else: findings you can answer.",
       "reference_holders": [],
       "assets": [
@@ -471,6 +495,7 @@
       "done_when": "every permission asked for has a recorded reason",
       "asset": "Security statement",
       "person_gate": false,
+      "cadence": "every_build",
       "why": "The blast radius is set before the credentials are given, not after.",
       "reference_holders": [],
       "assets": [
@@ -493,6 +518,7 @@
       "done_when": "the declaration validates and matches the runtime requirements, and every program in the package is listed in its manifest",
       "asset": "The package",
       "person_gate": false,
+      "cadence": "every_build",
       "why": "Your work becomes an Agent Package, the easy way onto the mesh. Any tool works if the package is valid.",
       "reference_holders": [
         "package-maker"
@@ -519,6 +545,7 @@
       "done_when": "the digest at the address matches the record, and the record verifies",
       "asset": "Signed build record",
       "person_gate": false,
+      "cadence": "every_build",
       "why": "The signed record is why anyone downstream can trust the bytes.",
       "reference_holders": [
         "package-maker"
@@ -543,6 +570,7 @@
       "done_when": "nothing asked for is missing, no secret appeared, a message gets an answer, and the record is signed",
       "asset": "Signed Descriptor and registration",
       "person_gate": true,
+      "cadence": "every_build",
       "why": "There's never a moment when the agent is live without its credentials and limits; secrets are named, never carried.",
       "reference_holders": [
         "deployment-manager"
@@ -570,6 +598,7 @@
       "done_when": "every case from the declaration ran, the verdict is signed, and the attestation names the version, the check list and who attested",
       "asset": "Conformance verdict",
       "person_gate": false,
+      "cadence": "every_build",
       "why": "It checks the agent keeps its promises, not that the promises were right; that's Eval.",
       "reference_holders": [
         "conformance-checker"
@@ -595,6 +624,7 @@
       "done_when": "the answer is recorded with who and when, and the request closes",
       "asset": "Acceptance",
       "person_gate": true,
+      "cadence": "every_build",
       "why": "Only the person who asked can say it's what they wanted.",
       "reference_holders": [],
       "assets": [
@@ -618,6 +648,7 @@
       "done_when": "nothing in the AgentDoc was authored, and every silence shows",
       "asset": "AgentDoc",
       "person_gate": false,
+      "cadence": "every_build",
       "why": "The AgentDoc is gathered from what the agent declares, not written, so it can only say what its sources say.",
       "reference_holders": [
         "documenter"
@@ -642,6 +673,7 @@
       "done_when": "the address resolves and serves what the digest says",
       "asset": "Published address",
       "person_gate": true,
+      "cadence": "setup",
       "why": "The stage where a deliverable becomes public.",
       "reference_holders": [
         "publisher"
@@ -666,6 +698,7 @@
       "done_when": "the address reads back empty, and the record says why",
       "asset": "Retraction record",
       "person_gate": true,
+      "cadence": "when_needed",
       "why": "Only whoever published something may take it down.",
       "reference_holders": [],
       "assets": [
@@ -688,6 +721,7 @@
       "done_when": "each agent has a current answer or an open alert",
       "asset": null,
       "person_gate": false,
+      "cadence": "setup",
       "why": "A process being up says almost nothing; liveness is measured by an answer.",
       "reference_holders": [],
       "assets": [],
@@ -708,6 +742,7 @@
       "done_when": "every piece is graded, and the standard predates the work",
       "asset": "Graded judgments",
       "person_gate": false,
+      "cadence": "setup",
       "why": "Conformance says it answers; eval says whether the answer was any good.",
       "reference_holders": [],
       "assets": [
@@ -730,6 +765,7 @@
       "done_when": "every fact names its source, and every gap is marked",
       "asset": "Incident records",
       "person_gate": true,
+      "cadence": "setup",
       "why": "Record what happened, guess nothing, fix nothing; deciding stays with a person.",
       "reference_holders": [
         "incident-recorder"
@@ -754,6 +790,7 @@
       "done_when": "every spend traces to a job, and the total reconciles",
       "asset": "Receipts, usage and cost",
       "person_gate": false,
+      "cadence": "setup",
       "why": "Ceilings are the easy half; the view across everything is the hard one.",
       "reference_holders": [],
       "assets": [
@@ -776,6 +813,7 @@
       "done_when": "the candidate passed before the promote, the identity and address are unchanged, and the old version's attestations are marked stale until the new version is attested",
       "asset": "Change records",
       "person_gate": false,
+      "cadence": "setup",
       "why": "New version, same identity: candidate first, then prove, then promote.",
       "reference_holders": [
         "deployment-manager"
@@ -800,6 +838,7 @@
       "done_when": "the change is in place, no secret appeared, and the agent still answers",
       "asset": "Change records",
       "person_gate": false,
+      "cadence": "when_needed",
       "why": "New settings, credentials or ceilings, same version.",
       "reference_holders": [
         "deployment-manager"
@@ -824,6 +863,7 @@
       "done_when": "it answers on the old version, and the side effects are named",
       "asset": "Change records",
       "person_gate": false,
+      "cadence": "when_needed",
       "why": "Moving the code back is easy; undoing what the bad version did is not.",
       "reference_holders": [],
       "assets": [
@@ -846,6 +886,7 @@
       "done_when": "no work is stranded, the records are kept, and the address is never reused",
       "asset": "Decommission record",
       "person_gate": true,
+      "cadence": "when_needed",
       "why": "This is retiring an agent: the address stops answering rather than answering wrongly.",
       "reference_holders": [
         "deployment-manager"

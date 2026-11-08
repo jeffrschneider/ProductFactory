@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Checks a running service against the lifecycle API (lifecycle-api.schema.json,
-// version 0.4.1): every answer against the schema, and the rules a schema cannot
+// version 0.4.2): every answer against the schema, and the rules a schema cannot
 // say. It only reads. It asks who the key belongs to, reads who holds each
 // role and which stages the lifecycle uses, lists the builds, reads each one, reads its tries, and opens the first
 // file each build handed back (every file with --all-files).
@@ -56,7 +56,19 @@
 //   - commitments are oldest first; a route or a drop names the stage and the
 //     message posted there, a proposal carries the person's answer, and a
 //     started build carries the confirmation it was started on.
-//
+// Version 0.4.2 adds each stage's cadence (stages.json 1.3.0), carried, and a
+// product's setup and when_needed lists. Their rules beyond the schema, held by
+// checkBuild, checkStageWorkspace and checkProduct against the stages.json
+// beside this file (or the cadences a caller passes):
+//   - a stage's cadence, when given, is its cadence in stages.json;
+//   - carried is only on a setup stage;
+//   - setup lists every setup stage once, in stages.json's order, and no other,
+//     each with one of its own roles; a chosen one names its holder, and one
+//     not chosen or not used names none and no since; a since is a version of
+//     one of the product's builds;
+//   - when_needed lists every when_needed stage once, in order, and no other;
+//     one the service cannot run says why, and one it can run names the action
+//     that runs it.//
 //   node standards/lifecycle-api-check.mjs <base> [--key-file <path>] [--stages <path>] [--limit <n>] [--all-files]
 //
 //   <base>        the service's lifecycle address, e.g. https://example.com/v1/lifecycle/
@@ -134,6 +146,21 @@ export function stageFacts(path = join(HERE, "stages.json")) {
   return JSON.parse(readFileSync(path, "utf8")).stages.map((s) => ({ id: s.id, name: s.name, phase: s.phase, role_ids: s.role_ids ?? [] }));
 }
 
+/** Each stage's cadence in a stages.json, by id (added in 1.3.0); empty for an older file. */
+export function stageCadences(path = join(HERE, "stages.json")) {
+  return Object.fromEntries(JSON.parse(readFileSync(path, "utf8")).stages.filter((s) => typeof s.cadence === "string").map((s) => [s.id, s.cadence]));
+}
+let cadencesBeside = null;
+const CADENCES = () => (cadencesBeside ??= stageCadences());
+const ofCadence = (cadences, c) => Object.keys(cadences).filter((id) => cadences[id] === c);
+
+/** A stage's cadence and carried (added in 0.4.2), held to stages.json. */
+function cadenceRules(s, at, cadences, p) {
+  if (!isObj(s)) return;
+  const want = cadences[s.stage];
+  if (s.cadence !== undefined && want !== undefined && s.cadence !== want) p.push(`${at}.cadence: is ${JSON.stringify(s.cadence)}, but stages.json gives ${s.stage} the cadence ${want}`);
+  if (s.carried !== undefined && want !== undefined && want !== "setup") p.push(`${at}.carried: ${s.stage} is not set up once (its cadence is ${want}), so nothing is carried forward`);
+}
 /** The roles of a stages.json, and the roles that hold each stage (added in 1.1.0). */
 export function stageRoles(path = join(HERE, "stages.json")) {
   const d = JSON.parse(readFileSync(path, "utf8"));
@@ -261,7 +288,7 @@ export function checkBuildList(body, ids) {
  * One build. Given roles ({ unbound, byStage }), a not_bound stage is checked
  * against the roles answer for the build's project.
  */
-export function checkBuild(body, ids, id, roles) {
+export function checkBuild(body, ids, id, roles, cadences = CADENCES()) {
   const p = validate("BuildAnswer", body);
   const b = isObj(body) ? body.build : null;
   if (!isObj(b)) return p;
@@ -312,7 +339,8 @@ export function checkBuild(body, ids, id, roles) {
   (Array.isArray(b.actions) ? b.actions : []).forEach((a, i) => {
     if (isObj(a) && typeof a.stage === "string" && !offered.has(a.stage)) p.push(`body.build.actions[${i}]: "${a.name}" acts at ${a.stage}, a stage the build does not offer`);
   });
-  // The build's artifacts (added in 0.4).
+  // Each stage's cadence (added in 0.4.2).
+  stages.forEach((s, i) => cadenceRules(s, `body.build.stages[${i}]`, cadences, p));  // The build's artifacts (added in 0.4).
   if (Array.isArray(b.artifacts)) p.push(...checkArtifacts(b.artifacts, ids, "body.build.artifacts"));
   return p;
 }
@@ -347,25 +375,54 @@ export function checkProducts(body) {
   return p;
 }
 
-/** GET /products/{name} (added in 0.4): the product asked for, its activity newest first. */
-export function checkProduct(body, name) {
+/** GET /products/{name} (added in 0.4): the product asked for, its activity newest first; from 0.4.2 its setup and when_needed lists. */
+export function checkProduct(body, name, cadences = CADENCES(), roles = stageRoles()) {
   const p = validate("ProductAnswer", body);
   if (!isObj(body)) return p;
   if (name !== undefined && body.name !== name) p.push(`body.name: is ${JSON.stringify(body.name)}, not the product asked for (${name})`);
   (Array.isArray(body.activity) ? body.activity : []).forEach((e, i, all) => {
     if (i > 0 && isObj(e) && isObj(all[i - 1]) && Date.parse(all[i - 1].at) < Date.parse(e.at)) p.push(`body.activity[${i}]: the feed is newest first, and this line is newer than the one above it`);
   });
-  return p;
+  // The setup and when_needed lists (added in 0.4.2).
+  const versions = new Set((Array.isArray(body.builds) ? body.builds : []).filter(isObj).map((b) => b.version));
+  const inOrder = (key, cadence) => {
+    if (!Array.isArray(body[key])) return [];
+    const items = body[key].filter(isObj);
+    const want = ofCadence(cadences, cadence);
+    const got = items.map((x) => x.stage);
+    if (want.length && JSON.stringify(got) !== JSON.stringify(want)) p.push(`body.${key}: lists ${got.join(", ") || "nothing"}, not stages.json's ${cadence} stages in order (${want.join(", ")})`);
+    return items;
+  };
+  inOrder("setup", "setup").forEach((x, i) => {
+    const at = `body.setup[${i}]`;
+    const own = roles?.byStage?.[x.stage];
+    if (own && typeof x.role === "string" && !own.includes(x.role)) p.push(`${at}.role: ${x.role} does not hold ${x.stage} in stages.json`);
+    if (x.state === "chosen" && !isObj(x.holder)) p.push(`${at}: is chosen, so it names its holder`);
+    if (x.state !== "chosen" && x.holder !== null && x.holder !== undefined) p.push(`${at}: is ${x.state}, so nobody holds it, but it names a holder`);
+    if (x.state !== "chosen" && x.since !== null && x.since !== undefined) p.push(`${at}.since: is ${JSON.stringify(x.since)}, but a stage ${x.state} has held nothing since a version`);
+    if (typeof x.since === "string" && versions.size && !versions.has(x.since)) p.push(`${at}.since: ${x.since} is not a version of the product's builds`);
+  });
+  inOrder("when_needed", "when_needed").forEach((x, i) => {
+    const at = `body.when_needed[${i}]`;
+    if (x.can_run === false && !(typeof x.why_not === "string" && x.why_not.trim())) p.push(`${at}: cannot run, so it says why_not`);
+    if (x.can_run === false && x.action !== undefined) p.push(`${at}: cannot run, so it names no action`);
+    if (x.can_run === true && !isObj(x.action)) p.push(`${at}: can run, so it names the action that runs it`);
+    if (x.can_run === true && x.why_not !== undefined) p.push(`${at}: can run, so it gives no why_not`);
+  });  return p;
 }
 
 /**
  * GET /builds/{id}/stages/{stage} (added in 0.4). build: the build's answer
  * ({ build }), when the caller has it, to hold the workspace to it.
  */
-export function checkStageWorkspace(body, ids, stage, build) {
+export function checkStageWorkspace(body, ids, stage, build, cadences = CADENCES()) {
   const p = validate("StageWorkspace", body);
   if (!isObj(body)) return p;
   if (stage !== undefined && body.stage !== stage) p.push(`body.stage: is ${JSON.stringify(body.stage)}, not the stage asked for (${stage})`);
+  cadenceRules(body, "body", cadences, p);
+  const b0 = isObj(build) ? build.build : null;
+  const same = isObj(b0) && Array.isArray(b0.stages) ? b0.stages.find((s) => isObj(s) && s.stage === body.stage) : null;
+  if (same && same.cadence !== undefined && body.cadence !== undefined && same.cadence !== body.cadence) p.push(`body.cadence: is ${JSON.stringify(body.cadence)}, but the build's stage says ${JSON.stringify(same.cadence)}`);
   if (Array.isArray(body.outputs)) {
     p.push(...checkArtifacts(body.outputs, ids, "body.outputs"));
     body.outputs.forEach((a, i) => { if (isObj(a) && a.stage !== body.stage) p.push(`body.outputs[${i}]: is made at ${a.stage}, not at ${body.stage}`); });

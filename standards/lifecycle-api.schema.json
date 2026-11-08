@@ -2,8 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/CommonAgent/adlc/main/standards/lifecycle-api.schema.json",
   "title": "The lifecycle API",
-  "version": "0.4.1",
-  "description": "What any service implementing the Agent Development Lifecycle answers, so that one client works against more than one service. Every request and answer is JSON, at the path /v1/lifecycle on the service. Times are ISO 8601 with a zone. Auth is Authorization: Bearer <key>, where the key is one the person makes for their own account, as the service says. A build lists the 24 stages of stages.json, one entry each, and a stage the service does not run is reported as not_offered. A client draws one button for each action the build offers, and nothing else. An organization chooses who holds each role of stages.json (the roles operations): the service's reference agent, its own agent, a contracted supplier, a person or an outside tool. A holder outside the service hands its evidence back in one of the open formats stages.json lists, and the service reads it onto the stage. An organization also chooses which stages its lifecycle uses (the stages operations), for the whole organization or for one project; when nothing is chosen every stage is used, and a build keeps the choice in effect when it started. The schema changes only by adding: a client ignores a field it does not know, and a service never removes or retypes one. Version 0.2 adds the roles operations, the evidence operation and new fields, and it also adds values to two lists, the holder's kinds and the stage's states; a client that does not know a state draws the stage as not_offered, and one that does not know a holder's kind shows the holder's name. Version 0.3 adds the stages operations, the state not_used, and the build's lifecycle field; a client that knows only 0.2 draws a not_used stage as not_offered. Version 0.4 adds products, stage workspaces, each stage's chat and the build's artifacts: a product is every build of one name, one build per version; each stage of a build is a workspace with what it was given, what it handed back as versioned artifacts, and its gate; and each stage has a chat with the agent holding it, kept per product per stage across builds. Answering in a chat changes nothing: a change the person asks for comes back as a proposal of the build's existing action, which the person takes with the actions operation, so a change always goes back through its gate. A client that knows only 0.3 ignores the artifacts field, and a service that does not offer the 0.4 operations answers them 404. Version 0.4.1 adds the product's boss (Agent Roles, role-boss): a conversation at the product level with an agent that answers from the product's record, routes a directive into the chat of the stage that owns it, and plans a larger request across the stages, proposing each stage's existing action; it never answers a gate, never changes an artifact, and lists everything it committed on the person's behalf. A service that does not offer the boss answers its operations 404. The operations list names the definition each request and answer must match; lifecycle-api-check.mjs checks a running service against it, together with the rules a schema cannot say.",
+  "version": "0.4.2",
+  "description": "What any service implementing the Agent Development Lifecycle answers, so that one client works against more than one service. Every request and answer is JSON, at the path /v1/lifecycle on the service. Times are ISO 8601 with a zone. Auth is Authorization: Bearer <key>, where the key is one the person makes for their own account, as the service says. A build lists the 24 stages of stages.json, one entry each, and a stage the service does not run is reported as not_offered. A client draws one button for each action the build offers, and nothing else. An organization chooses who holds each role of stages.json (the roles operations): the service's reference agent, its own agent, a contracted supplier, a person or an outside tool. A holder outside the service hands its evidence back in one of the open formats stages.json lists, and the service reads it onto the stage. An organization also chooses which stages its lifecycle uses (the stages operations), for the whole organization or for one project; when nothing is chosen every stage is used, and a build keeps the choice in effect when it started. The schema changes only by adding: a client ignores a field it does not know, and a service never removes or retypes one. Version 0.2 adds the roles operations, the evidence operation and new fields, and it also adds values to two lists, the holder's kinds and the stage's states; a client that does not know a state draws the stage as not_offered, and one that does not know a holder's kind shows the holder's name. Version 0.3 adds the stages operations, the state not_used, and the build's lifecycle field; a client that knows only 0.2 draws a not_used stage as not_offered. Version 0.4 adds products, stage workspaces, each stage's chat and the build's artifacts: a product is every build of one name, one build per version; each stage of a build is a workspace with what it was given, what it handed back as versioned artifacts, and its gate; and each stage has a chat with the agent holding it, kept per product per stage across builds. Answering in a chat changes nothing: a change the person asks for comes back as a proposal of the build's existing action, which the person takes with the actions operation, so a change always goes back through its gate. A client that knows only 0.3 ignores the artifacts field, and a service that does not offer the 0.4 operations answers them 404. Version 0.4.1 adds the product's boss (Agent Roles, role-boss): a conversation at the product level with an agent that answers from the product's record, routes a directive into the chat of the stage that owns it, and plans a larger request across the stages, proposing each stage's existing action; it never answers a gate, never changes an artifact, and lists everything it committed on the person's behalf. A service that does not offer the boss answers its operations 404. Version 0.4.2 adds each stage's cadence from stages.json 1.3.0 (every_build, setup or when_needed) to the build's stages and the stage workspace; carried, on a setup stage whose holder and settings are the same as an earlier version's; and two lists on a product: setup, each stage set up once per product with its holder, settings and the version it has held since, and when_needed, each action on the product with whether the service can run it now and, when it cannot, why. A client shows a build's steps from its every_build stages, and the others on the product. A client that knows only 0.4.1 ignores them. The operations list names the definition each request and answer must match; lifecycle-api-check.mjs checks a running service against it, together with the rules a schema cannot say.",
   "basePath": "/v1/lifecycle",
   "operations": [
     { "method": "GET", "path": "/me", "answer": "#/$defs/MeAnswer", "does": "Who is asking, and the service's name." },
@@ -25,7 +25,7 @@
     { "method": "PUT", "path": "/stages/{stage}", "request": "#/$defs/StageChoiceRequest", "answer": "#/$defs/StagesAnswer", "does": "Choose whether the organization's lifecycle uses a stage, or with ?project=<name> whether that project's does. A build started later keeps the choice; a build already started does not change. It answers 400 for a stage stages.json does not name, or for used: false on a stage this service cannot leave out; 403 for a member who is not an admin of the organization; and 409 when the choice could not be saved. Added in 0.3." },
     { "method": "DELETE", "path": "/stages/{stage}", "answer": "#/$defs/StagesAnswer", "does": "Remove the organization's choice for a stage, or with ?project=<name> that project's, so the stage falls back to the organization's choice, then to the default, which uses it. It answers 403 and 409 as PUT does. Added in 0.3." },
     { "method": "GET", "path": "/products", "answer": "#/$defs/ProductsAnswer", "does": "Every product: the builds of one name, each product with its newest build and its versions. A product whose builds are all archived is left out unless the request adds ?archived=1. Added in 0.4." },
-    { "method": "GET", "path": "/products/{name}", "answer": "#/$defs/ProductAnswer", "does": "One product: its builds, newest first, the run plan of its newest build that has one, and a short activity feed, one line per stage event, newest first. It answers 404 for a name no build has. Added in 0.4." },
+    { "method": "GET", "path": "/products/{name}", "answer": "#/$defs/ProductAnswer", "does": "One product: its builds, newest first, the run plan of its newest build that has one, and a short activity feed, one line per stage event, newest first. From 0.4.2 it also lists the product's setup stages, each with its holder, settings and the version it has held since, and its when_needed stages, each with whether the service can run it now. It answers 404 for a name no build has. Added in 0.4." },
     { "method": "GET", "path": "/builds/{id}/stages/{stage}", "answer": "#/$defs/StageWorkspace", "does": "One stage of a build as a workspace: what it was given (earlier stages' artifacts), what it handed back (its artifacts), what done means for it, and its gate. It answers 404 for a stage stages.json does not name. Added in 0.4." },
     { "method": "GET", "path": "/products/{name}/stages/{stage}/messages", "answer": "#/$defs/MessagesAnswer", "does": "The chat with the agent holding a stage, across the product's builds, oldest first, each message naming the build and version it was said in. A gate is not a message: it is on the stage's workspace. Added in 0.4." },
     { "method": "POST", "path": "/products/{name}/stages/{stage}/messages", "request": "#/$defs/MessageRequest", "answer": "#/$defs/MessageReplyAnswer", "does": "Say something to the agent holding a stage, on the product's newest build or the build named. The agent answers in words from the stage's outputs, what it was given and the build's record, and the person's message and the reply are kept. Answering changes nothing. When the person asks for a change, the reply proposes the build's existing action for it with its needs filled, only when the person may take that action now. Anyone who may read the build may post. It answers 400 in words for a stage the build's lifecycle leaves out or one held by a person, an outside tool or anyone the service cannot send messages to, and 409 when no agent can answer now, such as when the model is not set. Added in 0.4." },
@@ -43,6 +43,20 @@
       "description": "waiting_on_you: the person's act is next. not_offered: this service cannot hand the stage to anyone, even if its role were bound. not_bound: the stage applies to the build, nobody holds its role, and the service does not run it (added in 0.2). not_applicable: the stage does not apply to this kind of build, such as Review on a process (added in 0.2). not_used: the build's lifecycle leaves the stage out; the stage has no holder, has run 0 times, offers no action, and its given says \"Not part of this build's lifecycle\" with whose choice it was, the organization's default or the project's name (added in 0.3). When more than one could apply, not_applicable comes first, then not_used, then every other state. A stage held outside the service is not_started until its evidence or answer arrives, then done, or refused when the evidence says it failed. A client that does not know a state draws it as not_offered."
     },
     "RoleId": { "type": "string", "minLength": 1, "description": "A role id from stages.json, such as \"code-critic\". Added in 0.2." },
+    "Cadence": {
+      "enum": ["every_build", "setup", "when_needed"],
+      "description": "A stage's cadence, its cadence in stages.json (added in 1.3.0). every_build: the stage runs on every build of the product, the routine. setup: the stage is set up once per product, and its holder and settings are carried forward to each later version until someone changes them. when_needed: an action on the product, run when something happens, not as part of a build. Added in 0.4.2."
+    },
+    "Carried": {
+      "type": "object",
+      "required": ["since", "words"],
+      "description": "A setup stage whose holder and settings are the same as an earlier version's, so nothing is asked again: the version it has held since, and the words a person reads, such as \"Unchanged since 0.1.0\". Absent on a stage set up anew in this build, and on any stage that is not setup. Added in 0.4.2.",
+      "properties": {
+        "since": { "$ref": "#/$defs/Words", "description": "The version of the product's earliest build, in an unbroken run of builds up to this one, whose holder and settings for the stage are the same as this build's." },
+        "build": { "$ref": "#/$defs/Words", "description": "That build's id." },
+        "words": { "$ref": "#/$defs/Words" }
+      }
+    },
     "EvidenceFormat": {
       "enum": ["sarif", "cyclonedx", "spdx", "slsa", "in-toto", "otel-genai", "pact"],
       "description": "An evidence format from stages.json's evidence_formats. Added in 0.2."
@@ -234,7 +248,9 @@
         "done_when_met": { "type": ["boolean", "null"], "description": "Whether the stage's \"done when\" was met; null when it is not known yet." },
         "log": { "$ref": "#/$defs/Log" },
         "where": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/PullRequest" }], "description": "Where the stage's work is, when it is somewhere the person can open." },
-        "evidence": { "type": "array", "items": { "$ref": "#/$defs/Evidence" }, "description": "The evidence handed back for the stage by a holder outside the service, as the service read it. Added in 0.2." }
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/Evidence" }, "description": "The evidence handed back for the stage by a holder outside the service, as the service read it. Added in 0.2." },
+        "cadence": { "$ref": "#/$defs/Cadence", "description": "The stage's cadence in stages.json. Added in 0.4.2." },
+        "carried": { "$ref": "#/$defs/Carried", "description": "On a setup stage whose holder and settings are unchanged from an earlier version. Added in 0.4.2." }
       }
     },
     "Evidence": {
@@ -658,6 +674,41 @@
             "required": ["at", "build", "stage", "words"],
             "properties": { "at": { "$ref": "#/$defs/Time" }, "build": { "$ref": "#/$defs/Words" }, "version": { "$ref": "#/$defs/Words" }, "stage": { "$ref": "#/$defs/StageId" }, "words": { "$ref": "#/$defs/Words" } }
           }
+        },
+        "setup": { "type": "array", "items": { "$ref": "#/$defs/SetupItem" }, "description": "Every setup stage of stages.json, once each, in its order: who holds it for the product now, with what settings, and since which version. Added in 0.4.2." },
+        "when_needed": { "type": "array", "items": { "$ref": "#/$defs/WhenNeededItem" }, "description": "Every when_needed stage of stages.json, once each, in its order: whether the service can run it on the product now, and why not when it cannot. Added in 0.4.2." }
+      }
+    },
+    "SetupItem": {
+      "type": "object",
+      "required": ["stage", "role", "state", "holder", "settings", "since"],
+      "description": "One stage set up once per product, as the product's lifecycle has it now: the lifecycle of the project its newest build was started under, or the organization's. A holder is chosen with the roles operations, for the organization or that project. Added in 0.4.2.",
+      "properties": {
+        "stage": { "$ref": "#/$defs/StageId" },
+        "name": { "$ref": "#/$defs/Words", "description": "The stage's name in stages.json." },
+        "role": { "$ref": "#/$defs/RoleId", "description": "The role whose holder holds the stage, one of the stage's role_ids; PUT /roles/{role} chooses it." },
+        "project": { "type": ["string", "null"], "description": "The project whose lifecycle this is, the newest build's; null for the organization's." },
+        "state": { "enum": ["chosen", "not_chosen", "not_used"], "description": "chosen: a holder holds the role. not_chosen: nobody does, so the stage is for the person to set up. not_used: the lifecycle leaves the stage out." },
+        "holder": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/Holder" }], "description": "Who holds it; null unless chosen." },
+        "settings": { "type": "object", "description": "The holder's settings, as names and values; empty when it has none or none is chosen." },
+        "since": { "type": ["string", "null"], "description": "The version of the product's earliest build, in an unbroken run up to its newest, whose holder and settings for the stage are the ones chosen now; null when no build has used this choice yet (it holds from the next version), and for a stage not chosen or not used." },
+        "words": { "$ref": "#/$defs/Words", "description": "What a person reads, such as \"Unchanged since 0.1.0\" or \"Nobody chosen\"." }
+      }
+    },
+    "WhenNeededItem": {
+      "type": "object",
+      "required": ["stage", "can_run"],
+      "description": "One action on the product, run when something happens. A client draws its button enabled only when can_run is true, and then takes the build's own action with the actions operation; otherwise it draws it disabled with why_not. Added in 0.4.2.",
+      "properties": {
+        "stage": { "$ref": "#/$defs/StageId" },
+        "name": { "$ref": "#/$defs/Words", "description": "The stage's name in stages.json." },
+        "can_run": { "type": "boolean", "description": "Whether the service can run it on the product now." },
+        "why_not": { "$ref": "#/$defs/Words", "description": "Why it cannot, in words. Present exactly when can_run is false." },
+        "action": {
+          "type": "object",
+          "required": ["build", "name", "label"],
+          "description": "The action that runs it: one the named build offers at this stage now, posted as /builds/{build}/actions/{name}. Present exactly when can_run is true.",
+          "properties": { "build": { "$ref": "#/$defs/Words" }, "name": { "$ref": "#/$defs/Words" }, "label": { "$ref": "#/$defs/Words" } }
         }
       }
     },
@@ -673,7 +724,9 @@
         "given": { "type": "array", "items": { "$ref": "#/$defs/ArtifactId" }, "description": "The artifacts of earlier stages it was given, as ids in the build's artifacts, only those made." },
         "outputs": { "type": "array", "items": { "$ref": "#/$defs/Artifact" }, "description": "The build's artifacts this stage makes." },
         "done_when": { "$ref": "#/$defs/Words", "description": "What done means for the stage: its done_when in stages.json." },
-        "gate": { "$ref": "#/$defs/StageGate" }
+        "gate": { "$ref": "#/$defs/StageGate" },
+        "cadence": { "$ref": "#/$defs/Cadence", "description": "The stage's cadence in stages.json, the same as the build's stage. Added in 0.4.2." },
+        "carried": { "$ref": "#/$defs/Carried", "description": "The same as the build's stage. Added in 0.4.2." }
       }
     },
     "StageGate": {
