@@ -1,0 +1,43 @@
+{
+  "format": "agent-runtime-requirements-v1",
+  "runtimes": [
+    {
+      "name": "node",
+      "version": ">=22"
+    }
+  ],
+  "binaries": [],
+  "dependencies": [],
+  "systems": [],
+  "ceilings": [],
+  "directories": [
+    {
+      "name": "records",
+      "purpose": "every record the descriptor names"
+    },
+    {
+      "name": "work",
+      "purpose": "inputs and drafts in progress"
+    }
+  ],
+  "price": {
+    "sku": "default",
+    "covers": {
+      "agent": true
+    },
+    "price": {
+      "model": "free"
+    }
+  },
+  "run": {
+    "count-words": {
+      "command": [
+        "node",
+        "{home}/{package}/skills/count-words/scripts/count.mjs",
+        "--job",
+        "{job_dir}"
+      ],
+      "reply": "json:reply"
+    }
+  }
+}

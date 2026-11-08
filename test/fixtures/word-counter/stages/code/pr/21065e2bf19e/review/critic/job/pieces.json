@@ -1,0 +1,12 @@
+[
+  {
+    "name": "the findings",
+    "step": "write-the-findings",
+    "path": "out/findings.md",
+    "media_type": "text/markdown",
+    "about": "The review of word-counter 0.1.0: 0 findings, 0 open, each with its place, rule, claim, consequence and an Answer line to write a reason on. Send it back with the package to have the answers checked.",
+    "produced_from": [
+      "the programs"
+    ]
+  }
+]

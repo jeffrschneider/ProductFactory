@@ -1,0 +1,14 @@
+[
+  {
+    "name": "security review",
+    "step": "write-the-review",
+    "path": "out/security-review.md",
+    "media_type": "text/markdown",
+    "produced_from": [
+      "the package",
+      "the architecture record",
+      "the owner's spending limit"
+    ],
+    "about": "Markdown: a header (YAML front matter) `review, package, version, digest, verdict, reviewed_at, architecture_record, spending_limit, reaches, spends, never_does, no_reason_recorded, refused_for`, then `## Verdict`, `## Reaches`, `## Spends`, `## Never does`, `## No reason recorded`, `## Programs`, `## Parts`, `## Accepted knowingly`, `## Reasons weighed` and `## Not reviewed`."
+  }
+]

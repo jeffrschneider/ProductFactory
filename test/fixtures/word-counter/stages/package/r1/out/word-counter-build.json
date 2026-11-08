@@ -1,0 +1,32 @@
+{
+  "record": "v1",
+  "role": "agent-builder",
+  "act": "build",
+  "requested_by": "self",
+  "package": {
+    "name": "word-counter",
+    "version": "0.1.0",
+    "schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+    "sha256": "cb9523cf965e8a9d61caa1221df028331641173f32738e683d1368960e40bb17",
+    "descriptor_sha256": "8d45654b0f6d389e89b9910c3c96b3b872f61b6c00d53cd63e20865551bf8192",
+    "runtime_requirements_sha256": "ff1ba41bc41ff6d2de92344dce07e7a7ca9490e9cb9688780f39620569f482fb"
+  },
+  "shape": {
+    "skills": 1,
+    "systems": 0,
+    "refuses": 4,
+    "records": 2
+  },
+  "lockfiles": [],
+  "checks": [
+    {
+      "kind": "unrun",
+      "what": "nobody has run the agent this package describes"
+    }
+  ],
+  "draft": true,
+  "produced_at": "2026-11-08T21:29:37Z",
+  "by": "unsigned",
+  "signatures": [],
+  "_unsigned": "no signing key was given; the record is faithful but unsigned"
+}

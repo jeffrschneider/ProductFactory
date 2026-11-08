@@ -1,0 +1,864 @@
+{
+  "format": "product-factory-build-v1",
+  "id": "b_9f994035fdaf",
+  "name": "word-counter",
+  "named": true,
+  "does": "Counts the words in a sentence of text and answers with the number.",
+  "refuses": "Anything that is not a sentence of text.",
+  "more": "",
+  "prototype": "",
+  "version": "0.1.0",
+  "created": "2026-11-08T21:16:57.681Z",
+  "updated": "2026-11-08T21:30:00.845Z",
+  "archived": false,
+  "status": "done",
+  "at": "deploy",
+  "lifecycle": {
+    "project": null,
+    "at": "2026-11-08T21:16:57.681Z",
+    "used": {
+      "requirements": {
+        "used": true,
+        "from": "default"
+      },
+      "architecture": {
+        "used": true,
+        "from": "default"
+      },
+      "impact": {
+        "used": true,
+        "from": "default"
+      },
+      "source": {
+        "used": true,
+        "from": "default"
+      },
+      "test": {
+        "used": true,
+        "from": "default"
+      },
+      "code": {
+        "used": true,
+        "from": "default"
+      },
+      "review": {
+        "used": true,
+        "from": "default"
+      },
+      "security": {
+        "used": true,
+        "from": "default"
+      },
+      "package": {
+        "used": true,
+        "from": "default"
+      },
+      "release": {
+        "used": true,
+        "from": "default"
+      },
+      "deploy": {
+        "used": true,
+        "from": "default"
+      },
+      "conformance": {
+        "used": true,
+        "from": "default"
+      },
+      "acceptance": {
+        "used": true,
+        "from": "default"
+      },
+      "docs": {
+        "used": true,
+        "from": "default"
+      },
+      "publish": {
+        "used": true,
+        "from": "default"
+      },
+      "retract": {
+        "used": true,
+        "from": "default"
+      },
+      "monitor": {
+        "used": true,
+        "from": "default"
+      },
+      "eval": {
+        "used": true,
+        "from": "default"
+      },
+      "incident": {
+        "used": true,
+        "from": "default"
+      },
+      "cost": {
+        "used": true,
+        "from": "default"
+      },
+      "update": {
+        "used": true,
+        "from": "default"
+      },
+      "reconfigure": {
+        "used": true,
+        "from": "default"
+      },
+      "rollback": {
+        "used": true,
+        "from": "default"
+      },
+      "decommission": {
+        "used": true,
+        "from": "default"
+      }
+    },
+    "holders": {
+      "spec-writer": {
+        "kind": "reference_agent",
+        "name": "spec-writer"
+      },
+      "solution-planner": {
+        "kind": "reference_agent",
+        "name": "solution-planner"
+      },
+      "solution-architect": {
+        "kind": "reference_agent",
+        "name": "solution-architect"
+      },
+      "impact-analyst": {
+        "kind": "reference_agent",
+        "name": "impact-analyst"
+      },
+      "catalog": {
+        "kind": "reference_agent",
+        "name": "catalog"
+      },
+      "test-writer": {
+        "kind": "reference_agent",
+        "name": "test-writer"
+      },
+      "code-writer": {
+        "kind": "reference_agent",
+        "name": "code-writer"
+      },
+      "code-critic": {
+        "kind": "reference_agent",
+        "name": "code-critic"
+      },
+      "security-reviewer": {
+        "kind": "reference_agent",
+        "name": "security-reviewer"
+      },
+      "package-maker": {
+        "kind": "reference_agent",
+        "name": "package-maker"
+      },
+      "deployment-manager": {
+        "kind": "reference_agent",
+        "name": "deployment-manager"
+      },
+      "conformance-checker": {
+        "kind": "reference_agent",
+        "name": "conformance-checker"
+      },
+      "requester": {
+        "kind": "person",
+        "name": "the person who asked"
+      },
+      "documenter": {
+        "kind": "reference_agent",
+        "name": "documenter"
+      },
+      "doc-writer": {
+        "kind": "reference_agent",
+        "name": "doc-writer"
+      },
+      "publisher": {
+        "kind": "reference_agent",
+        "name": "publisher"
+      },
+      "watcher": {
+        "kind": "reference_agent",
+        "name": "watcher"
+      },
+      "agent-critic": null,
+      "incident-recorder": {
+        "kind": "reference_agent",
+        "name": "incident-recorder"
+      }
+    },
+    "added": []
+  },
+  "settings": {
+    "code": {
+      "holder": "pull-request",
+      "harness": null,
+      "rounds": 3,
+      "minutes": 20
+    },
+    "packer": [
+      "node",
+      "/srv/pf/node_modules/@common-agent/package/dist/bin.js"
+    ],
+    "repository": {
+      "host": "github",
+      "repo": "acme/agents",
+      "token": "GITHUB_TOKEN",
+      "api": "https://api.github.com",
+      "poll_seconds": 15
+    },
+    "review": {
+      "spending_limit": "10 USD per day"
+    }
+  },
+  "process": "run/document.txt",
+  "stages": {
+    "requirements": {
+      "state": "done",
+      "holder": {
+        "kind": "reference_agent",
+        "name": "spec-writer",
+        "role": "spec-writer"
+      },
+      "runs": 4,
+      "rounds": [
+        {
+          "n": 1,
+          "at": "2026-11-08T21:16:58.356Z",
+          "label": "Round 1",
+          "verdict": "Refused",
+          "back": false,
+          "words": "The spec was not drafted: the model service at api.anthropic.com answered 400: {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cgr9zixftWWYvxydjJmTE\"}. Nothing was delivered. You can ask again."
+        },
+        {
+          "n": 2,
+          "at": "2026-11-08T21:18:03.891Z",
+          "label": "Round 2",
+          "verdict": "Refused",
+          "back": false,
+          "words": "The spec was not drafted: the model service at api.anthropic.com answered 400: {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011CgrA5ZT4uETfyKSyaVMpb\"}. Nothing was delivered. You can ask again."
+        },
+        {
+          "n": 3,
+          "at": "2026-11-08T21:19:52.765Z",
+          "label": "Round 3",
+          "verdict": "You asked for changes",
+          "back": true,
+          "words": "The draft is word-counter, which offers Count words. One thing is still open, and I have not guessed at it: a name becomes a handle somebody is stuck with, a price is your money, and access to a system is authority nobody can grant for you. price: What is the price for this agent offering (e.g., flat amount or free)? Answer in your own words and send it back. The draft is in the job folder in the meantime, and it is not finished until this is settled. The agent's own files are delivered, the la… You said: “Price: free. Nothing else changes.”"
+        },
+        {
+          "n": 4,
+          "at": "2026-11-08T21:20:54.411Z",
+          "label": "Round 4",
+          "verdict": "Approved",
+          "back": false,
+          "words": "The draft is word-counter, which offers Count words. Nothing is left open. Everything the spec needs is settled. The agent's own files are delivered, the layout a package is built from: agent-descriptor.json, agent-runtime-requirements.json, plugin.json and one SKILL.md. The formats are drafted, so say if one should be different: it hands back word count as application/vnd.agentmesh.wordcount+json; it takes sentence from a person or an agent. Drafted rather than settled by what you asked for, s…"
+        }
+      ],
+      "given": "what it should do: Counts the words in a sentence of text and answers with the number.\nwhat it must refuse: Anything that is not a sentence of text.\nname: word-counter",
+      "handed_back": {
+        "words": [
+          "The draft is word-counter, which offers Count words. Nothing is left open. Everything the spec needs is settled. The agent's own files are delivered, the layout a package is built from: agent-descriptor.json, agent-runtime-requirements.json, plugin.json and one SKILL.md. The formats are drafted, so say if one should be different: it hands back word count as application/vnd.agentmesh.wordcount+json; it takes sentence from a person or an agent. Drafted rather than settled by what you asked for, so read this part hardest: Added the price as free, per your request. No other changes were made to the existing draft."
+        ],
+        "files": [
+          {
+            "path": "requirements/agent-descriptor.json",
+            "at": "stages/requirements/r4/job/out/agent/agent-descriptor.json",
+            "size": 2025
+          },
+          {
+            "path": "requirements/agent-runtime-requirements.json",
+            "at": "stages/requirements/r4/job/out/agent/agent-runtime-requirements.json",
+            "size": 743
+          },
+          {
+            "path": "requirements/plugin.json",
+            "at": "stages/requirements/r4/job/out/agent/plugin.json",
+            "size": 600
+          },
+          {
+            "path": "requirements/skills/count-words/SKILL.md",
+            "at": "stages/requirements/r4/job/out/agent/skills/count-words/SKILL.md",
+            "size": 1420
+          }
+        ]
+      },
+      "done_when_met": true,
+      "log": [
+        {
+          "at": "2026-11-08T21:16:57.753Z",
+          "said": "Sent to the spec writer."
+        },
+        {
+          "at": "2026-11-08T21:16:58.357Z",
+          "said": "The spec was not drafted: the model service at api.anthropic.com answered 400: {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cgr9zixftWWYvxydjJmTE\"}. Nothing was delivered. You can ask again."
+        },
+        {
+          "at": "2026-11-08T21:18:03.382Z",
+          "said": "Sent to the spec writer."
+        },
+        {
+          "at": "2026-11-08T21:18:03.893Z",
+          "said": "The spec was not drafted: the model service at api.anthropic.com answered 400: {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011CgrA5ZT4uETfyKSyaVMpb\"}. Nothing was delivered. You can ask again."
+        },
+        {
+          "at": "2026-11-08T21:18:48.098Z",
+          "said": "Sent to the spec writer."
+        },
+        {
+          "at": "2026-11-08T21:19:52.766Z",
+          "said": "The spec writer handed back the agent's own files."
+        },
+        {
+          "at": "2026-11-08T21:20:29.791Z",
+          "said": "Sent back to the spec writer with your words."
+        },
+        {
+          "at": "2026-11-08T21:20:54.412Z",
+          "said": "The spec writer handed back the agent's own files."
+        },
+        {
+          "at": "2026-11-08T21:21:36.427Z",
+          "said": "You approved the spec."
+        }
+      ]
+    },
+    "test": {
+      "state": "done",
+      "holder": {
+        "kind": "reference_agent",
+        "name": "test-writer",
+        "role": "test-writer"
+      },
+      "runs": 1,
+      "rounds": [
+        {
+          "n": 1,
+          "at": "2026-11-08T21:24:27.676Z",
+          "label": "Round 1",
+          "verdict": "Suite written",
+          "back": false,
+          "words": "Wrote 29 tests in 6 files for word-counter 0.1.0: count.test.mjs, went-without.test.mjs, delivered-formats.test.mjs, records-per-job.test.mjs, worked-values.test.mjs, printed-reply.test.mjs. Against empty stand-ins for the 2 scripts it names, the suite fails (11 of 15 pass), which is what a suite written before the scripts must do. After two goes the suite still has 1 thing wrong with it, and it goes with that said: test/went-without.test.mjs names tests as labels rather than sentences: \"FILE i…"
+        }
+      ],
+      "given": "The agent's own files from Requirements, as you approved them: agent-descriptor.json, agent-runtime-requirements.json, plugin.json and a SKILL.md per skill.",
+      "handed_back": {
+        "words": [
+          "Wrote 29 tests in 6 files for word-counter 0.1.0: count.test.mjs, went-without.test.mjs, delivered-formats.test.mjs, records-per-job.test.mjs, worked-values.test.mjs, printed-reply.test.mjs.\n\nAgainst empty stand-ins for the 2 scripts it names, the suite fails (11 of 15 pass), which is what a suite written before the scripts must do.\n\nAfter two goes the suite still has 1 thing wrong with it, and it goes with that said: test/went-without.test.mjs names tests as labels rather than sentences: \"FILE is exported correctly\".\n\nThe scripts that meet this suite are the code writer's to write, and nothing here will change a test to make them pass."
+        ],
+        "files": [
+          {
+            "path": "test/count.test.mjs",
+            "at": "stages/test/jobs/r1/out/test/count.test.mjs",
+            "size": 6637
+          },
+          {
+            "path": "test/went-without.test.mjs",
+            "at": "stages/test/jobs/r1/out/test/went-without.test.mjs",
+            "size": 2761
+          }
+        ]
+      },
+      "done_when_met": null,
+      "log": [
+        {
+          "at": "2026-11-08T21:21:36.542Z",
+          "said": "Sent to the test writer with the agent's files."
+        },
+        {
+          "at": "2026-11-08T21:24:27.678Z",
+          "said": "The test writer handed back 6 test files."
+        }
+      ]
+    },
+    "code": {
+      "state": "done",
+      "holder": {
+        "kind": "your_agent",
+        "name": "your coding harness, on a pull request (acme/agents)",
+        "role": "code-writer"
+      },
+      "runs": 1,
+      "rounds": [
+        {
+          "n": 1,
+          "at": "2026-11-08T21:29:10.136Z",
+          "label": "Push 21065e2",
+          "verdict": "OK'd by you",
+          "back": false,
+          "words": "All 29 tests passed. Blanking each of the 2 scripts made the suite fail, as it should. The build folder is within its fence and passed the static review. The code critic reviewed the scripts and left nothing open. The security reviewer passed it. It goes on to Package when you give your OK in the console."
+        }
+      ],
+      "given": "The agent's files and the suite, laid out as a build folder with AGENTS.md (the hand-off contract), .adlc/check.mjs and build.lock.json, on a \"Write the scripts\" pull request your coding harness pushes to.",
+      "handed_back": {
+        "words": [
+          "The scripts at 21065e2, the commit the gate passed."
+        ],
+        "files": [
+          {
+            "path": "code/scripts/count.mjs",
+            "at": "stages/code/accepted/21065e2bf19e/scripts/count.mjs",
+            "size": 8075
+          },
+          {
+            "path": "code/scripts/went-without.mjs",
+            "at": "stages/code/accepted/21065e2bf19e/scripts/went-without.mjs",
+            "size": 2909
+          }
+        ]
+      },
+      "done_when_met": true,
+      "log": [
+        {
+          "at": "2026-11-08T21:24:27.709Z",
+          "said": "Sent to a pull request for your coding harness."
+        },
+        {
+          "at": "2026-11-08T21:24:38.611Z",
+          "said": "Opened pull request #1 on acme/agents, with the build folder in agents/word-counter/ and AGENTS.md (the hand-off contract): https://github.com/acme/agents/pull/1"
+        },
+        {
+          "at": "2026-11-08T21:24:38.611Z",
+          "said": "Point your coding harness at the pull request. Every push it makes runs the gate."
+        },
+        {
+          "at": "2026-11-08T21:27:21.610Z",
+          "said": "A push came to pull request #1: 21065e2. The gate runs on it."
+        },
+        {
+          "at": "2026-11-08T21:29:10.136Z",
+          "said": "The gate on 21065e2: Ready for your OK. It said so on the pull request."
+        },
+        {
+          "at": "2026-11-08T21:29:37.637Z",
+          "said": "You OK'd the code."
+        },
+        {
+          "at": "2026-11-08T21:29:37.637Z",
+          "said": "The scripts were taken from 21065e2, the commit the gate passed, and pull request #1 was merged there as 3d788d7."
+        }
+      ]
+    },
+    "package": {
+      "state": "done",
+      "holder": {
+        "kind": "outside_tool",
+        "name": "the Common Agent packer (@common-agent/package)",
+        "role": "package-maker"
+      },
+      "runs": 1,
+      "rounds": [
+        {
+          "n": 1,
+          "at": "2026-11-08T21:29:38.182Z",
+          "label": "Round 1",
+          "verdict": "Packed and validated",
+          "back": false,
+          "words": "Packed word-counter 0.1.0 as an Agent Package (sha256 cb9523cf965e8a9d61caa1221df028331641173f32738e683d1368960e40bb17) and validated it against the mechanical checks of Common Agent Section 12.10: no problems. The build record is unsigned: milestone 1 holds no signing key."
+        }
+      ],
+      "given": "The agent's files as you approved them, and the scripts Code wrote, placed under each skill as plugin.json's build entry names them.",
+      "handed_back": {
+        "words": [
+          "Packed word-counter 0.1.0 as an Agent Package (sha256 cb9523cf965e8a9d61caa1221df028331641173f32738e683d1368960e40bb17) and validated it against the mechanical checks of Common Agent Section 12.10: no problems. The build record is unsigned: milestone 1 holds no signing key."
+        ],
+        "files": [
+          {
+            "path": "package/word-counter-0.1.0.tar.gz",
+            "at": "stages/package/r1/out/word-counter-0.1.0.tar.gz",
+            "size": 6533
+          },
+          {
+            "path": "package/word-counter-build.json",
+            "at": "stages/package/r1/out/word-counter-build.json",
+            "size": 920
+          },
+          {
+            "path": "package/validation.json",
+            "at": "stages/package/r1/validation.json",
+            "size": 240
+          }
+        ]
+      },
+      "done_when_met": true,
+      "log": [
+        {
+          "at": "2026-11-08T21:29:37.671Z",
+          "said": "Packing the agent's files and the scripts as an Agent Package."
+        },
+        {
+          "at": "2026-11-08T21:29:38.183Z",
+          "said": "Packed and validated."
+        }
+      ]
+    },
+    "deploy": {
+      "state": "done",
+      "holder": {
+        "kind": "outside_tool",
+        "name": "your runtime (node /opt/product-factory/runtimes/folder.mjs)",
+        "role": "deployment-manager"
+      },
+      "runs": 1,
+      "rounds": [
+        {
+          "n": 1,
+          "at": "2026-11-08T21:30:00.814Z",
+          "label": "Round 1",
+          "verdict": "Handed to your runtime",
+          "back": false,
+          "words": "Installed word-counter 0.1.0 into /srv/pf/installed/word-counter-0.1.0: the package and its run plan are there. The run plan names holders for Publish, Retract, Monitor, Incident response, Cost, Update, Reconfigure, Rollback, Decommission."
+        }
+      ],
+      "given": "The package and its run plan, handed to your runtime.",
+      "handed_back": {
+        "words": [
+          "Installed word-counter 0.1.0 into /srv/pf/installed/word-counter-0.1.0: the package and its run plan are there. The run plan names holders for Publish, Retract, Monitor, Incident response, Cost, Update, Reconfigure, Rollback, Decommission."
+        ],
+        "files": [
+          {
+            "path": "package/word-counter-0.1.0.tar.gz",
+            "at": "stages/package/r1/out/word-counter-0.1.0.tar.gz",
+            "size": 6533
+          },
+          {
+            "path": "package/run-plan.json",
+            "at": "stages/package/r1/out/run-plan.json",
+            "size": 5710
+          }
+        ]
+      },
+      "done_when_met": null,
+      "log": [
+        {
+          "at": "2026-11-08T21:30:00.549Z",
+          "said": "You approved the deploy."
+        },
+        {
+          "at": "2026-11-08T21:30:00.663Z",
+          "said": "Handed the package and the run plan to your runtime."
+        },
+        {
+          "at": "2026-11-08T21:30:00.814Z",
+          "said": "Your runtime took it."
+        }
+      ]
+    }
+  },
+  "work": {
+    "folder": "stages/code/handoff/work/build",
+    "pr": {
+      "repo": "acme/agents",
+      "branch": "adlc/word-counter-0.1.0",
+      "base": "main",
+      "folder": "agents/word-counter",
+      "agent": "word-counter",
+      "version": "0.1.0",
+      "digests": {},
+      "scripts": [
+        "scripts/count.mjs",
+        "scripts/went-without.mjs"
+      ],
+      "hosts": [],
+      "repoFiles": {
+        "README.md": "90ea00d6fb7c1abcbf6f54f136f5ba440f4679b3"
+      },
+      "issued_at": "2026-11-08T21:24:37.197Z",
+      "issued_sha": "10dd93c5475986384623598aa7f7af88b64a55f3",
+      "number": 1,
+      "url": "https://github.com/acme/agents/pull/1",
+      "head": "21065e2bf19ec0c4c725f02ef3e8adc49287f057",
+      "judging": null,
+      "passed": "21065e2bf19ec0c4c725f02ef3e8adc49287f057",
+      "runs": [
+        {
+          "sha": "21065e2bf19ec0c4c725f02ef3e8adc49287f057",
+          "at": "2026-11-08T21:29:10.136Z",
+          "passed": true,
+          "title": "Ready for your OK",
+          "summary": "All 29 tests passed. Blanking each of the 2 scripts made the suite fail, as it should.\n\nThe build folder is within its fence and passed the static review.\n\nThe code critic reviewed the scripts and left nothing open.\n\nThe security reviewer passed it.\n\nIt goes on to Package when you give your OK in the console.",
+          "items": []
+        }
+      ],
+      "status_refused": false,
+      "note": null,
+      "taken": {
+        "sha": "21065e2bf19ec0c4c725f02ef3e8adc49287f057",
+        "merged": "3d788d7cc52c285b4e1670523c12624303c54e9b",
+        "at": "2026-11-08T21:29:37.637Z"
+      }
+    }
+  },
+  "log": [
+    {
+      "at": "2026-11-08T21:16:57.689Z",
+      "said": "Started under the organization's lifecycle, running the process make a new agent (ref/dev/make-a-new-agent v1 v1)."
+    },
+    {
+      "at": "2026-11-08T21:16:58.357Z",
+      "said": "Requirements was refused. It waits on you."
+    },
+    {
+      "at": "2026-11-08T21:18:03.274Z",
+      "said": "You ran Requirements again."
+    },
+    {
+      "at": "2026-11-08T21:18:03.893Z",
+      "said": "Requirements was refused. It waits on you."
+    },
+    {
+      "at": "2026-11-08T21:18:47.974Z",
+      "said": "You ran Requirements again."
+    },
+    {
+      "at": "2026-11-08T21:19:52.782Z",
+      "said": "The spec is ready. It waits for you to approve it."
+    },
+    {
+      "at": "2026-11-08T21:20:29.767Z",
+      "said": "You asked for changes to the spec."
+    },
+    {
+      "at": "2026-11-08T21:20:54.433Z",
+      "said": "The spec is ready. It waits for you to approve it."
+    },
+    {
+      "at": "2026-11-08T21:21:36.427Z",
+      "said": "You approved the spec."
+    },
+    {
+      "at": "2026-11-08T21:24:27.678Z",
+      "said": "The suite is written."
+    },
+    {
+      "at": "2026-11-08T21:24:38.611Z",
+      "said": "Code is on pull request #1: https://github.com/acme/agents/pull/1"
+    },
+    {
+      "at": "2026-11-08T21:29:10.136Z",
+      "said": "The gate passed 21065e2 on pull request #1."
+    },
+    {
+      "at": "2026-11-08T21:29:10.158Z",
+      "said": "The code waits for your OK."
+    },
+    {
+      "at": "2026-11-08T21:29:37.637Z",
+      "said": "You OK'd the code."
+    },
+    {
+      "at": "2026-11-08T21:29:38.209Z",
+      "said": "The run plan is written beside the package, for 11 stages after Package."
+    },
+    {
+      "at": "2026-11-08T21:29:38.209Z",
+      "said": "Not chosen: Eval (Agent critic). Nobody holds that role, so the run plan hands it to no one."
+    },
+    {
+      "at": "2026-11-08T21:29:38.227Z",
+      "said": "The package and its run plan wait for you to approve the deploy."
+    },
+    {
+      "at": "2026-11-08T21:30:00.549Z",
+      "said": "You approved the deploy."
+    },
+    {
+      "at": "2026-11-08T21:30:00.642Z",
+      "said": "You approved the deploy, so the package and its run plan go to the runtime you bring."
+    },
+    {
+      "at": "2026-11-08T21:30:00.814Z",
+      "said": "Done: word-counter 0.1.0 is handed to your runtime, with its run plan."
+    }
+  ],
+  "notices": [
+    "wait:requirements:1.1:Requirements was refused",
+    "wait:requirements:2.2:Requirements was refused",
+    "wait:requirements:3.3:Approve the spec",
+    "wait:requirements:4.4:Approve the spec",
+    "wait:code:1.1:OK the code",
+    "wait:deploy:0.0:Approve the deploy",
+    "end:done"
+  ],
+  "plan": {
+    "at": "stages/package/r1/out/run-plan.json",
+    "stages": [
+      {
+        "stage": "deploy",
+        "name": "Deploy",
+        "role": "deployment-manager",
+        "role_name": "Deployment manager",
+        "contract": "https://agentroles.ai/deployment-manager.html",
+        "interface": "a running agent with an identity, an address and an inbox; its Descriptor signed and registered; settings, credentials (placed by name) and ceilings in place before it starts; a signed deployment record",
+        "used": true,
+        "chosen": true,
+        "reads": "chosen",
+        "holder": {
+          "kind": "reference_agent",
+          "name": "deployment-manager"
+        },
+        "settings": {}
+      },
+      {
+        "stage": "publish",
+        "name": "Publish",
+        "role": "publisher",
+        "role_name": "Publisher",
+        "contract": "https://agentroles.ai/publisher.html",
+        "interface": "an address a person can open, and the digest of what's there",
+        "used": true,
+        "chosen": true,
+        "reads": "chosen",
+        "holder": {
+          "kind": "reference_agent",
+          "name": "publisher"
+        },
+        "settings": {}
+      },
+      {
+        "stage": "retract",
+        "name": "Retract",
+        "role": "publisher",
+        "role_name": "Publisher",
+        "contract": "https://agentroles.ai/publisher.html",
+        "interface": "a record of what was taken down, by whom, and when",
+        "used": true,
+        "chosen": true,
+        "reads": "chosen",
+        "holder": {
+          "kind": "reference_agent",
+          "name": "publisher"
+        },
+        "settings": {}
+      },
+      {
+        "stage": "monitor",
+        "name": "Monitor",
+        "role": "watcher",
+        "role_name": "Watcher",
+        "contract": "https://agentroles.ai/watcher.html",
+        "interface": "whether each agent is alive, answering, and inside its limits",
+        "used": true,
+        "chosen": true,
+        "reads": "chosen",
+        "holder": {
+          "kind": "reference_agent",
+          "name": "watcher"
+        },
+        "settings": {}
+      },
+      {
+        "stage": "eval",
+        "name": "Eval",
+        "role": "agent-critic",
+        "role_name": "Agent critic",
+        "contract": "https://agentroles.ai/agent-critic.html",
+        "interface": "a graded judgment, with a reason on each grade",
+        "used": true,
+        "chosen": false,
+        "reads": "not chosen",
+        "holder": null,
+        "settings": {}
+      },
+      {
+        "stage": "incident",
+        "name": "Incident response",
+        "role": "incident-recorder",
+        "role_name": "Incident recorder",
+        "contract": "https://agentroles.ai/incident-recorder.html",
+        "interface": "a timeline of what's known, with every gap marked",
+        "used": true,
+        "chosen": true,
+        "reads": "chosen",
+        "holder": {
+          "kind": "reference_agent",
+          "name": "incident-recorder"
+        },
+        "settings": {}
+      },
+      {
+        "stage": "cost",
+        "name": "Cost",
+        "role": "watcher",
+        "role_name": "Watcher",
+        "contract": "https://agentroles.ai/watcher.html",
+        "interface": "what was spent, by whom, against what was allowed",
+        "used": true,
+        "chosen": true,
+        "reads": "chosen",
+        "holder": {
+          "kind": "reference_agent",
+          "name": "watcher"
+        },
+        "settings": {}
+      },
+      {
+        "stage": "update",
+        "name": "Update",
+        "role": "deployment-manager",
+        "role_name": "Deployment manager",
+        "contract": "https://agentroles.ai/deployment-manager.html",
+        "interface": "the same agent on the new version, with what changed recorded",
+        "used": true,
+        "chosen": true,
+        "reads": "chosen",
+        "holder": {
+          "kind": "reference_agent",
+          "name": "deployment-manager"
+        },
+        "settings": {}
+      },
+      {
+        "stage": "reconfigure",
+        "name": "Reconfigure",
+        "role": "deployment-manager",
+        "role_name": "Deployment manager",
+        "contract": "https://agentroles.ai/deployment-manager.html",
+        "interface": "the same agent on the same version, and a signed record of what changed",
+        "used": true,
+        "chosen": true,
+        "reads": "chosen",
+        "holder": {
+          "kind": "reference_agent",
+          "name": "deployment-manager"
+        },
+        "settings": {}
+      },
+      {
+        "stage": "rollback",
+        "name": "Rollback",
+        "role": "deployment-manager",
+        "role_name": "Deployment manager",
+        "contract": "https://agentroles.ai/deployment-manager.html",
+        "interface": "the agent back on that version, why, and what can't be undone",
+        "used": true,
+        "chosen": true,
+        "reads": "chosen",
+        "holder": {
+          "kind": "reference_agent",
+          "name": "deployment-manager"
+        },
+        "settings": {}
+      },
+      {
+        "stage": "decommission",
+        "name": "Decommission",
+        "role": "deployment-manager",
+        "role_name": "Deployment manager",
+        "contract": "https://agentroles.ai/deployment-manager.html",
+        "interface": "nothing running, the records kept, and the address retired",
+        "used": true,
+        "chosen": true,
+        "reads": "chosen",
+        "holder": {
+          "kind": "reference_agent",
+          "name": "deployment-manager"
+        },
+        "settings": {}
+      }
+    ]
+  },
+  "handle": "folder:/srv/pf/installed/word-counter-0.1.0"
+}

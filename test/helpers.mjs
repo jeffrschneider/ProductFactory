@@ -61,7 +61,7 @@ export async function factory({ doc = null, holder = "harness", rounds = 3, fail
   const history = withHistory ? createHistory({ store }) : null;
   if (people) await writeFile(join(dir, "people.json"), JSON.stringify(people, null, 2));
   const access = people ? createPeople({ file: join(dir, "people.json"), keysFile: join(config.data, KEYS_FILE), lifecycle: lifecycle.file, serviceKey: key.value, admin: person }) : null;
-  const service = createService({ store, lifecycle, runner, key: key.value, person, people: access, history });
+  const service = createService({ store, lifecycle, runner, key: key.value, person, people: access, history, config, env });
   const notices = createNotices({ config, env, store, people: access, settled: (id) => runner.idle(id) });
   notices.watch();
   const base = await service.listen(0);

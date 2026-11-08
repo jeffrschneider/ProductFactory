@@ -1,0 +1,35 @@
+{
+  "suite": "v1",
+  "at": "2026-11-08T21:24:26.864Z",
+  "work": "/srv/pf/builds/b_9f994035fdaf/stages/test/work/r1",
+  "files": [
+    {
+      "path": "test/count.test.mjs",
+      "tests": 10,
+      "names": [
+        "multiple sentences or non-text content are refused",
+        "binary files and images are refused immediately",
+        "empty or missing input stops and says what the agent takes",
+        "a credential value or system address is refused",
+        "the empty case exits 3 with the empty reply and files no pieces",
+        "two successful jobs each keep their own records, and pieces are in declared formats",
+        "the good case counts exactly the words and returns JSON with a count field, free of extraneous text",
+        "markdown is parsed to find the sentence",
+        "the process contract requires --job",
+        "the offering's how is what it claims"
+      ]
+    }
+  ],
+  "generated": [
+    "test/delivered-formats.test.mjs",
+    "test/records-per-job.test.mjs",
+    "test/worked-values.test.mjs",
+    "test/printed-reply.test.mjs"
+  ],
+  "could_not": [],
+  "notes": "",
+  "findings": [
+    "test/went-without.test.mjs names tests as labels rather than sentences: \"FILE is exported correctly\""
+  ],
+  "stand_ins": null
+}
