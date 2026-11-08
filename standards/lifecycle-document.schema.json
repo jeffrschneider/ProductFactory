@@ -50,11 +50,15 @@
       }
     },
     "Approver": {
-      "description": "One person, by email, or one team, by name.",
-      "anyOf": [
-        { "type": "object", "required": ["person"], "additionalProperties": false, "properties": { "person": { "$ref": "#/$defs/Words", "description": "The person's email." } } },
-        { "type": "object", "required": ["team"], "additionalProperties": false, "properties": { "team": { "$ref": "#/$defs/Words", "description": "The team's name." } } }
-      ]
+      "type": "object",
+      "description": "One person, by email, or one team, by name: exactly one of the two.",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "person": { "$ref": "#/$defs/Words", "description": "The person's email." },
+        "team": { "$ref": "#/$defs/Words", "description": "The team's name." }
+      }
     },
     "Holder": {
       "type": "object",

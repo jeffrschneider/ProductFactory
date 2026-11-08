@@ -218,7 +218,7 @@ test("a gate's approvers by team: an approver in the team answers, a member in i
   const id = (await as("max").post("/builds", { does: "Count the words." })).json.build.id;
   await f.settled(id);
   const max = (await as("max").get(`/builds/${id}`)).json.build;
-  assert.equal(stageOf(max, "requirements").gate.words, "Only the team Platform may answer the Requirements gate.");
+  assert.equal(stageOf(max, "requirements").gate.words, "Only an approver in the team Platform may answer the Requirements gate.");
   assert.equal((await as("max").post(`/builds/${id}/actions/approve`)).status, 403);
   assert.equal((await as("ana").post(`/builds/${id}/actions/approve`)).status, 403);
   assert.equal((await as("pat").post(`/builds/${id}/actions/approve`)).status, 200);
