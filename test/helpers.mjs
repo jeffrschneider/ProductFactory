@@ -11,6 +11,7 @@ import { createStore } from "../lib/store.mjs";
 import { createLifecycle } from "../lib/lifecycle.mjs";
 import { createRunner } from "../lib/runner.mjs";
 import { createService } from "../lib/server.mjs";
+import { createHistory } from "../lib/history.mjs";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 export const FAKE_ADLC = join(HERE, "fixtures", "fake-adlc");
@@ -26,7 +27,7 @@ export const MODEL_VARS = { PF_T_MODEL_NAME: "stand-in-model", PF_T_MODEL_ENDPOI
  * A Product Factory with fake holders. doc: a lifecycle document to start from.
  * holder: "harness" or "code-writer". failRounds: how many harness rounds write the wrong code.
  */
-export async function factory({ doc = null, holder = "harness", rounds = 3, failRounds = 0, model = true, harness = true, github = null, review = undefined } = {}) {
+export async function factory({ doc = null, holder = "harness", rounds = 3, failRounds = 0, model = true, harness = true, github = null, review = undefined, history: withHistory = true } = {}) {
   const dir = await tempDir("factory");
   const stubLog = join(dir, "harness-calls.jsonl");
   if (doc) await writeFile(join(dir, "lifecycle.json"), JSON.stringify(doc, null, 2));
@@ -49,7 +50,8 @@ export async function factory({ doc = null, holder = "harness", rounds = 3, fail
   const person = { name: "Test Person", email: "person@example.com" };
   const runner = createRunner({ store, lifecycle, config, env, person });
   const key = store.key();
-  const service = createService({ store, lifecycle, runner, key: key.value, person });
+  const history = withHistory ? createHistory({ store }) : null;
+  const service = createService({ store, lifecycle, runner, key: key.value, person, history });
   const base = await service.listen(0);
   const call = async (method, path, body, { auth = key.value, raw = false } = {}) => {
     const r = await fetch(`${base}/v1/lifecycle${path}`, {
@@ -63,14 +65,14 @@ export async function factory({ doc = null, holder = "harness", rounds = 3, fail
     return { status: r.status, json, text: raw ? text : undefined, type: r.headers.get("content-type") };
   };
   return {
-    dir, config, store, lifecycle, runner, service, base, key, stubLog, call, env,
+    dir, config, store, lifecycle, runner, service, base, key, stubLog, call, env, history,
     get: (p) => call("GET", p),
     post: (p, b = {}) => call("POST", p, b),
     put: (p, b) => call("PUT", p, b),
     del: (p) => call("DELETE", p),
     /** Waits until the build has nothing running, then reads it through the API. */
     settled: async (id) => { await runner.idle(id); return (await call("GET", `/builds/${id}`)).json.build; },
-    close: async () => { await runner.stopAll(); await service.close(); },
+    close: async () => { await runner.stopAll(); await service.close(); history?.close(); },
   };
 }
 
