@@ -1,0 +1,28 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "word-counter",
+  "version": "0.1.0",
+  "description": "Counts the words in a sentence of text and answers with the number.",
+  "author": {
+    "name": "Agent Builder"
+  },
+  "keywords": [
+    "built-agent",
+    "draft",
+    "count-words"
+  ],
+  "extensions": {
+    "net.agentdoc.package": {
+      "build": {
+        "skills": {
+          "count-words": {
+            "scripts": [
+              "scripts/count.mjs",
+              "scripts/went-without.mjs"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

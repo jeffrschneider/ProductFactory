@@ -1,0 +1,48 @@
+{
+  "format": "agent-descriptor-v1",
+  "agent_version": "0.1.0",
+  "does": "Counts the words in a sentence of text and answers with the number.",
+  "offerings": [
+    {
+      "id": "count-words",
+      "name": "Count words",
+      "does": "Reads a single sentence of text handed over by the caller, counts the exact number of words it contains, and returns the total.",
+      "inputs": [
+        {
+          "name": "sentence",
+          "kind": "text/markdown",
+          "required": true,
+          "given_by": "either",
+          "label": "The sentence to count",
+          "about": "Markdown: a header `source, read_at`, then `## Text` with the sentence."
+        }
+      ],
+      "outputs": [
+        {
+          "name": "word count",
+          "kind": "application/vnd.agentmesh.wordcount+json",
+          "when": "per_task",
+          "about": "`{count}`"
+        }
+      ],
+      "how": {
+        "control": "script",
+        "intelligence": "none",
+        "cost": "none",
+        "contract": "full"
+      }
+    }
+  ],
+  "refusals": "Counting anything that is not a sentence of text. If multiple sentences or non-text content are provided, it stops and returns an error explaining that only a single sentence is accepted.\nProcessing binary files, images, or any media types other than plain text. It does not attempt to extract text from images or documents, and will immediately reject them.\nGuessing the word count of an empty or missing input. It does not provide a zero or a default value when no text is handed over, but instead stops and says what this agent takes.\nAccepting a credential value or a system address pasted into the text input. It reads the input strictly as a sentence to be counted and does not execute or connect to any provided address.",
+  "records": [
+    {
+      "name": "what the job did not have and did anyway",
+      "when": "per_task",
+      "file": "*/went-without.json"
+    },
+    {
+      "name": "the signed job manifest of each delivery",
+      "when": "per_task"
+    }
+  ]
+}

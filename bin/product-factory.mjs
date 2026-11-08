@@ -91,7 +91,7 @@ async function main() {
   const people = createPeople({ file: peoplePath(config.lifecycle), keysFile: join(config.data, KEYS_FILE), lifecycle: lifecycle.file, serviceKey: key.value, admin: person });
   const peopleProblems = people.list().problems;
   if (peopleProblems.length) console.error(`People: ${peopleProblems.join(" ")}`);
-  const service = createService({ store, lifecycle, runner, key: key.value, person, people, version: pkg.version, history });
+  const service = createService({ store, lifecycle, runner, key: key.value, person, people, version: pkg.version, history, config });
   const notices = createNotices({ config, store, people, settled: (id) => runner.idle(id), linkOf: (r) => (base ? `${base}/v1/lifecycle/builds/${r.id}` : null) });
   notices.watch();
   const intake = createIssueIntake({ config, store, runner, log: (said) => console.log(said) });

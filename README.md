@@ -10,7 +10,7 @@ with only open-source pieces. [BUILD.md](BUILD.md) lists the milestones after it
 ## What milestone 1 does
 
 `npx product-factory` starts a small service on `127.0.0.1`. It answers the
-lifecycle API (version 0.3) that the [adlc console](https://github.com/CommonAgent/adlc-console)
+lifecycle API (version 0.4) that the [adlc console](https://github.com/CommonAgent/adlc-console)
 reads, so the console shows your builds and lets you act at your gates. The
 same command starts the console against it and opens it in your browser. It
 keeps everything in files: the lifecycle document and one folder per build.
@@ -374,6 +374,38 @@ The console's Lifecycle page works against the service: choose stages for
 the organization or a project, and who holds each role. A build keeps the
 choices in effect when it started.
 
+## Products, stages and each stage's agent
+
+A product is every build of one name, such as `word-counter`: one build per
+version. Each build's stages are workspaces, and the lifecycle API 0.4 answers
+them:
+
+```
+GET  /v1/lifecycle/products                                   every product, its newest build and its versions
+GET  /v1/lifecycle/products/<name>                            its builds, the newest run plan, and a short activity feed
+GET  /v1/lifecycle/builds/<id>/stages/<stage>                 what the stage was given, what it handed back, its gate
+GET  /v1/lifecycle/products/<name>/stages/<stage>/messages    the chat with the agent holding the stage
+POST /v1/lifecycle/products/<name>/stages/<stage>/messages    { "text": "...", "build": "<id>" }: that agent answers
+```
+
+The build answer also carries `artifacts`: what the build has made and will
+make, in stage order, each with a summary a person can read (the statement of
+the job, the suite, the programs, the review findings, the security record,
+the package and the run plan). Every summary is read from the build's own
+files; a stage Product Factory does not run says so in words.
+
+The chat at a stage is kept with the product across its builds; each message
+names the build and version it was said in. The agent answers through the
+reference agents' shared model caller in your adlc checkout, with the same
+four model settings, from the stage's outputs, what it was given and the
+build's record. Answering changes nothing. When you ask for a change, the
+reply proposes the build's existing action for it (Requirements: Ask for
+changes; Test: Send back to Test, from Code; Code: Give it more rounds, when
+Code was refused), with its words filled in, and only when you may take that
+action now. You confirm it with the action, so a change always goes back
+through its gate. A stage held by a person, an outside tool, or your own
+coding harness is not answered here, and the reply says so.
+
 ## Analytics
 
 Product Factory keeps a history of every build in an SQLite file beside the
@@ -484,7 +516,7 @@ and look the person up in `people.json` by its email.
 
 ## Standards it uses
 
-- Lifecycle API 0.3 and stages.json 1.2.0 (CommonAgent/adlc, copies in `standards/`).
+- Lifecycle API 0.4 and stages.json 1.2.0 (CommonAgent/adlc, copies in `standards/`).
 - The lifecycle document 0.1, through the adlc console's store, with `approvers`
   (CommonAgent/adlc#121). The console's store checks each entry's shape, so a
   wrong entry makes the file invalid, named in words, like any other wrong

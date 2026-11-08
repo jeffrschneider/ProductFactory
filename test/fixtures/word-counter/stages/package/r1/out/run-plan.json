@@ -1,0 +1,191 @@
+{
+  "format": "product-factory-run-plan-v1",
+  "made": "2026-11-08T21:30:00.659Z",
+  "product": {
+    "name": "word-counter",
+    "version": "0.1.0",
+    "kind": "agent",
+    "build": "b_9f994035fdaf"
+  },
+  "package": "word-counter-0.1.0.tar.gz",
+  "lifecycle": {
+    "project": null,
+    "at": "2026-11-08T21:16:57.681Z"
+  },
+  "about": "Product Factory does not run the product. Each stage below is a binding the runtime takes on: its holder, the holder's settings, and the interface the holder meets, which is the stage's \"hands back\" line in stages.json.",
+  "stages": [
+    {
+      "stage": "deploy",
+      "name": "Deploy",
+      "role": "deployment-manager",
+      "role_name": "Deployment manager",
+      "contract": "https://agentroles.ai/deployment-manager.html",
+      "interface": "a running agent with an identity, an address and an inbox; its Descriptor signed and registered; settings, credentials (placed by name) and ceilings in place before it starts; a signed deployment record",
+      "used": true,
+      "chosen": true,
+      "reads": "chosen",
+      "holder": {
+        "kind": "reference_agent",
+        "name": "deployment-manager"
+      },
+      "settings": {}
+    },
+    {
+      "stage": "publish",
+      "name": "Publish",
+      "role": "publisher",
+      "role_name": "Publisher",
+      "contract": "https://agentroles.ai/publisher.html",
+      "interface": "an address a person can open, and the digest of what's there",
+      "used": true,
+      "chosen": true,
+      "reads": "chosen",
+      "holder": {
+        "kind": "reference_agent",
+        "name": "publisher"
+      },
+      "settings": {}
+    },
+    {
+      "stage": "retract",
+      "name": "Retract",
+      "role": "publisher",
+      "role_name": "Publisher",
+      "contract": "https://agentroles.ai/publisher.html",
+      "interface": "a record of what was taken down, by whom, and when",
+      "used": true,
+      "chosen": true,
+      "reads": "chosen",
+      "holder": {
+        "kind": "reference_agent",
+        "name": "publisher"
+      },
+      "settings": {}
+    },
+    {
+      "stage": "monitor",
+      "name": "Monitor",
+      "role": "watcher",
+      "role_name": "Watcher",
+      "contract": "https://agentroles.ai/watcher.html",
+      "interface": "whether each agent is alive, answering, and inside its limits",
+      "used": true,
+      "chosen": true,
+      "reads": "chosen",
+      "holder": {
+        "kind": "reference_agent",
+        "name": "watcher"
+      },
+      "settings": {}
+    },
+    {
+      "stage": "eval",
+      "name": "Eval",
+      "role": "agent-critic",
+      "role_name": "Agent critic",
+      "contract": "https://agentroles.ai/agent-critic.html",
+      "interface": "a graded judgment, with a reason on each grade",
+      "used": true,
+      "chosen": false,
+      "reads": "not chosen",
+      "holder": null,
+      "settings": {}
+    },
+    {
+      "stage": "incident",
+      "name": "Incident response",
+      "role": "incident-recorder",
+      "role_name": "Incident recorder",
+      "contract": "https://agentroles.ai/incident-recorder.html",
+      "interface": "a timeline of what's known, with every gap marked",
+      "used": true,
+      "chosen": true,
+      "reads": "chosen",
+      "holder": {
+        "kind": "reference_agent",
+        "name": "incident-recorder"
+      },
+      "settings": {}
+    },
+    {
+      "stage": "cost",
+      "name": "Cost",
+      "role": "watcher",
+      "role_name": "Watcher",
+      "contract": "https://agentroles.ai/watcher.html",
+      "interface": "what was spent, by whom, against what was allowed",
+      "used": true,
+      "chosen": true,
+      "reads": "chosen",
+      "holder": {
+        "kind": "reference_agent",
+        "name": "watcher"
+      },
+      "settings": {}
+    },
+    {
+      "stage": "update",
+      "name": "Update",
+      "role": "deployment-manager",
+      "role_name": "Deployment manager",
+      "contract": "https://agentroles.ai/deployment-manager.html",
+      "interface": "the same agent on the new version, with what changed recorded",
+      "used": true,
+      "chosen": true,
+      "reads": "chosen",
+      "holder": {
+        "kind": "reference_agent",
+        "name": "deployment-manager"
+      },
+      "settings": {}
+    },
+    {
+      "stage": "reconfigure",
+      "name": "Reconfigure",
+      "role": "deployment-manager",
+      "role_name": "Deployment manager",
+      "contract": "https://agentroles.ai/deployment-manager.html",
+      "interface": "the same agent on the same version, and a signed record of what changed",
+      "used": true,
+      "chosen": true,
+      "reads": "chosen",
+      "holder": {
+        "kind": "reference_agent",
+        "name": "deployment-manager"
+      },
+      "settings": {}
+    },
+    {
+      "stage": "rollback",
+      "name": "Rollback",
+      "role": "deployment-manager",
+      "role_name": "Deployment manager",
+      "contract": "https://agentroles.ai/deployment-manager.html",
+      "interface": "the agent back on that version, why, and what can't be undone",
+      "used": true,
+      "chosen": true,
+      "reads": "chosen",
+      "holder": {
+        "kind": "reference_agent",
+        "name": "deployment-manager"
+      },
+      "settings": {}
+    },
+    {
+      "stage": "decommission",
+      "name": "Decommission",
+      "role": "deployment-manager",
+      "role_name": "Deployment manager",
+      "contract": "https://agentroles.ai/deployment-manager.html",
+      "interface": "nothing running, the records kept, and the address retired",
+      "used": true,
+      "chosen": true,
+      "reads": "chosen",
+      "holder": {
+        "kind": "reference_agent",
+        "name": "deployment-manager"
+      },
+      "settings": {}
+    }
+  ]
+}
