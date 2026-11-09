@@ -49,6 +49,25 @@ if (/^You are the boss of the product /.test(prompt)) {
   else out({ kind: "answer", answer: newest ? `From the record: ${newest[1]} (build ${newest[2]}) is ${newest[3]}.` : "The record does not say." });
   process.exit(0);
 }
+// Features listed after the build (lifecycle API 0.4.5): the prompt says the product was built before
+// it had a feature list. It lists one feature per kind of test it recognizes by keyword, each with the
+// suite's tests that match it, plus one name the suite does not have (which Product Factory must drop).
+// A test no keyword matches is left out, so it stays unmapped.
+if (/This product was built before it had a feature list\./.test(prompt)) {
+  const at = prompt.indexOf("The suite's test names:\n");
+  const tests = at < 0 ? [] : prompt.slice(at).split("\n").slice(1).filter((l) => l.startsWith("- ")).map((l) => l.slice(2));
+  const offering = (/^Its offerings: ([^(;\n]+)/m.exec(prompt)?.[1] ?? "Count").trim();
+  const kinds = [
+    { name: "Count words", does: "Counts the exact words in the text and answers with the number.", match: (t) => /\bcounts?\b/i.test(t), extra: ["a test the suite does not have"] },
+    { name: "Refuse non-text", does: "Refuses more than one sentence, binary files, images and anything that is not text.", match: (t) => /refused/i.test(t) && !/credential/i.test(t) },
+    { name: "Stop on empty input", does: "Stops and says what it takes when the input is empty or missing.", match: (t) => /\bempty\b/i.test(t) },
+    { name: "Refuse credentials", does: "Refuses a credential value or a system address pasted into the text.", match: (t) => /credential/i.test(t) },
+  ];
+  const listed = kinds.map((k) => ({ id: null, name: k.name, does: k.does, offering, tests: [...tests.filter(k.match), ...(k.extra ?? [])] }));
+  const loose = tests.filter((t) => !kinds.some((k) => k.match(t))).length;
+  console.log(JSON.stringify({ ok: true, text: JSON.stringify({ answer: `I listed ${listed.length} features from the statement of the job. ${loose} of the ${tests.length} tests are not clearly tied to one, so I left them unmapped.`, change: null, features: listed }), model: process.env.MODEL_NAME, protocol: process.env.MODEL_PROTOCOL }));
+  process.exit(0);
+}
 if (features.length) {
   console.log(JSON.stringify({ ok: true, text: JSON.stringify({ answer: `I would add ${features.map((f) => f.name).join(", ")} to the statement. Approve each one below.`, change: null, features }), model: process.env.MODEL_NAME, protocol: process.env.MODEL_PROTOCOL }));
   process.exit(0);

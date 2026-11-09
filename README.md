@@ -10,7 +10,7 @@ with only open-source pieces. [BUILD.md](BUILD.md) lists the milestones after it
 ## What milestone 1 does
 
 `npx product-factory` starts a small service on `127.0.0.1`. It answers the
-lifecycle API (version 0.4.3) that the [adlc console](https://github.com/CommonAgent/adlc-console)
+lifecycle API (version 0.4.5) that the [adlc console](https://github.com/CommonAgent/adlc-console)
 reads, so the console shows your builds and lets you act at your gates. The
 same command starts the console against it and opens it in your browser. It
 keeps everything in files: the lifecycle document and one folder per build.
@@ -614,6 +614,47 @@ versions: proposed, approved, tests added, code changed, reviewed, each linked
 to its message or artifact. Everything is kept as events in each build's
 record (`feature_log`), never rewritten (lib/features.mjs).
 
+### Features at every stage (lifecycle API 0.4.5)
+
+Each every-build stage shows its own slice of the features. The build answer
+gives each stage a short count for the spine ("Test · 4 of 5 features"), and
+the stage's workspace lists one line per feature, which the console shows in
+the stage's Artifacts tab:
+
+- **Requirements**: each feature and whether it is approved.
+- **Test**: the tests that check each approved feature; a feature with none
+  is marked to do, and the tests that check no feature are listed as not tied
+  to one.
+- **Code**: how many of each feature's tests pass ("Refuse non-text: 6 of 6").
+- **Review**: the code critic's findings tied to a feature through its tests
+  (the finding's place is a line inside one of its tests, or the finding quotes
+  a test's name); every other finding is "not tied to a feature".
+- **Docs**: which features the docs name, once Docs runs.
+
+### Features for a build made before them
+
+A product built before features existed has none. When it has a statement of
+the job and a spec writer that answers, its Features matrix offers
+`backfill`, and the console's Requirements stage shows **List this product's
+features**. The same is on the command line:
+
+```
+npx product-factory features backfill <product>
+```
+
+Both ask the spec writer in the Requirements chat
+(`POST /builds/:id/features/backfill`), through the same stage chat and model
+caller. Its reply proposes every feature of the statement of the job, each
+with id, name, what it does and its offering, and maps the tests already in
+the build to them where their names or content make it clear. A name the
+suite does not have is dropped, and a test that is not clear is left
+unmapped and shown as such, never guessed. The features arrive as proposed:
+**Approve all** (`POST /builds/:id/features/approve_all`) approves them
+together, each recorded as a chat approval, as one new version of the
+statement; or each can be answered on its own. Approving a listed feature
+does not mark the tests or code made before it as stale, since it describes
+what was already built.
+
 ## Analytics
 
 Product Factory keeps a history of every build in an SQLite file beside the
@@ -724,7 +765,7 @@ and look the person up in `people.json` by its email.
 
 ## Standards it uses
 
-- Lifecycle API 0.4.3 and stages.json 1.3.0 (CommonAgent/adlc, copies in `standards/`).
+- Lifecycle API 0.4.5 and stages.json 1.3.0 (CommonAgent/adlc, copies in `standards/`).
 - The lifecycle document 0.1, through the adlc console's store, with `approvers`
   (CommonAgent/adlc#121). The console's store checks each entry's shape, so a
   wrong entry makes the file invalid, named in words, like any other wrong

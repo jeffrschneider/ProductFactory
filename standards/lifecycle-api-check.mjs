@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Checks a running service against the lifecycle API (lifecycle-api.schema.json,
-// version 0.4.4): every answer against the schema, and the rules a schema cannot
+// version 0.4.5): every answer against the schema, and the rules a schema cannot
 // say. It only reads. It asks who the key belongs to, reads who holds each
 // role and which stages the lifecycle uses, lists the builds, reads each one, reads its tries, and opens the first
 // file each build handed back (every file with --all-files).
@@ -97,6 +97,19 @@
 //     feature was;
 //   - a round's results per feature never pass more tests than it has;
 //   - a gate's features are only at Requirements, each feature once.
+// Version 0.4.5 adds each stage's features, a matrix row's pending proposal,
+// where it came from and its tests, the matrix's unmapped tests and backfill,
+// and approve_all, checked by checkBuild, checkStageWorkspace, checkFeatures
+// and checkFeatureApproveAll. Their rules beyond the schema:
+//   - a stage never covers more features than it has, and a stage workspace's
+//     features are its own stage's, with the same count as the build's stage;
+//   - a stage lists each feature once; at Test a feature with tests is not to
+//     do and one without is; at Code a feature never passes more tests than
+//     check it, and one with findings open at Review names one;
+//   - a row's pending proposal is a proposal of that feature; a test that
+//     checks a feature is not unmapped; backfill is offered only with no features;
+//   - approve_all lists every proposal it was asked to approve, each approved,
+//     and names the statement's new version.
 //
 //   node standards/lifecycle-api-check.mjs <base> [--key-file <path>] [--stages <path>] [--limit <n>] [--all-files]
 //
@@ -156,6 +169,7 @@ function walk(schema, v, at, out) {
       for (const [k, x] of Object.entries(v)) if (!(k in (schema.properties ?? {}))) walk(schema.additionalProperties, x, `${at}.${k}`, out);
     }
   }
+  if (Array.isArray(v) && schema.minItems !== undefined && v.length < schema.minItems) out.push(`${at}: has ${v.length} items, fewer than ${schema.minItems}`);
   if (Array.isArray(v) && schema.items) v.forEach((x, i) => walk(schema.items, x, `${at}[${i}]`, out));
 }
 
@@ -374,7 +388,9 @@ export function checkBuild(body, ids, id, roles, cadences = CADENCES()) {
     if (isObj(a) && typeof a.stage === "string" && !offered.has(a.stage)) p.push(`body.build.actions[${i}]: "${a.name}" acts at ${a.stage}, a stage the build does not offer`);
   });
   // Each stage's cadence (added in 0.4.2).
-  stages.forEach((s, i) => cadenceRules(s, `body.build.stages[${i}]`, cadences, p));  // The build's artifacts (added in 0.4).
+  stages.forEach((s, i) => cadenceRules(s, `body.build.stages[${i}]`, cadences, p));
+  // Each stage's features (added in 0.4.5).
+  stages.forEach((s, i) => { if (isObj(s.features)) p.push(...countRules(s.features, `body.build.stages[${i}].features`)); });  // The build's artifacts (added in 0.4).
   if (Array.isArray(b.artifacts)) p.push(...checkArtifacts(b.artifacts, ids, "body.build.artifacts"));
   return p;
 }
@@ -510,6 +526,47 @@ export function checkStageWorkspace(body, ids, stage, build, cadences = CADENCES
     const all = ["approved", "to_approve", "backlog"].flatMap((k) => (Array.isArray(gf[k]) ? gf[k] : []).map((x) => x?.id));
     for (const id of new Set(all)) if (all.filter((x) => x === id).length > 1) p.push(`body.gate.features: ${id} is listed more than once`);
   }
+  // The stage's features (added in 0.4.5): its own stage, and the same count as the build's stage.
+  if (isObj(body.features)) {
+    p.push(...sliceRules(body.features, "body.features"));
+    if (body.features.stage !== body.stage) p.push(`body.features.stage: is ${JSON.stringify(body.features.stage)}, not ${body.stage}`);
+    if (same && isObj(same.features) && same.features.words !== body.features.words) p.push(`body.features.words: is ${JSON.stringify(body.features.words)}, but the build's stage says ${JSON.stringify(same.features.words)}`);
+  }
+  return p;
+}
+
+// ---------- each stage's features (added in 0.4.5) ----------
+
+/** A stage's count of features: it never covers more than it has. */
+function countRules(c, at) {
+  const p = [];
+  if (Number.isInteger(c.covered) && Number.isInteger(c.total) && c.covered > c.total) p.push(`${at}: covers ${c.covered} of ${c.total} features, more than it has`);
+  return p;
+}
+
+/**
+ * A stage's features: its count, each feature once, a feature at Test with
+ * tests is done or stale and one without is to do, and a feature at Code never
+ * passes more tests than check it.
+ */
+export function sliceRules(s, at = "body.features") {
+  const p = countRules(s, at);
+  const items = Array.isArray(s.items) ? s.items.filter(isObj) : [];
+  const ids = items.map((x) => x.id);
+  for (const id of new Set(ids)) if (ids.filter((x) => x === id).length > 1) p.push(`${at}.items: ${id} is listed more than once`);
+  items.forEach((x, i) => {
+    const here = `${at}.items[${i}]`;
+    if (s.stage === "test" && Array.isArray(x.tests)) {
+      if (x.tests.length && x.state === "to_do") p.push(`${here}: ${x.id} has tests, so it is not to do`);
+      if (!x.tests.length && ["done", "stale"].includes(x.state)) p.push(`${here}: ${x.id} has no test, so it is to do`);
+    }
+    if (Number.isInteger(x.passed) && Number.isInteger(x.of)) {
+      if (x.passed > x.of) p.push(`${here}: ${x.id} passed ${x.passed} of ${x.of} tests, more than it has`);
+      if (x.state === "failing" && x.passed >= x.of) p.push(`${here}: is failing, but every test checking ${x.id} passed`);
+      if (x.state === "done" && x.passed < x.of) p.push(`${here}: is done, but ${x.of - x.passed} of its tests failed`);
+    }
+    if (x.state === "findings" && !(Array.isArray(x.findings) && x.findings.some((f) => isObj(f) && f.open))) p.push(`${here}: has findings open, and names none`);
+  });
   return p;
 }
 
@@ -676,6 +733,33 @@ export function checkFeatures(body, build) {
     }
     if (r.state === "proposed" && isObj(r.cells.spec) && r.cells.spec.state !== "missing") p.push(`body.features[${i}].cells.spec: ${r.id} was never approved, so the spec does not carry it yet, and the cell is missing`);
   });
+  // Added in 0.4.5: a row's pending proposal is its own, a test that checks a feature is not also unmapped, and backfill is offered only with no features.
+  const unmapped = new Set(Array.isArray(body.unmapped) ? body.unmapped : []);
+  rows.forEach((r, i) => {
+    if (!isObj(r)) return;
+    if (isObj(r.pending)) {
+      if (r.pending.feature !== r.id) p.push(`body.features[${i}].pending: is a proposal of ${r.pending.feature}, not ${r.id}`);
+      p.push(...proposalRules([r.pending], `body.features[${i}].pending`).map((x) => x.replace(`body.features[${i}].pending[0]`, `body.features[${i}].pending`)));
+    }
+    (Array.isArray(r.tests) ? r.tests : []).forEach((t) => { if (unmapped.has(t)) p.push(`body.unmapped: "${t}" checks ${r.id}, so it is not unmapped`); });
+  });
+  if (isObj(body.backfill) && body.backfill.offered === true && rows.length) p.push("body.backfill: is offered, but the product has features already");
+  return p;
+}
+
+/** POST /builds/{id}/features/approve_all (added in 0.4.5): every proposal named reads approved, and the statement has one new version. proposals: the ids sent. */
+export function checkFeatureApproveAll(body, proposals) {
+  const p = validate("FeatureApproveAllAnswer", body);
+  if (!isObj(body)) return p;
+  const approved = Array.isArray(body.approved) ? body.approved.filter(isObj) : [];
+  p.push(...proposalRules(approved, "body.approved"));
+  approved.forEach((x, i) => { if (x.state !== "approved") p.push(`body.approved[${i}].state: is ${x.state}, after approve_all`); });
+  if (Array.isArray(proposals)) {
+    const got = new Set(approved.map((x) => x.proposal));
+    for (const id of proposals) if (!got.has(id)) p.push(`body.approved: does not list the proposal ${id} it was asked to approve`);
+  }
+  (Array.isArray(body.features) ? body.features.filter(isObj) : []).forEach((f, i) => { if (f.state !== "approved") p.push(`body.features[${i}].state: ${f.id} was approved, and is not`); });
+  if (typeof body.statement !== "string") p.push("body.statement: approving gives the statement of the job a new version, and the answer does not name it");
   return p;
 }
 
