@@ -2,6 +2,7 @@
 // npx product-factory [--config <path>] [--port <n>] [--console-port <n>] [--no-console] [--no-open]
 // npx product-factory init [--config <path>]
 // npx product-factory check [--config <path>]                                  (lib/check.mjs)
+// npx product-factory features backfill <product> [--config <path>]
 // npx product-factory people | person ... | team add ... | project add ...   (lib/people.mjs)
 
 import { parseArgs } from "node:util";
@@ -31,6 +32,10 @@ lifecycle API the adlc console reads.
   npx product-factory init            write a starter ${CONFIG_FILE} here
   npx product-factory check           check the settings, and make one tiny call to the model
                                       to see that the endpoint, the key and the model answer
+  npx product-factory features backfill <product>
+                                      the spec writer lists the features of a product made
+                                      before features, and maps its tests to them; they
+                                      arrive as proposed, to approve in the console
 
   --config <path>        the settings file (default ./${CONFIG_FILE})
   --port <n>             the service listens on this port, overriding the settings (0 takes any free port)
@@ -74,6 +79,13 @@ async function main() {
     try { config = loadConfig(configPath); } catch (e) { console.error(e.message); process.exit(2); }
     const { code, out } = peopleCommand(positionals, values, config);
     (code ? console.error : console.log)(out);
+    process.exit(code);
+  }
+  if (positionals[0] === "features") {
+    if (positionals[1] !== "backfill" || !positionals[2] || positionals.length > 3) { console.error(`Say which product: product-factory features backfill <product>.\n\n${HELP}`); process.exit(2); }
+    let config;
+    try { config = loadConfig(configPath); } catch (e) { console.error(e.message); process.exit(2); }
+    const code = await backfillCommand(config, positionals[2]);
     process.exit(code);
   }
   if (positionals.length) { console.error(`There is no command ${positionals[0]}.\n\n${HELP}`); process.exit(2); }
@@ -162,6 +174,36 @@ async function main() {
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
+}
+
+/**
+ * product-factory features backfill <product>: the spec writer lists the
+ * features of a product made before features, from its statement of the job,
+ * and maps the tests already in the build to them. It runs the same code as
+ * the console's "List this product's features" button, against the same
+ * store, and needs no running service. The features arrive as proposed, on
+ * the spec writer's reply in the Requirements chat, for the person to approve.
+ */
+async function backfillCommand(config, product) {
+  const store = createStore({ dir: config.data });
+  const lifecycle = createLifecycle({ path: config.lifecycle });
+  const person = localPerson();
+  const runner = createRunner({ store, lifecycle, config, person });
+  const key = store.key();
+  const people = createPeople({ file: peoplePath(config.lifecycle), keysFile: join(config.data, KEYS_FILE), lifecycle: lifecycle.file, serviceKey: key.value, admin: person });
+  const service = createService({ store, lifecycle, runner, key: key.value, person, people, version: pkg.version, config });
+  console.log(`Asking the spec writer to list the features of ${product}. This can take a few minutes.`);
+  let got;
+  try { got = await service.backfill(product, person); } catch (e) { console.error(e.message); return 1; }
+  const said = got.reply;
+  console.log(said.text);
+  const list = Array.isArray(said.features) ? said.features : [];
+  if (!list.length) { console.log("No features were proposed."); return said.from?.kind === "system" ? 1 : 0; }
+  console.log("");
+  for (const f of list) console.log(`  ${f.feature} ${f.name}: ${f.does}${f.offering ? ` (offering ${f.offering})` : ""}. ${f.tests?.length ? `${f.tests.length} ${f.tests.length === 1 ? "test" : "tests"} mapped.` : "No test mapped."}`);
+  console.log("");
+  console.log(`They are proposed, not approved. Open ${product}'s Requirements stage in the console: its Features tab has Approve all, and Approve feature and Not now on each.`);
+  return 0;
 }
 
 main().catch((e) => { console.error(e.message); process.exit(1); });

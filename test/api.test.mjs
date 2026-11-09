@@ -13,8 +13,8 @@ import { STAGES_DOC, STAGE_IDS, API_SCHEMA } from "../lib/standards.mjs";
 const ROLE_IDS = STAGES_DOC.roles.map((r) => r.id);
 const doc = { version: "0.1", organization: { used: { impact: false }, holders: { "code-critic": { kind: "person", name: "Our review team" } } }, projects: { web: { used: { docs: false } } } };
 
-test("the vendored schema is lifecycle API 0.4.4, and stages.json has 24 stages", () => {
-  assert.equal(API_SCHEMA.version, "0.4.4");
+test("the vendored schema is lifecycle API 0.4.5, and stages.json has 24 stages", () => {
+  assert.equal(API_SCHEMA.version, "0.4.5");
   assert.equal(STAGE_IDS.length, 24);
 });
 
