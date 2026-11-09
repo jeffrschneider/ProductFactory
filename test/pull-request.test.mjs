@@ -55,7 +55,7 @@ test("Code opens a Write the scripts pull request; a failing push, then a passin
   assert.equal(code.where.url, "https://github.example/acme/agents/pull/1");
   assert.equal(code.where.check, null);
   assert.equal(code.where.head, gh.head(BRANCH).slice(0, 7));
-  assert.deepEqual(actionNames(opened), ["back_to_test", "stop"]);
+  assert.deepEqual(actionNames(opened), ["back_to_test", "back_to_requirements", "stop"]);
   assert.equal(opened.summary, "Working at Code: waiting for a push to pull request #1");
   const pr = gh.pulls.get(1);
   assert.equal(pr.title, "Write the scripts: counter 0.1.0");
@@ -87,7 +87,7 @@ test("Code opens a Write the scripts pull request; a failing push, then a passin
   assert.equal(c.where.check.title, "The tests did not pass");
   assert.equal(c.where.check.passed, false);
   assert.deepEqual(c.where.check.items, ["counts the words in a passage"]);
-  assert.deepEqual(actionNames(b), ["back_to_test", "stop"]);
+  assert.deepEqual(actionNames(b), ["back_to_test", "back_to_requirements", "stop"]);
   assert.equal(gh.comments.length, 1);
   assert.match(gh.comments[0].body, new RegExp(`^\\*\\*Product Factory gate: The tests did not pass\\*\\* \\(${bad.slice(0, 7)}\\)`));
   assert.deepEqual(gh.statuses.filter((s) => s.sha === bad).map((s) => s.state), ["pending", "failure"]);
@@ -106,7 +106,7 @@ test("Code opens a Write the scripts pull request; a failing push, then a passin
   assert.match(c.where.check.words, /All 1 tests passed\. Blanking each of the 1 script made the suite fail, as it should\./);
   assert.match(c.where.check.words, /The code critic reviewed the scripts and left nothing open\./);
   assert.match(c.where.check.words, /The security reviewer passed it\./);
-  assert.deepEqual(actionNames(b), ["accept", "back_to_test", "stop"]);
+  assert.deepEqual(actionNames(b), ["accept", "back_to_test", "back_to_requirements", "stop"]);
   assert.equal(b.summary, "Waiting on you at Code");
   assert.deepEqual(gh.statuses.filter((s) => s.sha === good).map((s) => s.state), ["pending", "success"]);
   const handed = c.handed_back.files.find((x) => x.path === "code/scripts/count.mjs");
@@ -189,7 +189,7 @@ test("a push after the gate passed: your OK waits for the gate on the newest com
   ({ b } = await polled(f, id));
   assert.equal(f.store.read(id).status, "working");
   assert.equal(stageOf(b, "code").state, "working");
-  assert.deepEqual(actionNames(b), ["back_to_test", "stop"]);
+  assert.deepEqual(actionNames(b), ["back_to_test", "back_to_requirements", "stop"]);
   assert.equal(stageOf(b, "code").where.head, failing.slice(0, 7));
   assert.ok(b.log.some((e) => /did not pass the gate, so your OK waits for one that does/.test(e.said)));
   gh.push(BRANCH, { [SCRIPT]: RIGHT });
@@ -252,7 +252,7 @@ test("Send back to Test: the test writer revises the suite, and the revised test
   assert.match(revised, /The test writer revised `test\/count\.test\.mjs`/);
   assert.match(revised, /> Say that an empty passage has no words\./);
   assert.equal(stageOf(b, "code").state, "working");
-  assert.deepEqual(actionNames(b), ["back_to_test", "stop"]);
+  assert.deepEqual(actionNames(b), ["back_to_test", "back_to_requirements", "stop"]);
 
   // The revised commit is the first the gate hears, and it passes the fence: the stub still fails the suite.
   let r;

@@ -20,5 +20,9 @@
       "<date>": "the day the build started",
       "<the agent's owner>": "the person who started the build"
     }
+  },
+  "rebuild-from-as-built-record.txt": {
+    "what": "Product Factory's own process for a build started from an as-built record (stages.json 1.5.0, the starting point as-built-record): make-a-new-agent.txt with its trigger, goal, three writing phases, one handoff, data and its last policy reworded for an as-built record of code kept elsewhere, built again without taking that code on. Its phases, handoffs and deviations are the same as make-a-new-agent.txt's.",
+    "from": "make-a-new-agent.txt in this folder"
   }
 }

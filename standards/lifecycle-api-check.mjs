@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Checks a running service against the lifecycle API (lifecycle-api.schema.json,
-// version 0.4.6): every answer against the schema, and the rules a schema cannot
+// version 0.4.7): every answer against the schema, and the rules a schema cannot
 // say. It only reads. It asks who the key belongs to, reads who holds each
 // role and which stages the lifecycle uses, lists the builds, reads each one, reads its tries, and opens the first
 // file each build handed back (every file with --all-files).
@@ -120,6 +120,11 @@
 //     it; one answered bug carries its fix item, for the same feature;
 //   - a product's drift is true exactly when the commit it reads now differs from
 //     the last one any build knew.
+// Version 0.4.7 adds starting from an as-built record and the action
+// back_to_requirements, checked by checkBuild. Its rules beyond the schema:
+//   - a build started from an as-built record says where the record was read
+//     (source.record);
+//   - back_to_requirements acts at Code, and asks for the person's words.
 //
 //   node standards/lifecycle-api-check.mjs <base> [--key-file <path>] [--stages <path>] [--limit <n>] [--all-files]
 //
@@ -397,6 +402,13 @@ export function checkBuild(body, ids, id, roles, cadences = CADENCES()) {
   const offered = new Set(stages.filter((s) => !NOT_OFFERED.has(drawnState(s.state))).map((s) => s.stage));
   (Array.isArray(b.actions) ? b.actions : []).forEach((a, i) => {
     if (isObj(a) && typeof a.stage === "string" && !offered.has(a.stage)) p.push(`body.build.actions[${i}]: "${a.name}" acts at ${a.stage}, a stage the build does not offer`);
+  });
+  // Starting from an as-built record, and back_to_requirements (added in 0.4.7).
+  if (isObj(b.source) && b.source.starting_point === "as-built-record" && !isObj(b.source.record)) p.push("body.build.source: the build started from an as-built record, and does not say where the record was read (record)");
+  (Array.isArray(b.actions) ? b.actions : []).forEach((a, i) => {
+    if (!isObj(a) || a.name !== "back_to_requirements") return;
+    if (a.stage !== "code") p.push(`body.build.actions[${i}]: back_to_requirements acts at Code, not at ${a.stage}`);
+    if (!(Array.isArray(a.needs) && a.needs.some((n) => isObj(n) && n.kind === "words" && n.optional !== true))) p.push(`body.build.actions[${i}]: back_to_requirements asks for the person's words (a need of kind words that is not optional)`);
   });
   // Each stage's cadence (added in 0.4.2).
   stages.forEach((s, i) => cadenceRules(s, `body.build.stages[${i}]`, cadences, p));

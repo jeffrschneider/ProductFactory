@@ -226,7 +226,8 @@ test("when the rounds run out the build stops and waits; more rounds finish it",
   assert.equal(stageOf(b, "code").state, "refused");
   assert.equal(stageOf(b, "code").rounds.length, 2);
   assert.match(stageOf(b, "code").handed_back.words[0], /still does not pass after 2 rounds/);
-  assert.deepEqual(actionNames(b), ["resume", "stop"]);
+  // Code was refused: more rounds, or the spec may be what has to change (0.4.7).
+  assert.deepEqual(actionNames(b), ["resume", "back_to_requirements", "stop"]);
   assert.equal(b.actions[0].label, "Give it more rounds");
   await f.post(`/builds/${id}/actions/resume`);
   b = await f.settled(id);
