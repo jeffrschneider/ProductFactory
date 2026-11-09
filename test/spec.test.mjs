@@ -201,6 +201,20 @@ test("a spec writer from before stages.json 1.6.0 hands back no spec: the spec r
   assert.equal(stageOf(b, "code").rounds.at(-1).verdict, "The suite passes");
 });
 
+test("a container agent's draft at out/agent/spec.json is not the spec: it keeps its agent/ folder, and only the spec goes on", async (t) => {
+  const f = await factory({ rounds: 1, extraEnv: { FAKE_CONTAINER_DRAFT: "1" } });
+  t.after(f.close);
+  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
+  const b = await f.settled(id);
+  const paths = stageOf(b, "requirements").handed_back.files.map((x) => x.path);
+  assert.ok(paths.includes("requirements/spec.json") && paths.includes("requirements/agent/spec.json"), paths.join(", "));
+  const spec = b.artifacts.find((a) => a.id === "spec");
+  assert.equal(spec.state, "made");
+  assert.deepEqual(spec.files.map((x) => x.path), ["requirements/spec.json", "requirements/spec.md"]);
+  const delivered = f.store.read(id).run.events.filter((e) => e.type === "replied" && e.verdict === "delivered").at(-1).files.map((x) => x.name);
+  assert.deepEqual(delivered.filter((n) => /spec/.test(n)), ["spec.json", "spec.md"], "the draft is not delivered as the spec");
+});
+
 // ---------- on a pull request (lib/fence.mjs, lib/pull-request.mjs) ----------
 
 test("on a pull request the spec is pinned like the agent's files: a change to it goes back through the spec and test steps, and its systems' addresses are declared hosts", () => {

@@ -13,8 +13,15 @@ const entries = [];
 if (!process.env.FAKE_NO_SPEC && existsSync(join(RECORDS, "spec.json"))) {
   cpSync(join(RECORDS, "spec.json"), join(JOB_DIR, "out", "spec.json"));
   cpSync(join(RECORDS, "spec.md"), join(JOB_DIR, "out", "spec.md"));
-  entries.push({ name: "the spec", step: "write-the-spec", path: "out/spec.json", media_type: "application/json", about: "the spec, spec-v1" });
-  entries.push({ name: "the spec, to read", step: "write-the-spec", path: "out/spec.md", media_type: "text/markdown", about: "the spec, for a person" });
+  // The names and media types the reference spec writer 0.9.0 files them under.
+  entries.push({ name: "the spec", step: "write-the-spec", path: "out/spec.json", media_type: "application/vnd.agentmesh.spec+json", about: "the spec, spec-v1" });
+  entries.push({ name: "the spec, readable", step: "write-the-spec", path: "out/spec.md", media_type: "text/markdown", about: "the spec, for a person" });
+}
+// With FAKE_CONTAINER_DRAFT set it also files a container agent's checked draft where 0.9.0 puts it, out/agent/spec.json.
+if (process.env.FAKE_CONTAINER_DRAFT) {
+  writeFileSync(join(RECORDS, "agent", "spec.json"), JSON.stringify({ name: "a container draft" }));
+  writeFileSync(join(JOB_DIR, "out", "agent", "spec.json"), JSON.stringify({ name: "a container draft" }));
+  files.push("spec.json");
 }
 entries.push(...files.map((f) => ({ name: f, step: "draft-the-spec", path: `out/agent/${f}`, media_type: f.endsWith(".md") ? "text/markdown" : `application/vnd.agentmesh.${f.replace(".json", "")}+json`, about: "one of the agent's own files" })));
 const blanks = JSON.parse(readFileSync(join(RECORDS, "blanks.json"), "utf8"));
