@@ -175,6 +175,11 @@ test("adoption end to end: the as-built record, approve, bug and drop, character
   assert.match(said, /characterization: this agent is existing code/);
   assert.match(said, /- F1 \(offering Count\): Count words\./);
   assert.doesNotMatch(said, /F2|F3/);
+  // Since lifecycle API 0.4.7 the test writer and the spec writer are also given the interfaces and the architecture as built, whole.
+  const attached = JSON.parse(readFileSync(join(job, "attached.json"), "utf8"));
+  for (const n of ["behaviors.json", "interfaces.json", "architecture.json", "tests-and-gaps.json"]) assert.ok(attached.includes(n), `the test writer was given ${n}`);
+  const specAsked = JSON.parse(readFileSync(join(f.store.folder(id), "stages", "requirements", "records", "r1", "asked.json"), "utf8"));
+  assert.deepEqual(specAsked.files.map((p) => p.replace(/\\/g, "/").split("/").pop()), ["behaviors.json", "interfaces.json", "architecture.json", "tests-and-gaps.json"]);
   const suite = readFileSync(join(job, "out", "test", "count.test.mjs"), "utf8");
   assert.match(suite, /test\("\[F1\] count words"/);
   assert.doesNotMatch(suite, /\[F2\]|\[F3\]/);

@@ -74,7 +74,7 @@ test("products, a product's builds and activity, and each stage's workspace, fro
   assert.equal(req.gate.state, "answered");
   assert.deepEqual({ ...req.gate.answered, at: "x" }, { by: "Test Person", at: "x", action: "approve" });
   const code = (await ws(f, id, "code")).json;
-  assert.deepEqual(code.gate.actions, ["accept", "back_to_test", "stop"]);
+  assert.deepEqual(code.gate.actions, ["accept", "back_to_test", "back_to_requirements", "stop"]);
   assert.equal(code.gate.state, "open");
   assert.deepEqual(code.given, ["statement", "suite"]);
   assert.deepEqual(code.outputs.map((a) => [a.id, a.state]), [["programs", "made"]]);
@@ -194,10 +194,10 @@ test("a change request proposes the stage's existing action with its needs fille
   got = await say(f, "test", "Change the suite so an empty passage has no words.");
   assert.deepEqual(checkMessageReply(got.json, (await f.get(`/builds/${id}`)).json), []);
   assert.deepEqual(got.json.reply.proposes, { action: "back_to_test", needs: { changes: "Change the suite so an empty passage has no words." } });
-  // The spec is approved and Requirements offers nothing now: the spec writer says so and proposes nothing.
+  // The spec is approved and the build is at Code: the spec writer proposes sending it back to Requirements (0.4.7).
   got = await say(f, "requirements", "Change the name to tally.");
-  assert.equal(got.json.reply.proposes, undefined);
-  assert.match(got.json.reply.text, /The build offers no way to make that change now, so I have not proposed one\.$/);
+  assert.deepEqual(checkMessageReply(got.json, (await f.get(`/builds/${id}`)).json), []);
+  assert.deepEqual(got.json.reply.proposes, { action: "back_to_requirements", needs: { changes: "Change the name to tally." } });
 
   // The person confirms the test writer's proposal with the actions route.
   const p = (await f.get("/products/counter/stages/test/messages")).json.messages.find((m) => m.proposes?.action === "back_to_test").proposes;

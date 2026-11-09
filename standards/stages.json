@@ -1,6 +1,6 @@
 {
-  "version": "1.4.0",
-  "about": "The stages of the reference Agent Development Lifecycle, in order, in seven phases, as written on https://agenticdevelopment.ai/stages.html (the assets each stage makes are from https://agenticdevelopment.ai/assets.html). The site, the auditor and the console read this file; the site's tools/check-stages.mjs fails when the page and this file differ. Each stage: its role, the reference agent that holds it (null where none does; reference_holders lists every reference agent on its card), what it is given, what it hands back, when it is done, the asset it makes (assets lists every one), and person_gate, true where a person approves or decides at that stage. A list in a field is written as lines starting with \"- \". aliases are older names for a stage that still point at it. roles lists the lifecycle roles of https://agentroles.ai: each role's id, its name, its contract (the role's page), the offering an agent holding it answers (role-<id>), the stages it holds, and the agent in this repository that holds it for reference (null where none does). Each stage's role_ids names the roles that hold it. An organization may bind each role to the reference agent, its own agent, a contracted supplier, a person or an outside tool; the requester is always the person who asked. evidence_formats lists the open formats a holder outside the service may hand its evidence back in, and what each is read for. Each stage also has a cadence (added in 1.3.0), one of the ids in cadences: every_build, a stage that runs on every build of a product (the routine); setup, a stage set up once per product, whose holder and settings are carried forward to each later version until someone changes them; or when_needed, an action on the product run when something happens, not as part of a build. A change here is a new version. From 1.4.0 the file adds Reverse engineering, numbered 0 so that the 24 stages after it keep their numbers: a when_needed stage before Requirements that runs on adoption (an existing codebase is taken on) or on drift (the code changed outside the lifecycle, seen when its commit differs from the last one any build knew), and hands back the as-built record, on drift covering only what changed since the last record. A codebase that lives fully inside the lifecycle does not need it again. It also lists starting_points: each names what someone brings (brings), the stage it enters at (enters), the stages it goes to next where it skips ahead (then; the rest follow in the lifecycle's order), and why it starts there. starting_point_rules holds the rules every starting point keeps.",
+  "version": "1.5.0",
+  "about": "The stages of the reference Agent Development Lifecycle, in order, in seven phases, as written on https://agenticdevelopment.ai/stages.html (the assets each stage makes are from https://agenticdevelopment.ai/assets.html). The site, the auditor and the console read this file; the site's tools/check-stages.mjs fails when the page and this file differ. Each stage: its role, the reference agent that holds it (null where none does; reference_holders lists every reference agent on its card), what it is given, what it hands back, when it is done, the asset it makes (assets lists every one), and person_gate, true where a person approves or decides at that stage. A list in a field is written as lines starting with \"- \". aliases are older names for a stage that still point at it. roles lists the lifecycle roles of https://agentroles.ai: each role's id, its name, its contract (the role's page), the offering an agent holding it answers (role-<id>), the stages it holds, and the agent in this repository that holds it for reference (null where none does). Each stage's role_ids names the roles that hold it. An organization may bind each role to the reference agent, its own agent, a contracted supplier, a person or an outside tool; the requester is always the person who asked. evidence_formats lists the open formats a holder outside the service may hand its evidence back in, and what each is read for. Each stage also has a cadence (added in 1.3.0), one of the ids in cadences: every_build, a stage that runs on every build of a product (the routine); setup, a stage set up once per product, whose holder and settings are carried forward to each later version until someone changes them; or when_needed, an action on the product run when something happens, not as part of a build. A change here is a new version. From 1.4.0 the file adds Reverse engineering, numbered 0 so that the 24 stages after it keep their numbers: a when_needed stage before Requirements that runs on adoption (an existing codebase is taken on) or on drift (the code changed outside the lifecycle, seen when its commit differs from the last one any build knew), and hands back the as-built record, on drift covering only what changed since the last record. A codebase that lives fully inside the lifecycle does not need it again. It also lists starting_points: each names what someone brings (brings), the stage it enters at (enters), the stages it goes to next where it skips ahead (then; the rest follow in the lifecycle's order), and why it starts there. starting_point_rules holds the rules every starting point keeps. From 1.5.0 the starting point as-built-record lets someone bring the as-built record of code kept elsewhere, to build it again without taking that code on (a rewrite, a port or a clean-room rebuild): it enters at Requirements, and the givens of Requirements and Test say they are given that record too.",
   "phases": [
     {
       "id": "define",
@@ -57,7 +57,7 @@
       "stages": [
         "reverse-engineering"
       ],
-      "reference_agent": null
+      "reference_agent": "reverse-engineer"
     },
     {
       "id": "spec-writer",
@@ -331,7 +331,7 @@
         "solution-planner"
       ],
       "reference_holder": "spec-writer",
-      "given": "somebody's account of what they want, with whatever they have; where code already exists, the as-built record, each behavior in which the person approves, flags as a bug for the backlog, or drops",
+      "given": "somebody's account of what they want, with whatever they have; where code already exists, or where a build starts from the as-built record of code kept elsewhere, the as-built record, each behavior in which the person approves, flags as a bug for the backlog, or drops",
       "hands_back": "a statement of the job: what it does, refuses, needs, records and costs, plus the open questions",
       "done_when": "a package could be built from it, and nothing unsettled was invented",
       "asset": "Statement of the job",
@@ -450,7 +450,7 @@
         "test-writer"
       ],
       "reference_holder": "test-writer",
-      "given": "the statement of the job; where code already exists, the behaviors and the existing tests and gaps (parts 1 and 5 of the as-built record), from which it writes characterization tests that pin today's behavior until Requirements says otherwise",
+      "given": "the statement of the job; where code already exists, the behaviors and the existing tests and gaps (parts 1 and 5 of the as-built record), from which it writes characterization tests that pin today's behavior until Requirements says otherwise; where a build starts from the as-built record of code kept elsewhere, the same parts and the interfaces (part 3), from which it writes tests that pin each behavior the person approved, for code written fresh",
       "hands_back": "the suite, and what no test could be written for",
       "done_when": "the suite fails against empty stand-ins, and notices each program removed",
       "asset": "Test suite",
@@ -953,6 +953,13 @@
       "enters": "reverse-engineering",
       "then": [],
       "why": "Nobody can decide what to keep until somebody says what the code does. Reverse engineering writes that down in the as-built record, and Requirements is where the person decides what in it to keep."
+    },
+    {
+      "id": "as-built-record",
+      "brings": "the as-built record of code kept elsewhere, to build it again without taking that code on: a rewrite, a port, or a clean-room rebuild",
+      "enters": "requirements",
+      "then": [],
+      "why": "The record already says what the code does, so there is nothing for Reverse engineering to do, and Requirements is where the person decides what in it to keep. The code it describes stays where it is: nothing is adopted, so Code writes the code fresh against a suite written from the approved spec."
     },
     {
       "id": "skill",

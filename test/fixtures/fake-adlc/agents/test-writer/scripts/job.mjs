@@ -4,7 +4,7 @@
 // test per feature, named "[F1] <name>" as the message asks; a feature whose
 // name or words say "fails" gets a test no script can pass.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 const o = { files: [] };
 const a = process.argv.slice(2);
@@ -20,6 +20,8 @@ if (!process.env.MODEL_NAME) { console.log(JSON.stringify({ ok: false, code: 1, 
 const descriptor = o.files.find((f) => f.endsWith("agent-descriptor.json") && existsSync(f));
 if (!descriptor) { console.log(JSON.stringify({ ok: false, code: 3, reply: "Nothing attached is the agent's files." })); process.exit(0); }
 mkdirSync(join(o.job, "out", "test"), { recursive: true });
+// What it was given, by file name, so the tests can see the attachments.
+writeFileSync(join(o.job, "attached.json"), JSON.stringify(o.files.map((f) => basename(f)), null, 2));
 // A revision ("Revise the suite" on the first line, the suite attached) rewrites the test the
 // words name, as the reference test writer does: here it adds a case for an empty passage.
 const asked = o.text && existsSync(o.text) ? readFileSync(o.text, "utf8") : "";

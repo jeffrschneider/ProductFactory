@@ -10,7 +10,7 @@ with only open-source pieces. [BUILD.md](BUILD.md) lists the milestones after it
 ## What milestone 1 does
 
 `npx product-factory` starts a small service on `127.0.0.1`. It answers the
-lifecycle API (version 0.4.6) that the [adlc console](https://github.com/CommonAgent/adlc-console)
+lifecycle API (version 0.4.7) that the [adlc console](https://github.com/CommonAgent/adlc-console)
 reads, so the console shows your builds and lets you act at your gates. The
 same command starts the console against it and opens it in your browser. It
 keeps everything in files: the lifecycle document and one folder per build.
@@ -193,7 +193,7 @@ an environment variable, and a value there is refused.
   "model": { "name": "MODEL_NAME", "endpoint": "MODEL_ENDPOINT", "key": "MODEL_KEY", "protocol": "MODEL_PROTOCOL" },
   "code": {
     "holder": "harness",
-    "harness": ["claude", "-p", "{prompt}", "--permission-mode", "acceptEdits", "--allowedTools", "Bash(node:*)"],
+    "harness": ["claude", "-p", "{prompt}", "--permission-mode", "acceptEdits", "--allowedTools", "Bash(node:*)", "--setting-sources", "project", "--strict-mcp-config"],
     "rounds": 3,
     "minutes": 30,
     "env_remove": ["ANTHROPIC_API_KEY"]
@@ -252,9 +252,18 @@ in `code.env_remove` (by default `ANTHROPIC_API_KEY`, so the harness signs in
 its own way and not with a key that happens to be set).
 
 ```
-"harness": ["claude", "-p", "{prompt}", "--permission-mode", "acceptEdits", "--allowedTools", "Bash(node:*)"]
+"harness": ["claude", "-p", "{prompt}", "--permission-mode", "acceptEdits", "--allowedTools", "Bash(node:*)", "--setting-sources", "project", "--strict-mcp-config"]
 "harness": ["codex", "exec", "--full-auto", "{prompt}"]
 ```
+
+The Claude Code command `product-factory init` writes runs it with your normal
+sign-in and without your own plugins, hooks and MCP servers, so what you have
+set up for yourself does not reach a build. `--setting-sources project` reads
+only the build folder's settings, not your user settings, where plugins and
+hooks are turned on; `--strict-mcp-config` uses only the MCP servers named
+with `--mcp-config`, and it names none. Claude Code's `--bare` would skip them
+too, but it ignores your normal sign-in and reads only `ANTHROPIC_API_KEY`, so
+it is not used.
 
 After the harness ends, Product Factory runs `node .adlc/check.mjs` itself.
 Exit 0 is a pass and the build waits for your OK. Anything else is a failed
@@ -309,6 +318,16 @@ What happens at Code:
    your words, has the test writer revise the suite; the revised tests go on
    the same pull request as one commit, with the lock updated and the
    conflict removed, and the gate runs again.
+7. When the spec, not the suite, is what has to change (a reviewer refuses
+   something only the spec can settle, such as an address it does not
+   declare), **Send back to Requirements**, with your words, reopens the spec
+   as an ask for changes. Once you approve the revised spec, the test writer
+   revises the suite against it, and the revised agent files and tests go on
+   the same pull request as one commit, with the new lock; your scripts stay
+   as they are, and the gate runs again. It is offered wherever Send back to
+   Test is, and also when Code was refused, on a pull request or on this
+   computer (where the scripts written so far carry over into the new build
+   folder). The run records it as a deviation, as it does Send back to Test.
 
 The logic comes from the hand-off AgentMesh built, ported as plain
 JavaScript: [lib/pull-request.mjs](lib/pull-request.mjs) (opening, revising
@@ -456,8 +475,8 @@ reference agents' shared model caller in your adlc checkout, with the same
 four model settings, from the stage's outputs, what it was given and the
 build's record. Answering changes nothing. When you ask for a change, the
 reply proposes the build's existing action for it (Requirements: Ask for
-changes; Test: Send back to Test, from Code; Code: Give it more rounds, when
-Code was refused), with its words filled in, and only when you may take that
+changes, or Send back to Requirements once the build is at Code; Test: Send
+back to Test, from Code; Code: Give it more rounds, when Code was refused), with its words filled in, and only when you may take that
 action now. You confirm it with the action, so a change always goes back
 through its gate. A stage held by a person, an outside tool, or your own
 coding harness is not answered here, and the reply says so.
@@ -633,7 +652,9 @@ the stage's Artifacts tab:
 
 ### Features for a build made before them
 
-A product built before features existed has none. When it has a statement of
+A product built before features existed has none. (A build whose spec is
+still at Requirements has not reached features yet, and its Features page
+says so: the spec writer proposes them there.) When it has a statement of
 the job and a spec writer that answers, its Features matrix offers
 `backfill`, and the console's Requirements stage shows **List this product's
 features**. The same is on the command line:
@@ -673,7 +694,7 @@ first phase:
 |---|---|---|
 | 00 Reverse engineering | the reference reverse engineer (CommonAgent/adlc `agents/reverse-engineer`) | The code is read at its commit (cloned with git, or copied from a folder that is not a repository, whose commit is then sha256 over its files) and the build records that commit. The reverse engineer hands back the as-built record: `behaviors.json`, `architecture.json`, `interfaces.json`, `sbom.cdx.json`, `tests-and-gaps.json` and `record.json`. It is one artifact, kind `as_built`, with a readable summary per part. |
 | Requirements | the spec writer, then you | Each behavior arrives as a proposed feature marked as built, with its evidence. You answer each one: **Approve feature** (it is intended), **This is a bug** (kept as a proposed fix item linked to the behavior, never approved by this or by the gate), or **Drop**. The spec is approved once every behavior is answered. |
-| Test | the reference test writer | It is given the behaviors and the existing tests and gaps (parts 1 and 5) and writes characterization tests that pin each approved behavior, each named by its feature id. |
+| Test | the reference test writer | It is given the behaviors, the interfaces, the architecture as built, and the existing tests and gaps, whole (the spec writer is given them too), and writes characterization tests that pin each approved behavior, each named by its feature id. |
 | Code | the existing code | The build folder starts from the code at that commit: the scripts the spec names are taken from it, and the gate runs them against the characterization suite. Code that cannot be packaged as an agent (no Node scripts, such as a Python service) stops here and says why in words. Product Factory adopts agents only. |
 
 Package and the steps after it are the same as for any build: the result is
@@ -692,6 +713,38 @@ requirements' run declaration names the job script, and it gets `--job`,
 message names the trigger (adoption or drift), the repository, the commit and
 the folder the code is in; the code also goes as an archive, and on drift the
 last record's six files go with it.
+
+## Start from an as-built record
+
+A build can also start from the as-built record of code kept elsewhere, to
+build that code again without taking it on: a rewrite, a port, or a
+clean-room rebuild (stages.json 1.5.0, the starting point `as-built-record`;
+lifecycle API 0.4.7). New build offers "Start from an as-built record": the
+record's folder on this computer, or a repository with a commit and the path
+of the record in it, and what the product is called. The start request is
+`{ name, starting_point: "as-built-record", source: { folder } }` or
+`source: { repository, commit, path }`.
+
+The record is read when the build starts, and a record that is not whole is
+refused in words: it must hold `record.json` naming the repository and commit
+it describes, and its five parts (`behaviors.json`, `architecture.json`,
+`interfaces.json`, `sbom.cdx.json`, `tests-and-gaps.json`). Any other JSON
+file in the folder, such as the output schemas the reverse engineer derived,
+goes with it whole.
+
+The build runs the process "rebuild from an as-built record"
+(`processes/rebuild-from-as-built-record.txt`), which is "make a new agent"
+with the record given to the spec and the suite:
+
+| Stage | Who holds it | What happens |
+|---|---|---|
+| 00 Reverse engineering | the as-built record you brought | Not run here. The record is kept as the build's `as_built` artifact, which says it was brought, and the build's `source` names the code the record describes and where the record was read. |
+| Requirements | the spec writer, then you | The spec writer is given the behaviors, the interfaces, the architecture as built, and the existing tests and gaps, whole, and asked to keep the interfaces and settings exactly as the record gives them. Each behavior arrives as a proposed feature marked as built, answered as for existing code. |
+| Test | the reference test writer | It is given the same parts and writes tests that pin each approved behavior, for code written fresh. |
+| Code | your coding harness, on this computer or on a pull request | A normal new build. Nothing is adopted: the code the record describes is never copied in. |
+
+The product's drift and its when-needed Reverse engineering are about code
+a build took on, so a build started from a record has none.
 
 ## Analytics
 
@@ -803,13 +856,13 @@ and look the person up in `people.json` by its email.
 
 ## Standards it uses
 
-- Lifecycle API 0.4.6 and stages.json 1.4.0 (CommonAgent/adlc, copies in `standards/`).
+- Lifecycle API 0.4.7 and stages.json 1.5.0 (CommonAgent/adlc, copies in `standards/`).
 - The lifecycle document 0.1, through the adlc console's store, with `approvers`
   (CommonAgent/adlc#121). The console's store checks each entry's shape, so a
   wrong entry makes the file invalid, named in words, like any other wrong
   field. Product Factory then checks what a schema cannot: that each person
   and team is in `people.json`, and that a named person may answer gates.
-- Agent Processes, through the process runner, for "make a new agent" and "adopt existing code".
+- Agent Processes, through the process runner, for "make a new agent", "adopt existing code" and "rebuild from an as-built record".
 - The Common Agent package format, through `@common-agent/package`.
 
 Where milestone 1 differs from one of them:
