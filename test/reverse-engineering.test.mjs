@@ -120,6 +120,9 @@ test("adoption end to end: the as-built record, approve, bug and drop, character
   // Requirements is given it; a build started from an idea has no such artifact, and stage 00 says why it did not run.
   const ws = (await f.get(`/builds/${id}/stages/requirements`)).json;
   assert.ok(ws.given.includes("as_built"));
+  // The gate never approves a behavior as built: it says they wait for an answer, one at a time.
+  assert.deepEqual(ws.gate.features.to_approve, []);
+  assert.ok(ws.gate.open.includes("F1, F2, F3 as built wait for your answer in Features: approve each one you want kept, call it a bug, or drop it. The spec is approved after that."));
   assert.deepEqual(checkStageWorkspace(ws, STAGE_IDS, "requirements"), []);
   const reWs = (await f.get(`/builds/${id}/stages/reverse-engineering`)).json;
   assert.deepEqual(reWs.outputs.map((a) => a.id), ["as_built"]);
