@@ -1,0 +1,14 @@
+{
+  "name": "product-factory",
+  "owner": { "name": "Product Factory", "url": "https://github.com/jeffrschneider/ProductFactory" },
+  "metadata": {
+    "description": "Product Factory for Claude Code: the product-factory MCP server and skill, from this repository's claude-plugin folder."
+  },
+  "plugins": [
+    {
+      "name": "product-factory",
+      "source": "./claude-plugin",
+      "description": "Start and drive Product Factory builds from Claude Code: builds, gates, stage agents and the boss, over the lifecycle API."
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "product-factory",
+  "version": "0.1.0",
+  "description": "Start and drive Product Factory builds from Claude Code: start a build, see what waits on you, read a build and its stages, talk to a stage's agent or the product's boss, and take gate actions when you say so. A thin client over the lifecycle API of a Product Factory running on this computer.",
+  "author": {
+    "name": "Product Factory",
+    "url": "https://github.com/jeffrschneider/ProductFactory"
+  },
+  "homepage": "https://github.com/jeffrschneider/ProductFactory/tree/main/claude-plugin",
+  "repository": "https://github.com/jeffrschneider/ProductFactory",
+  "license": "Apache-2.0",
+  "keywords": ["product-factory", "adlc", "agents", "lifecycle", "mcp"],
+  "mcpServers": {
+    "product-factory": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.mjs"]
+    }
+  }
+}
