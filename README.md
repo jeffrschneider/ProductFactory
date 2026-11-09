@@ -10,7 +10,7 @@ with only open-source pieces. [BUILD.md](BUILD.md) lists the milestones after it
 ## What milestone 1 does
 
 `npx product-factory` starts a small service on `127.0.0.1`. It answers the
-lifecycle API (version 0.4.7) that the [adlc console](https://github.com/CommonAgent/adlc-console)
+lifecycle API (version 0.4.8) that the [adlc console](https://github.com/CommonAgent/adlc-console)
 reads, so the console shows your builds and lets you act at your gates. The
 same command starts the console against it and opens it in your browser. It
 keeps everything in files: the lifecycle document and one folder per build.
@@ -19,10 +19,10 @@ A build follows the lifecycle in effect when it started, and runs these stages:
 
 | Stage | Who holds it | What happens |
 |---|---|---|
-| Requirements | the reference spec writer | It writes the agent's own files from your words, and names what it could not settle. |
+| Requirements | the reference spec writer | It writes the spec from your words: each feature with its requirements and acceptance scenarios, the interfaces, constraints, systems and settings, and what it could not settle. Then it makes the agent's own files from the spec (the Design part of Architecture and Design). |
 | | you, in the console | You approve the spec, or ask for changes and it is revised. |
-| Test | the reference test writer | It writes the suite from the spec alone. |
-| Code | your coding harness | The build folder is laid out with `AGENTS.md`, and your harness writes the scripts in it. The suite runs after each round; if it fails, the harness gets another round, up to the number you set. |
+| Test | the reference test writer | It writes the suite from the spec and the agent's own files: a test for each acceptance scenario, named by its id (`[F1.A1] ...`), and one for each interface the spec keeps (`[I1] ...`). |
+| Code | your coding harness | The build folder is laid out with the spec (`spec.json` and `spec.md`), the agent's own files, the suite and `AGENTS.md`, and your harness writes the scripts in it. The suite runs after each round; if it fails, the harness gets another round, up to the number you set. |
 | | you, in the console | You give your OK on the code. |
 | Package | the Common Agent packer | The agent's files and the scripts are packed as an Agent Package and validated. |
 | | you, in the console | The run plan is written beside the package. You read it with the package's build record, and approve the deploy. |
@@ -464,9 +464,9 @@ POST /v1/lifecycle/products/<name>/stages/<stage>/messages    { "text": "...", "
 ```
 
 The build answer also carries `artifacts`: what the build has made and will
-make, in stage order, each with a summary a person can read (the statement of
-the job, the suite, the programs, the review findings, the security record,
-the package and the run plan). Every summary is read from the build's own
+make, in stage order, each with a summary a person can read (the spec, the
+agent's own files, the suite, the programs, the review findings, the security
+record, the package and the run plan). Every summary is read from the build's own
 files; a stage Product Factory does not run says so in words.
 
 The chat at a stage is kept with the product across its builds; each message
@@ -596,15 +596,19 @@ proposal with your answer, and every build it started with the confirmation.
 
 ## Features
 
-The statement of the job carries a feature list (lifecycle API 0.4.3): each
-feature has a stable id (F1, F2, ...), a name, what it does, and the offering
-it belongs to. Features are settled in a chat, mostly the Requirements chat
-with the spec writer, or with the boss. When the conversation lands on a new
-or changed feature, the reply proposes it with two buttons:
+The spec carries a feature list (lifecycle API 0.4.3; the statement of the
+job did until 0.4.8): each feature has a stable id (F1, F2, ...), a name,
+what it does, and the offering it belongs to. When the spec writer hands back
+the spec, each of its features the product does not already hold in the same
+words comes to you as proposed, by the spec's own id. A feature the spec
+keeps from an as-built record is answered through its behavior instead.
+More are settled in a chat, mostly the Requirements chat with the spec
+writer, or with the boss. When the conversation lands on a new or changed
+feature, the reply proposes it with two buttons:
 
 - **Approve feature**: a gate decision of Requirements for that one feature,
   kept with who, when and the message (`POST /builds/:id/features/:feature/approve`).
-  The statement of the job gets a new version with it.
+  The spec gets a new version with it.
 - **Not now**: it stays proposed, a backlog item linked to the conversation.
 
 Someone who may not answer the Requirements gate sees **Ask <approver> to
@@ -618,10 +622,13 @@ The approved features reach the spec writer and the test writer as lines of
 the run's material aimed at their phases (`[write-the-spec] ...`,
 `[write-the-suite] ...`), which the process runner hands to that phase
 alone; the reference agents read them as part of what they were asked. The
-test writer is asked to start each test's name with the feature's id in
-square brackets (`[F3] counts an empty passage as none`), so every round at
-Code reports its results per feature (`by_feature`, and "By feature: F1 2
-of 2 pass" in its words and on the pull request).
+test writer names each test by the acceptance scenario of the spec it checks
+(`[F3.A1] counts an empty passage as none`), which counts for feature F3, and
+a test of a feature the spec has no scenario for by the feature's id (`[F3]
+...`), so every round at Code reports its results per feature (`by_feature`,
+and "By feature: F1 2 of 2 pass" in its words and on the pull request). A test
+of an interface the spec keeps (`[I4] ...`) checks no feature, and is not
+counted among the tests that check none.
 
 `GET /products/:name/features[?version=]` and `GET /builds/:id/features`
 answer the Features matrix: one row per feature, with a new, changed or
@@ -654,8 +661,8 @@ the stage's Artifacts tab:
 
 A product built before features existed has none. (A build whose spec is
 still at Requirements has not reached features yet, and its Features page
-says so: the spec writer proposes them there.) When it has a statement of
-the job and a spec writer that answers, its Features matrix offers
+says so: they come from its spec there.) When it has a spec, or from before
+0.4.8 a statement of the job, and a spec writer that answers, its Features matrix offers
 `backfill`, and the console's Requirements stage shows **List this product's
 features**. The same is on the command line:
 
@@ -665,14 +672,14 @@ npx product-factory features backfill <product>
 
 Both ask the spec writer in the Requirements chat
 (`POST /builds/:id/features/backfill`), through the same stage chat and model
-caller. Its reply proposes every feature of the statement of the job, each
+caller. Its reply proposes every feature of the spec, each
 with id, name, what it does and its offering, and maps the tests already in
 the build to them where their names or content make it clear. A name the
 suite does not have is dropped, and a test that is not clear is left
 unmapped and shown as such, never guessed. The features arrive as proposed:
 **Approve all** (`POST /builds/:id/features/approve_all`) approves them
 together, each recorded as a chat approval, as one new version of the
-statement; or each can be answered on its own. Approving a listed feature
+spec; or each can be answered on its own. Approving a listed feature
 does not mark the tests or code made before it as stale, since it describes
 what was already built.
 
@@ -856,7 +863,11 @@ and look the person up in `people.json` by its email.
 
 ## Standards it uses
 
-- Lifecycle API 0.4.7 and stages.json 1.5.0 (CommonAgent/adlc, copies in `standards/`).
+- Lifecycle API 0.4.8 and stages.json 1.6.0 (CommonAgent/adlc, copies in `standards/`).
+- The spec, spec-v1 (CommonAgent/adlc `standards/spec.schema.json`): what Requirements
+  hands back. `lib/spec.mjs` is the one place the spec writer's `spec.json` and
+  `spec.md` are found and read; it tells the spec apart from any other `spec.json` by
+  its format.
 - The lifecycle document 0.1, through the adlc console's store, with `approvers`
   (CommonAgent/adlc#121). The console's store checks each entry's shape, so a
   wrong entry makes the file invalid, named in words, like any other wrong
@@ -866,6 +877,14 @@ and look the person up in `people.json` by its email.
 - The Common Agent package format, through `@common-agent/package`.
 
 Where milestone 1 differs from one of them:
+
+- **The spec.** The reference spec writer makes the agent's own files in the
+  same job as the spec, at Requirements, though stages.json 1.6.0 puts them at
+  the Design part of Architecture and Design, which milestone 1 does not run.
+  Their artifact (`statement`) sits at Architecture and Design, as lifecycle
+  API 0.4.8 says, and is listed even where the lifecycle leaves that stage
+  out. The spec artifact's summary also carries the spec's systems, settings
+  and price in words, which `SpecSummary` does not name.
 
 - **Lifecycle API.** Code's holder is `your_agent` with no handle (the API's
   check allows that on a build's stage), and Package's holder is
@@ -925,10 +944,15 @@ notices run against the same fake GitHub and a fake webhook receiver: a
 labelled issue starting one build, an unlabelled one starting none, the
 comments at a gate and at the end, the webhook and command notices, and a
 notice that fails without stopping the build. Features: a chat proposing one,
-Approve feature with its new statement version, Not now, the Ask path with
+Approve feature with its new spec version, Not now, the Ask path with
 its notice, tests named per feature and the results per feature, the matrix's
 cells and badges, a feature's history, the small Requirements gate, and the
-boss proposing one.
+boss proposing one. The spec (`test/spec.test.mjs`): the stand-in spec writer
+files `spec.json` and `spec.md` beside the agent's own files, and the tests
+read them into the spec artifact, propose its features by their ids, give
+`spec.json` to the test writer, check that the build folder carries the spec
+pinned, map tests named `[F1.A1]` and `[I1]`, and run a spec writer from
+before stages.json 1.6.0 that hands back no spec.
 Set `PF_TEST_TMP` to keep test folders somewhere other than the system's.
 
 ## License

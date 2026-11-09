@@ -178,17 +178,18 @@ once that exists. It answers, never estimated:
 
 Impact is a stage, and it is also a view that is always on.
 
-- **The graph.** Every artifact a build makes is a node: the statement of the
-  job, the architecture record, the suite, the programs, the findings, the
-  security record, the package, the build record, the AgentDoc, the run plan.
+- **The graph.** Every artifact a build makes is a node: the spec, the
+  agent's own files made from it, the architecture record, the suite, the
+  programs, the findings, the security record, the package, the build record,
+  the AgentDoc, the run plan.
   Each artifact records what it was made from, by version and digest (the
   stage's given), and those links are the edges: the suite was made from
-  statement v4, the programs pass suite v1, the AgentDoc describes package
+  spec v4, the programs pass suite v1, the AgentDoc describes package
   0.1.0. Other products and processes that use this product are nodes too,
   linked by what they use (an offering, an output format, a price).
 - **Stale.** When a node gets a new version, every node made from the old one
   is marked stale until it is made again or checked again against the new
-  one. Changing how the agent works lights up the statement, the docs and
+  one. Changing how the agent works lights up the spec, the docs and
   every dependent at once.
 - **The Impact stage** stays the gate: before a version ships, the impact
   analyst names every dependent as compatible, breaking or a change of

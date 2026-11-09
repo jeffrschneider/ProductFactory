@@ -113,6 +113,11 @@ test("start from an as-built record: Requirements first, the record brought, beh
   assert.deepEqual(checkFeatures(m, id), []);
   assert.deepEqual(m.features.map((r) => [r.id, r.name, r.pending?.as_built?.behavior]), [["F1", "Count words", "B1"], ["F2", "Write the counts", "B2"]]);
   assert.equal(m.features[0].as_built.commit, COMMIT);
+  // The spec keeps each behavior as the feature it was proposed as (stages.json 1.6.0), so it proposes nothing of its own:
+  // the behavior's proposal, marked as built, is the one answered.
+  const specArt = (await f.get(`/builds/${id}`)).json.build.artifacts.find((a) => a.id === "spec");
+  assert.deepEqual(specArt.summary.features.map((x) => [x.id, x.as_built]), [["F1", "B1"], ["F2", "B2"]]);
+  assert.ok(f.store.read(id).feature_log.every((e) => e.kind !== "proposed" || e.as_built));
 
   // The spec writer was given the record's parts whole, and words to keep its interfaces and settings.
   const asked = JSON.parse(readFileSync(join(f.store.folder(id), "stages", "requirements", "records", "r1", "asked.json"), "utf8"));
@@ -120,7 +125,8 @@ test("start from an as-built record: Requirements first, the record brought, beh
   assert.deepEqual(names, ["behaviors.json", "interfaces.json", "architecture.json", "tests-and-gaps.json", "count-v1.schema.json"]);
   assert.match(asked.said, /as built elsewhere: this agent is built again from the as-built record of code kept elsewhere \(file:\/\/\/work\/orig at bfecc9c\)/);
   assert.match(asked.said, /Keep the interfaces exactly as the record gives them/);
-  assert.match(asked.said, /- B2 Write the counts: Writes counts\.json in the count-v1 format\. \(scripts\/count\.mjs:9\)/);
+  // Each behavior names the feature it was proposed as, so the spec keeps that id (stages.json 1.6.0).
+  assert.match(asked.said, /- B2 \(feature F2\) Write the counts: Writes counts\.json in the count-v1 format\. \(scripts\/count\.mjs:9\)/);
 
   // The spec waits for every behavior's answer, then the suite is written with the parts attached.
   assert.equal((await f.post(`/builds/${id}/actions/approve`)).status, 409);
@@ -130,7 +136,7 @@ test("start from an as-built record: Requirements first, the record brought, beh
   ok(b);
   const job = join(f.store.folder(id), "stages", "test", "jobs", "r1");
   const said = readFileSync(join(job, "message.txt"), "utf8");
-  assert.match(said, /^Write the suite for the agent's files attached\. The code is written fresh from them/);
+  assert.match(said, /^Write the suite for the spec and the agent's files attached\. The code is written fresh from them/);
   assert.match(said, /Gaps the record marked: what the code does when it runs: no test command was run\./);
   const attached = JSON.parse(readFileSync(join(job, "attached.json"), "utf8"));
   for (const n of ["behaviors.json", "interfaces.json", "architecture.json", "tests-and-gaps.json", "count-v1.schema.json"]) assert.ok(attached.includes(n), n);
@@ -209,7 +215,7 @@ test("the Features words of a new build at Requirements say it has not reached f
   assert.deepEqual(m.features, []);
   assert.equal(m.backfill.offered, true);
   assert.doesNotMatch(m.words, /made before features/);
-  assert.match(m.words, /^No features yet\. This build has not reached them: the spec writer proposes features at Requirements/);
+  assert.match(m.words, /^No features yet\. This build has not reached them: each feature of the spec comes to you at Requirements as proposed/);
 });
 
 test("the harness command init writes runs Claude Code without your plugins, hooks and MCP servers, and with your normal sign-in", () => {
@@ -285,7 +291,8 @@ test("Send back to Requirements on a pull request: the spec is revised, then the
   const comment = gh.comments.at(-1).body;
   assert.match(comment, /^\*\*The spec and the tests were revised\*\*/);
   // The stand-in spec writer names the agent again on a revision, so more of its files change than the skill.
-  assert.match(comment, /The revised spec changed (`[^`]+`, )*`skills\/count\/SKILL\.md`\. The test writer revised `test\/count\.test\.mjs` against it\./);
+  // The spec itself went to the branch with the files made from it (stages.json 1.6.0).
+  assert.match(comment, /The revised spec changed `spec\.json`, `spec\.md`\. The files made from it changed: (`[^`]+`, )*`skills\/count\/SKILL\.md`\. The test writer revised `test\/count\.test\.mjs` against it\./);
   assert.match(comment, /> Declare the address of the counting service as a setting\./);
   assert.equal(stageOf(b, "code").state, "working");
   assert.deepEqual(actionNames(b), ["back_to_test", "back_to_requirements", "stop"]);

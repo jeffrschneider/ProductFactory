@@ -171,7 +171,7 @@ test("adoption end to end: the as-built record, approve, bug and drop, character
   // Test was given parts 1 and 5 and wrote characterization tests, named by feature, for the approved behavior only.
   const job = join(f.store.folder(id), "stages", "test", "jobs", "r1");
   const said = readFileSync(join(job, "message.txt"), "utf8");
-  assert.match(said, /^Write characterization tests for the agent's files attached/);
+  assert.match(said, /^Write characterization tests for the spec and the agent's files attached/);
   assert.match(said, /characterization: this agent is existing code/);
   assert.match(said, /- F1 \(offering Count\): Count words\./);
   assert.doesNotMatch(said, /F2|F3/);
@@ -181,8 +181,9 @@ test("adoption end to end: the as-built record, approve, bug and drop, character
   const specAsked = JSON.parse(readFileSync(join(f.store.folder(id), "stages", "requirements", "records", "r1", "asked.json"), "utf8"));
   assert.deepEqual(specAsked.files.map((p) => p.replace(/\\/g, "/").split("/").pop()), ["behaviors.json", "interfaces.json", "architecture.json", "tests-and-gaps.json"]);
   const suite = readFileSync(join(job, "out", "test", "count.test.mjs"), "utf8");
-  assert.match(suite, /test\("\[F1\] count words"/);
-  assert.doesNotMatch(suite, /\[F2\]|\[F3\]/);
+  // The spec keeps the behaviors as features by their ids, and only the approved one is pinned, by its scenario.
+  assert.match(suite, /test\("\[F1\.A1\] count words"/);
+  assert.doesNotMatch(suite, /\[F2|\[F3/);
   assert.equal(stageOf(b, "test").given.includes("parts 1 and 5"), true);
 
   // Code adopted the code at its commit as the first version: no harness ran, and the gate passed it.

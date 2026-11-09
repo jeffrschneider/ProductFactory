@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Checks a running service against the lifecycle API (lifecycle-api.schema.json,
-// version 0.4.7): every answer against the schema, and the rules a schema cannot
+// version 0.4.8): every answer against the schema, and the rules a schema cannot
 // say. It only reads. It asks who the key belongs to, reads who holds each
 // role and which stages the lifecycle uses, lists the builds, reads each one, reads its tries, and opens the first
 // file each build handed back (every file with --all-files).
@@ -419,7 +419,7 @@ export function checkBuild(body, ids, id, roles, cadences = CADENCES()) {
 }
 
 // The summary's shape for each kind of artifact (added in 0.4).
-const SUMMARY_OF = { statement: "StatementSummary", suite: "SuiteSummary", programs: "ProgramsSummary", findings: "FindingsSummary", security: "SecuritySummary", package: "PackageSummary", run_plan: "RunPlanSummary", as_built: "AsBuiltSummary" };
+const SUMMARY_OF = { spec: "SpecSummary", statement: "StatementSummary", suite: "SuiteSummary", programs: "ProgramsSummary", findings: "FindingsSummary", security: "SecuritySummary", package: "PackageSummary", run_plan: "RunPlanSummary", as_built: "AsBuiltSummary" };
 
 /** The parts of the as-built record, in order (added in 0.4.6). */
 export const AS_BUILT_PARTS = ["behaviors", "architecture", "interfaces", "dependencies", "tests_and_gaps"];

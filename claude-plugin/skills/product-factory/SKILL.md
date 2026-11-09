@@ -36,7 +36,7 @@ a boss proposal on your own judgment, even when it looks obvious.
 2. Show the engineer the gate's words, as the tools give them: what the stage
    said it handed back, what is still open, the features approving starts
    with, the pull request's check, and who may answer. For a spec, offer to
-   read the statement with `stage`.
+   read the spec with `stage`.
 3. Ask, naming the action: "Approve the spec for word-counter 0.1.0?"
 4. Only on a clear yes in this conversation, call `act` with the id and the
    engineer's own words in `engineer_said`. For Ask for changes or Send back to

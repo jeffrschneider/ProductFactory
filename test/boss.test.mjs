@@ -132,7 +132,7 @@ test("a request that changes the statement is planned, proposes the next version
   assert.equal(b.version, "0.2.0");
   assert.deepEqual(actionNames(b), ["approve", "changes", "stop"]);
   const asked = JSON.parse(readFileSync(join(f.store.folder(started.build), "stages", "requirements", "records", "r1", "asked.json"), "utf8"));
-  assert.match(asked.said, new RegExp(`\\nprototype: counter 0\\.1\\.0 \\(build ${id}\\): its approved statement is attached, to revise\\.\\n`));
+  assert.match(asked.said, new RegExp(`\\nprototype: counter 0\\.1\\.0 \\(build ${id}\\): its approved spec and the agent's own files are attached, to revise\\.\\n`));
   assert.match(asked.said, /\nversion: 0\.2\.0\n/);
   assert.ok(asked.files.some((p) => p.replace(/\\/g, "/").endsWith("/out/agent/agent-descriptor.json") && p.includes(id)), asked.files.join("\n"));
   assert.deepEqual((await f.get("/products/counter")).json.builds.map((x) => x.version), ["0.2.0", "0.1.0"]);

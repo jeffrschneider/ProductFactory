@@ -178,7 +178,7 @@ async function main() {
 
 /**
  * product-factory features backfill <product>: the spec writer lists the
- * features of a product made before features, from its statement of the job,
+ * features of a product made before features, from its spec,
  * and maps the tests already in the build to them. It runs the same code as
  * the console's "List this product's features" button, against the same
  * store, and needs no running service. The features arrive as proposed, on

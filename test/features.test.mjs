@@ -28,7 +28,8 @@ async function counter(t, opts = {}) {
 }
 const say = (f, stage, text, call = f.call, extra = {}) => call("POST", `/products/counter/stages/${stage}/messages`, { text, ...extra });
 const decide = (f, id, feature, decision, body, call = f.call) => call("POST", `/builds/${id}/features/${feature}/${decision}`, body);
-const statementOf = async (f, id) => (await f.get(`/builds/${id}`)).json.build.artifacts.find((a) => a.id === "statement");
+// What Requirements hands back: the spec (lifecycle API 0.4.8).
+const statementOf = async (f, id) => (await f.get(`/builds/${id}`)).json.build.artifacts.find((a) => a.id === "spec");
 const matrix = async (f, id) => { const got = await f.get(`/builds/${id}/features`); assert.equal(got.status, 200); assert.deepEqual(checkFeatures(got.json, id), []); return got.json; };
 const rowOf = (m, id) => m.features.find((x) => x.id === id);
 
@@ -41,10 +42,10 @@ async function approved(f, id, line) {
   return { p, reply: r.json.reply, got: got.json };
 }
 
-test("a chat proposes a feature, and Approve feature records the decision and gives the statement a new version", async (t) => {
+test("a chat proposes a feature, and Approve feature records the decision and gives the spec a new version", async (t) => {
   const { f, id } = await counter(t);
   assert.equal((await statementOf(f, id)).version, "v1");
-  assert.equal((await statementOf(f, id)).summary.features, undefined, "no features until one is settled");
+  assert.deepEqual((await statementOf(f, id)).summary.features, [], "the spec this stand-in wrote has no features until one is settled");
 
   const r = await say(f, "requirements", "Add a feature: Count words - Counts the words in a passage.");
   assert.equal(r.status, 200);
@@ -55,7 +56,7 @@ test("a chat proposes a feature, and Approve feature records the decision and gi
   const got = await decide(f, id, "F1", "approve", { proposal: p.proposal, message: r.json.reply.id });
   assert.equal(got.status, 200);
   assert.deepEqual(checkFeatureDecision(got.json, "approve"), []);
-  assert.equal(got.json.statement, "v2", "the statement gets a new version with the feature");
+  assert.equal(got.json.statement, "v2", "the spec gets a new version with the feature");
   assert.equal(got.json.feature.state, "approved");
   assert.equal(got.json.proposal.answered.by, "Test Person");
 
@@ -64,7 +65,8 @@ test("a chat proposes a feature, and Approve feature records the decision and gi
   assert.deepEqual({ ...e, id: "x", at: "x", proposal: "x" }, { id: "x", at: "x", kind: "approved", via: "chat", feature: "F1", proposal: "x", by: "Test Person", email: "person@example.com", message: r.json.reply.id, stage: "requirements", statement: "v2" });
   const s = await statementOf(f, id);
   assert.equal(s.version, "v2");
-  assert.deepEqual(s.summary.features, [{ id: "F1", name: "Count words", does: "Counts the words in a passage.", offering: "Count", state: "approved" }]);
+  // The feature list is the product's register; the agent's own files carry none once there is a spec.
+  assert.equal((await f.get(`/builds/${id}`)).json.build.artifacts.find((a) => a.id === "statement").summary.features, undefined);
 
   // The chat now shows it approved, and it cannot be approved twice.
   const chat = (await f.get("/products/counter/stages/requirements/messages")).json;
@@ -91,7 +93,7 @@ test("Not now keeps a feature proposed, as a backlog item linked to the conversa
   assert.deepEqual(checkFeatureDecision(got.json, "not_now"), []);
   assert.deepEqual({ state: got.json.feature.state, backlog: got.json.feature.backlog, pending: got.json.feature.pending.state }, { state: "proposed", backlog: true, pending: "not_now" });
   const m = await matrix(f, id);
-  assert.deepEqual({ backlog: rowOf(m, "F1").backlog, spec: rowOf(m, "F1").cells.spec }, { backlog: true, spec: { state: "missing", words: "In the backlog, not approved", link: { build: id, stage: "requirements", artifact: "statement", feature: "F1" } } });
+  assert.deepEqual({ backlog: rowOf(m, "F1").backlog, spec: rowOf(m, "F1").cells.spec }, { backlog: true, spec: { state: "missing", words: "In the backlog, not approved", link: { build: id, stage: "requirements", artifact: "spec", feature: "F1" } } });
   const h = (await f.get("/products/counter/features/F1")).json;
   assert.deepEqual(h.history.map((x) => x.kind), ["proposed", "not_now"]);
   assert.deepEqual(h.history[1].link, { kind: "message", stage: "requirements", message: r.json.reply.id });
@@ -160,9 +162,12 @@ test("approved features reach the spec writer and the test writer as lines aimed
   await f.post(`/builds/${id}/actions/approve`);
   const b = await f.settled(id);
   const testText = readFileSync(join(f.store.folder(id), "stages", "test", "jobs", "r1", "message.txt"), "utf8");
-  assert.match(testText, /^Write the suite for the agent's files attached\.\n\nfeatures: the owner approved these:\n- F1 /);
-  assert.match(testText, /Name each test that checks one of these features starting with the feature's id in square brackets, such as "\[F1\] count words"/);
-  assert.deepEqual(b.artifacts.find((a) => a.id === "suite").summary.tests, ["counts the words in a passage", "[F1] count words", "[F2] fails on purpose"]);
+  assert.match(testText, /^Write the suite for the spec and the agent's files attached\.\n\nfeatures: the owner approved these:\n- F1 /);
+  // With a spec (stages.json 1.6.0) a test is named by its acceptance scenario, and a feature the spec has no scenario for by its own id.
+  assert.match(testText, /Name each test that checks one of the spec's acceptance scenarios starting with the scenario's id in square brackets, such as "\[F1\.A1\] \.\.\.", and each test of a kept interface with the interface's id, such as "\[I1\] \.\.\."\. A test of one of these features that has no scenario in the spec starts with the feature's id, such as "\[F1\] count words"\./);
+  // The revised spec kept both features with a scenario each, so each test is named by its scenario and counts for its feature;
+  // the kept interface's test checks no feature.
+  assert.deepEqual(b.artifacts.find((a) => a.id === "suite").summary.tests, ["counts the words in a passage", "[F1.A1] count words", "[F2.A1] fails on purpose", "[I1] count is exported, as the spec keeps it"]);
   const round = b.stages.find((s) => s.stage === "code").rounds[0];
   assert.deepEqual(round.by_feature, [{ feature: "F1", passed: 1, total: 1 }, { feature: "F2", passed: 0, total: 1 }]);
   assert.match(round.words, /By feature: F1 1 of 1 pass; F2 0 of 1 pass\.$/);
@@ -232,7 +237,7 @@ test("a feature's history: proposed in chat, approved, tests added, code changed
   assert.deepEqual(got.json.history.map((x) => x.kind), ["proposed", "approved", "tests", "code"]);
   assert.deepEqual(got.json.history[0].link, { kind: "message", stage: "requirements", message: reply.id });
   assert.match(got.json.history[0].words, /^Spec writer proposed F1: Count words\. Counts the words in a passage\. \(offering Count\)$/);
-  assert.match(got.json.history[1].words, /^Approved in the chat\. The statement of the job is v2 with it\.$/);
+  assert.match(got.json.history[1].words, /^Approved in the chat\. The spec is v2 with it\.$/);
   assert.deepEqual(got.json.history[2].link, { kind: "artifact", artifact: "suite", feature: "F1" });
   assert.match(got.json.history[3].words, /^The code passes 1 of 1 tests for F1 \(Round 1\)\.$/);
   assert.equal((await f.get("/products/counter/features/F99")).status, 404);

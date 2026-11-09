@@ -59,7 +59,7 @@ test("a build runs every stage: spec, your approval, suite, a failed round, your
   assert.equal(req.rounds[1].back, true);
   const revised = JSON.parse(readFileSync(join(f.store.folder(id), "stages", "requirements", "records", "r2", "asked.json"), "utf8"));
   assert.match(revised.said, /^changes: name: word-counter/);
-  assert.equal(revised.files.length, 4, "the earlier draft's files go back with the changes");
+  assert.equal(revised.files.length, 6, "the earlier draft's spec (spec.json and spec.md) and the agent's own files go back with the changes");
   assert.equal(b.name, "word-counter", "the build takes the name the spec settles");
 
   // Approve the spec: Test runs, then Code. The first harness round fails the suite; the second passes.
@@ -71,7 +71,8 @@ test("a build runs every stage: spec, your approval, suite, a failed round, your
   assert.equal(stageOf(b, "requirements").state, "done");
   assert.equal(stageOf(b, "requirements").rounds[0].verdict, "Approved");
   assert.equal(stageOf(b, "test").state, "done");
-  assert.deepEqual(stageOf(b, "test").handed_back.files.map((x) => x.path), ["test/count.test.mjs"]);
+  // The count test, and the test of the interface the spec keeps (stages.json 1.6.0).
+  assert.deepEqual(stageOf(b, "test").handed_back.files.map((x) => x.path), ["test/count.test.mjs", "test/kept-interfaces.test.mjs"]);
   const code = stageOf(b, "code");
   assert.equal(code.state, "waiting_on_you");
   assert.equal(code.holder.kind, "your_agent");

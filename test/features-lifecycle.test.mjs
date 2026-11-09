@@ -48,7 +48,7 @@ test("backfill: the spec writer lists a product's features from its statement, m
   assert.deepEqual(checkFeatures(before, id), []);
   assert.deepEqual(before.features, []);
   assert.equal(before.backfill.offered, true);
-  assert.match(before.backfill.words, /^The spec writer lists the features of the statement of the job v4, and maps the \d+ tests already in the build to them where their names or content make it clear\. A test it cannot tie to a feature is left unmapped\. They arrive as proposed, for you to approve\.$/);
+  assert.match(before.backfill.words, /^The spec writer lists the features of the spec v4, and maps the \d+ tests already in the build to them where their names or content make it clear\. A test it cannot tie to a feature is left unmapped\. They arrive as proposed, for you to approve\.$/);
   assert.match(before.words, /made before features: the spec writer can list them/);
   assert.equal((await f.get(`/builds/${id}/stages/requirements`)).json.features, undefined, "no features, no slice");
   assert.equal(stageIn((await f.get(`/builds/${id}`)).json.build, "test").features, undefined);

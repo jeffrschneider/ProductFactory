@@ -543,7 +543,7 @@ export function createHandlers(api, { sleep = (ms) => new Promise((r) => setTime
     if (args.decision === "not_now" && p.state === "not_now") throw new ToolProblem(`${p.feature} is already left for later. Nothing was taken.`, { data: { taken: false } });
     const got = await api.post(`/builds/${enc(p.build)}/features/${enc(p.feature)}/${args.decision}`, { proposal: id });
     const words = args.decision === "approve"
-      ? `Approved feature ${p.feature} "${p.name}" of ${p.product}.${got.statement ? ` The statement of the job is now ${got.statement}.` : ""}`
+      ? `Approved feature ${p.feature} "${p.name}" of ${p.product}.${got.statement ? ` The spec is now ${got.statement}.` : ""}`
       : `Left feature ${p.feature} "${p.name}" of ${p.product} for later. It stays proposed, as a backlog item.`;
     return result(words, { taken: true, id, decision: args.decision, product: p.product, feature: got.feature, ...(got.statement ? { statement: got.statement } : {}) });
   }

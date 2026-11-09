@@ -38,8 +38,9 @@ phases:
                        owner: code-writer          after: write-the-suite
                        automation: supervised
   make-the-package   - harness: the signed Agent Package made from the
-                       spec and the delivered scripts and nothing else,
-                       carrying the draft Descriptor in
+                       agent's own files, which the spec writer makes
+                       from the spec, and the delivered scripts and
+                       nothing else, carrying the draft Descriptor in
                        agent-descriptor.json and the runtime
                        requirements in agent-runtime-requirements.json
                        owner: package-maker        after: write-the-scripts
@@ -78,8 +79,9 @@ handoffs:
     and the prototype when one came with the request
   write-the-suite -> write-the-scripts [suite-written]: every test file, and the
     note of what the suite could not cover
-  approve-the-spec -> make-the-package [approved-spec]: the spec as the
-    owner left it, which names the scripts the package must ship
+  approve-the-spec -> make-the-package [approved-spec]: the agent's own
+    files made from the spec as the owner left it, which name the scripts
+    the package must ship
   write-the-scripts -> make-the-package [scripts]: every script the spec
     names, the writer's account, and the signed job manifest that came
     with the delivery

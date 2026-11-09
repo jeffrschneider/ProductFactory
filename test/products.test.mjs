@@ -60,11 +60,11 @@ test("products, a product's builds and activity, and each stage's workspace, fro
   assert.equal(req.state, "waiting_on_you");
   assert.deepEqual(req.gate, { actions: ["approve", "changes", "stop"], state: "open", who_may: "Anyone may answer this gate: the lifecycle names no approvers for it." });
   assert.deepEqual(req.given, []);
-  assert.deepEqual(req.outputs.map((a) => [a.id, a.state]), [["statement", "made"]]);
-  assert.equal(req.done_when, "a package could be built from it, and nothing unsettled was invented");
+  assert.deepEqual(req.outputs.map((a) => [a.id, a.state]), [["spec", "made"]]);
+  assert.equal(req.done_when, "every feature has requirements and at least one acceptance scenario a test can check, every requirement comes from what the person said or from a behavior of the as-built record, and nothing unsettled was invented");
   // Test has not run: nothing given yet but the statement, its suite is next, and it has no gate.
   const tst = (await ws(f, id, "test")).json;
-  assert.deepEqual(tst.given, ["statement"]);
+  assert.deepEqual(tst.given, ["spec", "statement"]);
   assert.deepEqual(tst.outputs.map((a) => [a.id, a.state]), [["suite", "next"]]);
   assert.equal(tst.gate, undefined);
 
@@ -76,19 +76,19 @@ test("products, a product's builds and activity, and each stage's workspace, fro
   const code = (await ws(f, id, "code")).json;
   assert.deepEqual(code.gate.actions, ["accept", "back_to_test", "back_to_requirements", "stop"]);
   assert.equal(code.gate.state, "open");
-  assert.deepEqual(code.given, ["statement", "suite"]);
+  assert.deepEqual(code.given, ["spec", "statement", "suite"]);
   assert.deepEqual(code.outputs.map((a) => [a.id, a.state]), [["programs", "made"]]);
   assert.equal(code.outputs[0].summary.pr.number, 1);
   const review = (await ws(f, id, "review")).json;
   assert.deepEqual(review.outputs.map((a) => [a.id, a.state]), [["findings", "made"]]);
   assert.equal(review.outputs[0].summary.verdict, "Nothing open.");
-  assert.deepEqual(review.given, ["statement", "suite", "programs"]);
+  assert.deepEqual(review.given, ["spec", "suite", "programs"]);
 
   // The build answer carries the artifacts, and still meets the console's checks and the lifecycle API's.
   const one = await f.get(`/builds/${id}`);
   assert.deepEqual(checkBuild(one.json, STAGE_IDS), []);
   assert.deepEqual(validate("BuildAnswer", one.json), []);
-  assert.deepEqual(one.json.build.artifacts.map((a) => a.id), ["statement", "architecture", "suite", "programs", "findings", "security", "package", "build_record", "run_plan", "attestation", "agentdoc"]);
+  assert.deepEqual(one.json.build.artifacts.map((a) => a.id), ["spec", "statement", "architecture", "suite", "programs", "findings", "security", "package", "build_record", "run_plan", "attestation", "agentdoc"]);
   assert.equal(one.json.build.artifacts.find((a) => a.id === "package").state, "next");
   // A reviewer's document is read at its artifact's link.
   const findings = one.json.build.artifacts.find((a) => a.id === "findings").files[0];
@@ -144,14 +144,16 @@ test("the agent holding a stage answers a question from its outputs, and the cha
   assert.equal(reply.from.name, "Test writer");
   assert.equal(reply.from.role, "test-writer");
   assert.equal(reply.build, id);
-  assert.match(reply.text, /^You asked: What happens with an empty message\? I read test\/count\.test\.mjs, requirements\/agent-descriptor\.json/);
+  // The test writer read its suite, then what it was given: the spec and the agent's own files (stages.json 1.6.0).
+  assert.match(reply.text, /^You asked: What happens with an empty message\? I read test\/count\.test\.mjs, test\/kept-interfaces\.test\.mjs, requirements\/spec\.json, requirements\/spec\.md, requirements\/agent-descriptor\.json/);
   assert.equal(reply.proposes, undefined);
 
   // The agent was told its suite, what it was given, and the build's record, and nothing changed by answering.
   const prompt = readFileSync(join(f.store.folder(id), "thread", message.id, "prompt.txt"), "utf8");
   assert.match(prompt, /^You are the Test writer on a build/);
   assert.match(prompt, /What you made, The suite \(made, v1\):/);
-  assert.match(prompt, /What you were given, Statement of the job/);
+  assert.match(prompt, /What you were given, Spec \(Requirements, made, v1\):/);
+  assert.match(prompt, /What you were given, The agent's own files \(Architecture and Design, made, v1\):/);
   assert.match(prompt, /Where it is now: Waiting on you at Code\./);
   const after = f.store.read(id);
   assert.equal(after.status, before.status);
