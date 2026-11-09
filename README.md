@@ -64,6 +64,19 @@ answers). The reference runtime, `runtimes/folder.mjs`, copies both files
 into a folder, so the hand-off can be seen with no platform. With no runtime
 set, Deploy waits: "Hand this package to your runtime", with both paths.
 
+Beyond install, the runtime is asked to roll back, reconfigure and retire
+(the runtime verbs, CommonAgent/adlc `standards/runtime-verbs.md`). The
+command always gets a package and a run plan as its last two words, and the
+verb in the environment: `PRODUCT_FACTORY_VERB` (`install`, `rollback`,
+`reconfigure` or `retire`), with `PRODUCT_FACTORY_PRODUCT`,
+`PRODUCT_FACTORY_VERSION` and `PRODUCT_FACTORY_FROM_VERSION`. A runtime that
+knows a verb answers with `"verb"`; one that reads none installs what it is
+given, which is safe: for rollback that is the earlier version, for
+reconfigure the new run plan, and for retire the running version again, which
+Product Factory says in words is not retired. The reference runtime does all
+four over its folder and keeps what runs, and every verb, in
+`<folder>/<name>.runtime.json`.
+
 ## What milestone 1 does not do
 
 No board, no tracker but GitHub Issues, no repository host but GitHub, no single sign-on,
@@ -426,8 +439,8 @@ of each stage workspace carries it (`cadence`):
   version's reads "Unchanged since 0.1.0" (`carried`), so nothing is asked
   again. Changing a holder or its settings holds from the next version.
 - **When needed**, actions on the product: Impact, Retract, Reconfigure,
-  Rollback and Decommission. Product Factory runs none of them yet, so each
-  says why.
+  Rollback and Decommission. They run when something happens, not as build
+  steps (below).
 
 `GET /v1/lifecycle/products/<name>` lists both: `setup`, each setup stage with
 its role, its holder or null, its settings, `chosen`, `not_chosen` or
@@ -435,6 +448,48 @@ its role, its holder or null, its settings, `chosen`, `not_chosen` or
 next version), as the lifecycle of the newest build's project has it now; and
 `when_needed`, each action with `can_run` and, when it cannot run, `why_not`.
 A holder is chosen with `PUT /v1/lifecycle/roles/<role>`.
+
+## Guided setup and the when-needed actions
+
+Lifecycle API 0.4.4. Each setup item carries a `form`: who may hold it (the
+role's reference agent, your agent, a person or an outside tool), a few
+settings with defaults, and the question the console's "Ask the boss" sends
+("Who should monitor word-counter?"). The defaults (`lib/setup.mjs`):
+
+| Stage | Settings |
+|---|---|
+| Source | where to look first |
+| Architecture and Design | what to build on |
+| Publish | where it's listed, who can see it |
+| Monitor | check every N minutes, alert after M minutes without an answer, alert where |
+| Eval | what it grades against, how often, sample |
+| Incident response | who decides |
+| Cost | monthly ceiling, warn at a percent, what happens at the ceiling |
+| Update | who approves an update |
+
+A form is saved with `PUT /v1/lifecycle/roles/<role>`, each stage's settings
+under its own id in the holder's settings, so the watcher keeps Monitor's and
+Cost's apart. A build keeps the lifecycle it started with, so its run plan and
+every later version take the saved choices.
+
+The when-needed actions run from the product page, each behind a confirm card
+that says who may act (the lifecycle's `approvers` for the stage, as for a
+gate), what will happen in the stage's own words, and for Rollback the version
+it goes back to and what can't be undone. Confirming posts
+`POST /v1/lifecycle/builds/<id>/actions/<stage>` on the build the list names;
+the result is kept on that build, shows in the activity feed, and is the
+item's `last`.
+
+| Action | Runs when | What it does |
+|---|---|---|
+| Impact | a version runs, and a newer one has its declaration | runs the reference impact analyst (`agents/impact-analyst` in the adlc checkout) on the two declarations, with an empty list of dependents, and hands back its report |
+| Rollback | a runtime is set, and an earlier version was installed | the runtime's `rollback` verb, with the earlier version's own package and run plan |
+| Reconfigure | a runtime is set, and the setup chosen now differs from the running run plan | the runtime's `reconfigure` verb, with the same package and a new run plan |
+| Retract | a version runs | handed to the Publisher holder you chose; otherwise a manual step you confirm, recorded |
+| Decommission | a runtime is set, and a version runs | the runtime's `retire` verb; every record is kept and the product is marked retired |
+
+Which version runs is the newest whose Deploy is done and that was not rolled
+back or retired; the product answer says so in `running`.
 
 ## The boss
 
