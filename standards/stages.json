@@ -1,6 +1,6 @@
 {
-  "version": "1.3.0",
-  "about": "The 24 stages of the reference Agent Development Lifecycle, in order, in seven phases, as written on https://agenticdevelopment.ai/stages.html (the assets each stage makes are from https://agenticdevelopment.ai/assets.html). The site, the auditor and the console read this file; the site's tools/check-stages.mjs fails when the page and this file differ. Each stage: its role, the reference agent that holds it (null where none does; reference_holders lists every reference agent on its card), what it is given, what it hands back, when it is done, the asset it makes (assets lists every one), and person_gate, true where a person approves or decides at that stage. A list in a field is written as lines starting with \"- \". aliases are older names for a stage that still point at it. roles lists the lifecycle roles of https://agentroles.ai: each role's id, its name, its contract (the role's page), the offering an agent holding it answers (role-<id>), the stages it holds, and the agent in this repository that holds it for reference (null where none does). Each stage's role_ids names the roles that hold it. An organization may bind each role to the reference agent, its own agent, a contracted supplier, a person or an outside tool; the requester is always the person who asked. evidence_formats lists the open formats a holder outside the service may hand its evidence back in, and what each is read for. Each stage also has a cadence (added in 1.3.0), one of the ids in cadences: every_build, a stage that runs on every build of a product (the routine); setup, a stage set up once per product, whose holder and settings are carried forward to each later version until someone changes them; or when_needed, an action on the product run when something happens, not as part of a build. A change here is a new version.",
+  "version": "1.4.0",
+  "about": "The stages of the reference Agent Development Lifecycle, in order, in seven phases, as written on https://agenticdevelopment.ai/stages.html (the assets each stage makes are from https://agenticdevelopment.ai/assets.html). The site, the auditor and the console read this file; the site's tools/check-stages.mjs fails when the page and this file differ. Each stage: its role, the reference agent that holds it (null where none does; reference_holders lists every reference agent on its card), what it is given, what it hands back, when it is done, the asset it makes (assets lists every one), and person_gate, true where a person approves or decides at that stage. A list in a field is written as lines starting with \"- \". aliases are older names for a stage that still point at it. roles lists the lifecycle roles of https://agentroles.ai: each role's id, its name, its contract (the role's page), the offering an agent holding it answers (role-<id>), the stages it holds, and the agent in this repository that holds it for reference (null where none does). Each stage's role_ids names the roles that hold it. An organization may bind each role to the reference agent, its own agent, a contracted supplier, a person or an outside tool; the requester is always the person who asked. evidence_formats lists the open formats a holder outside the service may hand its evidence back in, and what each is read for. Each stage also has a cadence (added in 1.3.0), one of the ids in cadences: every_build, a stage that runs on every build of a product (the routine); setup, a stage set up once per product, whose holder and settings are carried forward to each later version until someone changes them; or when_needed, an action on the product run when something happens, not as part of a build. A change here is a new version. From 1.4.0 the file adds Reverse engineering, numbered 0 so that the 24 stages after it keep their numbers: a when_needed stage before Requirements that runs on adoption (an existing codebase is taken on) or on drift (the code changed outside the lifecycle, seen when its commit differs from the last one any build knew), and hands back the as-built record, on drift covering only what changed since the last record. A codebase that lives fully inside the lifecycle does not need it again. It also lists starting_points: each names what someone brings (brings), the stage it enters at (enters), the stages it goes to next where it skips ahead (then; the rest follow in the lifecycle's order), and why it starts there. starting_point_rules holds the rules every starting point keeps.",
   "phases": [
     {
       "id": "define",
@@ -49,6 +49,16 @@
     }
   ],
   "roles": [
+    {
+      "id": "reverse-engineer",
+      "name": "Reverse engineer",
+      "contract": "https://agentroles.ai/reverse-engineer.html",
+      "offering": "role-reverse-engineer",
+      "stages": [
+        "reverse-engineering"
+      ],
+      "reference_agent": null
+    },
     {
       "id": "spec-writer",
       "name": "Spec writer",
@@ -288,6 +298,29 @@
   ],
   "stages": [
     {
+      "id": "reverse-engineering",
+      "number": 0,
+      "phase": "define",
+      "name": "Reverse engineering",
+      "role": "reverse engineer",
+      "role_ids": [
+        "reverse-engineer"
+      ],
+      "reference_holder": null,
+      "given": "an existing codebase at a named commit, and its running form if there is one, on either of two triggers: adoption, when the codebase is taken on; or drift, when the code changed outside the lifecycle (hand edits, another team, a vendor drop), seen when its commit differs from the last one any build knew, and then also the last as-built record",
+      "hands_back": "the as-built record, tied to its source (the repository, the commit digest, and whether the code was only read or also run), in five parts, and on drift only what changed since the last record:\n- behaviors: each thing the code does (its inputs, outputs, refusals and the error handling actually present), each evidenced by a file and line or an observed run, drafted in the feature list's shape (id, name, does, offering) and marked as built\n- architecture as built: the parts, entry points, data stores, systems and networks reached, settings and credentials read, and how it starts and runs, in the architecture standard's record shape, marked as built\n- interfaces: the APIs, commands, messages and file formats, with schemas where they can be derived, in existing formats (OpenAPI, JSON Schema)\n- dependencies: a software bill of materials (SBOM) in CycloneDX or SPDX\n- existing tests and gaps: the tests it already has, what they cover, one baseline run's results, and what couldn't be determined (unreachable code, behavior seen only at run time, anything unclear), each marked",
+      "done_when": "every claim names its evidence, every gap is marked, and nothing is inferred beyond the evidence",
+      "asset": "As-built record",
+      "person_gate": false,
+      "cadence": "when_needed",
+      "why": "Nobody can decide what to keep until somebody says what's there. It describes what the code is, never whether it's right, and writes no tests; the person decides at Requirements, and on drift each changed behavior goes there to be approved, flagged as a bug for the backlog, or dropped. A codebase that lives fully inside the lifecycle never needs it again, because its forward artifacts are already the truth, so it never runs by routine.",
+      "reference_holders": [],
+      "assets": [
+        "As-built record"
+      ],
+      "aliases": []
+    },
+    {
       "id": "requirements",
       "number": 1,
       "phase": "define",
@@ -298,7 +331,7 @@
         "solution-planner"
       ],
       "reference_holder": "spec-writer",
-      "given": "somebody's account of what they want, with whatever they have",
+      "given": "somebody's account of what they want, with whatever they have; where code already exists, the as-built record, each behavior in which the person approves, flags as a bug for the backlog, or drops",
       "hands_back": "a statement of the job: what it does, refuses, needs, records and costs, plus the open questions",
       "done_when": "a package could be built from it, and nothing unsettled was invented",
       "asset": "Statement of the job",
@@ -326,7 +359,7 @@
         "solution-architect"
       ],
       "reference_holder": "spec-writer",
-      "given": "the statement of the job, and the organization's stack",
+      "given": "the statement of the job, and the organization's stack; where code already exists, the architecture as built (part 2 of the as-built record)",
       "hands_back": "an architecture record:\n- the systems the agent reaches, in plain words (database, files, text reasoning, mail sender)\n- the product bound to each in dev, test and production: the organization's stack first, a platform default for the rest\n- dependencies on other agents and services\n- the agent's kind: a harness reading skills, code that speaks the network itself, or a container\n- limits on cost, speed, data and trust\n- each decision, with its reason",
       "done_when": "every system is named and bound in each environment it will run in, every decision has a reason, and every design step uses only systems the architecture named",
       "asset": "Architecture record",
@@ -348,7 +381,7 @@
         {
           "name": "Architecture",
           "role": "solution architect, or a person",
-          "given": "the statement of the job, and the organization's stack",
+          "given": "the statement of the job, and the organization's stack; where code already exists, the architecture as built (part 2 of the as-built record)",
           "hands_back": "an architecture record:\n- the systems the agent reaches, in plain words (database, files, text reasoning, mail sender)\n- the product bound to each in dev, test and production: the organization's stack first, a platform default for the rest\n- dependencies on other agents and services\n- the agent's kind: a harness reading skills, code that speaks the network itself, or a container\n- limits on cost, speed, data and trust\n- each decision, with its reason"
         },
         {
@@ -369,7 +402,7 @@
         "impact-analyst"
       ],
       "reference_holder": null,
-      "given": "the change, the running version, and what depends on it",
+      "given": "the change, the running version, and what depends on it; where code already exists, the architecture as built and the dependencies (parts 2 and 4 of the as-built record)",
       "hands_back": "the impact report: each dependent marked compatible, breaking or a change of behavior",
       "done_when": "every dependent is named and answered, and the person approves before anything is built",
       "asset": "Impact report",
@@ -417,7 +450,7 @@
         "test-writer"
       ],
       "reference_holder": "test-writer",
-      "given": "the statement of the job",
+      "given": "the statement of the job; where code already exists, the behaviors and the existing tests and gaps (parts 1 and 5 of the as-built record), from which it writes characterization tests that pin today's behavior until Requirements says otherwise",
       "hands_back": "the suite, and what no test could be written for",
       "done_when": "the suite fails against empty stand-ins, and notices each program removed",
       "asset": "Test suite",
@@ -490,7 +523,7 @@
         "security-reviewer"
       ],
       "reference_holder": null,
-      "given": "the architecture record and the design, the programs, and everything the package will ask for",
+      "given": "the architecture record and the design, the programs, and everything the package will ask for; where code already exists, the architecture as built and the dependencies (parts 2 and 4 of the as-built record)",
       "hands_back": "what it may reach, what it may spend, what it must never do, and the reason for each",
       "done_when": "every permission asked for has a recorded reason",
       "asset": "Security statement",
@@ -896,5 +929,69 @@
       ],
       "aliases": []
     }
+  ],
+  "starting_points": [
+    {
+      "id": "idea",
+      "brings": "an idea: somebody's account of what they want",
+      "enters": "requirements",
+      "then": [],
+      "why": "Requirements turns an account of what someone wants into a statement a package could be built from."
+    },
+    {
+      "id": "prototype",
+      "brings": "a prototype",
+      "enters": "test",
+      "then": [
+        "code"
+      ],
+      "why": "Code reads the prototype as the spec and writes it again against the suite, so the suite comes first."
+    },
+    {
+      "id": "existing-code",
+      "brings": "an existing codebase being adopted, at a named commit, and its running form if there is one",
+      "enters": "reverse-engineering",
+      "then": [],
+      "why": "Nobody can decide what to keep until somebody says what the code does. Reverse engineering writes that down in the as-built record, and Requirements is where the person decides what in it to keep."
+    },
+    {
+      "id": "skill",
+      "brings": "a skill people run in their own assistant",
+      "enters": "security",
+      "then": [
+        "package"
+      ],
+      "why": "The person who ran it was the approval. Security review writes that down: what it may reach, what it may spend, and who says yes."
+    },
+    {
+      "id": "business-process",
+      "brings": "a written business process",
+      "enters": "source",
+      "then": [],
+      "why": "Its steps are what Source takes in."
+    },
+    {
+      "id": "working-code",
+      "brings": "working code, to be shipped as it is",
+      "enters": "security",
+      "then": [
+        "package"
+      ],
+      "why": "The code already does the job, so the lifecycle starts by setting what it may reach before it gets credentials. Code that will be developed further through the lifecycle is existing code, and enters at Reverse engineering."
+    },
+    {
+      "id": "package",
+      "brings": "a package or an image",
+      "enters": "security",
+      "then": [
+        "release",
+        "deploy"
+      ],
+      "why": "It is already built, so Security review sets its limits, Release signs the bytes, and Deploy places it."
+    }
+  ],
+  "starting_point_rules": [
+    "Every starting point that gets credentials passes Security review first, because the blast radius is set before the credentials are given, and Deploy is where they are given.",
+    "However it starts, a build ends in a valid package. That is the one requirement every starting point shares, because the package is what a platform checks before it installs anything."
   ]
 }

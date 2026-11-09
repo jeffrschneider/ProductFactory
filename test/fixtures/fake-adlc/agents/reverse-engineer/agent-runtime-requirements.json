@@ -1,0 +1,12 @@
+{
+  "format": "agent-runtime-requirements-v1",
+  "runtimes": [{ "name": "node", "version": ">=22" }],
+  "run": {
+    "reverse-engineer": {
+      "command": ["node", "{home}/{package}/skills/reverse-engineer/scripts/describe.mjs", "--job", "{job_dir}", "--records", "{records}", "--work", "{work}", "--text-file", "{job_dir}/message.txt"],
+      "reply": "json:reply",
+      "per_file": ["--file", "{file_path}::{file_media_type}"],
+      "message_file": "{job_dir}/message.txt"
+    }
+  }
+}

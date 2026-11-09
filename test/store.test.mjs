@@ -101,5 +101,5 @@ test("a build's snapshot is the lifecycle in effect, with the project's choices 
   assert.deepEqual(web.used.eval, { used: false, from: "org" });
   assert.equal(web.holders["code-writer"].name, "Our coder");
   // The stages answer lists the stages of stages.json and no others.
-  assert.equal((await lc.stages(null)).stages.length, 24);
+  assert.equal((await lc.stages(null)).stages.length, 25);
 });

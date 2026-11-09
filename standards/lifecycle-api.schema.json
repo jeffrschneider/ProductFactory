@@ -2,8 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/CommonAgent/adlc/main/standards/lifecycle-api.schema.json",
   "title": "The lifecycle API",
-  "version": "0.4.5",
-  "description": "What any service implementing the Agent Development Lifecycle answers, so that one client works against more than one service. Every request and answer is JSON, at the path /v1/lifecycle on the service. Times are ISO 8601 with a zone. Auth is Authorization: Bearer <key>, where the key is one the person makes for their own account, as the service says. A build lists the 24 stages of stages.json, one entry each, and a stage the service does not run is reported as not_offered. A client draws one button for each action the build offers, and nothing else. An organization chooses who holds each role of stages.json (the roles operations): the service's reference agent, its own agent, a contracted supplier, a person or an outside tool. A holder outside the service hands its evidence back in one of the open formats stages.json lists, and the service reads it onto the stage. An organization also chooses which stages its lifecycle uses (the stages operations), for the whole organization or for one project; when nothing is chosen every stage is used, and a build keeps the choice in effect when it started. The schema changes only by adding: a client ignores a field it does not know, and a service never removes or retypes one. Version 0.2 adds the roles operations, the evidence operation and new fields, and it also adds values to two lists, the holder's kinds and the stage's states; a client that does not know a state draws the stage as not_offered, and one that does not know a holder's kind shows the holder's name. Version 0.3 adds the stages operations, the state not_used, and the build's lifecycle field; a client that knows only 0.2 draws a not_used stage as not_offered. Version 0.4 adds products, stage workspaces, each stage's chat and the build's artifacts: a product is every build of one name, one build per version; each stage of a build is a workspace with what it was given, what it handed back as versioned artifacts, and its gate; and each stage has a chat with the agent holding it, kept per product per stage across builds. Answering in a chat changes nothing: a change the person asks for comes back as a proposal of the build's existing action, which the person takes with the actions operation, so a change always goes back through its gate. A client that knows only 0.3 ignores the artifacts field, and a service that does not offer the 0.4 operations answers them 404. Version 0.4.1 adds the product's boss (Agent Roles, role-boss): a conversation at the product level with an agent that answers from the product's record, routes a directive into the chat of the stage that owns it, and plans a larger request across the stages, proposing each stage's existing action; it never answers a gate, never changes an artifact, and lists everything it committed on the person's behalf. A service that does not offer the boss answers its operations 404. Version 0.4.2 adds each stage's cadence from stages.json 1.3.0 (every_build, setup or when_needed) to the build's stages and the stage workspace; carried, on a setup stage whose holder and settings are the same as an earlier version's; and two lists on a product: setup, each stage set up once per product with its holder, settings and the version it has held since, and when_needed, each action on the product with whether the service can run it now and, when it cannot, why. A client shows a build's steps from its every_build stages, and the others on the product. A client that knows only 0.4.1 ignores them. Version 0.4.3 adds features: the statement of the job carries a feature list, each feature with a stable id, a name, what it does and the offering it belongs to. A stage's agent or the boss proposes a new or changed feature in a reply (features), and the person approves it there, one feature at a time, as a recorded gate decision of Requirements, or says not now, which keeps it proposed as a backlog item; a person who may not answer Requirements asks an approver instead. Tests name the feature they check, a round of the gate reports its results per feature, and a matrix shows each feature against the spec, the tests, the code, the review and the docs, with each feature's history across the stages. A service that does not offer features answers their operations 404. Version 0.4.4 adds the guided setup and the when-needed actions: each setup item carries a form (who may hold it, a few settings with defaults, and the question a client sends the boss), saved with the roles operations, each stage's settings under its own id in the holder's settings; each when-needed item a service can run carries its needs and a confirm card (what will happen in the stage's words, who may act, the versions it acts on and what cannot be undone), is taken with the actions operation on the build it names, and answers a result that the product keeps as the item's last; and the product says which version runs and whether it is retired. How a service hands rollback, reconfigure and retire to the runtime it is given is runtime-verbs.md. A client that knows only 0.4.3 ignores them. Version 0.4.5 makes features visible at every stage: each every-build stage of a build, and its workspace, carry the stage's features (Requirements: approved of all; Test: tests per feature, a feature with none to do; Code: passing per feature; Review: findings tied to a feature through its tests, the rest not tied; Docs: which features the docs name); a matrix row carries its pending proposal, where it was proposed and the tests that check it, and the matrix the tests that check no feature; and a product made before features can have them listed from its statement of the job by the spec writer (backfill), with the tests already in the build mapped to them where their names or content make it clear and the rest left unmapped, then approved one at a time or together (approve_all). A client that knows only 0.4.4 ignores them. The operations list names the definition each request and answer must match; lifecycle-api-check.mjs checks a running service against it, together with the rules a schema cannot say.",
+  "version": "0.4.6",
+  "description": "What any service implementing the Agent Development Lifecycle answers, so that one client works against more than one service. Every request and answer is JSON, at the path /v1/lifecycle on the service. Times are ISO 8601 with a zone. Auth is Authorization: Bearer <key>, where the key is one the person makes for their own account, as the service says. A build lists every stage of stages.json, one entry each, and a stage the service does not run is reported as not_offered. A client draws one button for each action the build offers, and nothing else. An organization chooses who holds each role of stages.json (the roles operations): the service's reference agent, its own agent, a contracted supplier, a person or an outside tool. A holder outside the service hands its evidence back in one of the open formats stages.json lists, and the service reads it onto the stage. An organization also chooses which stages its lifecycle uses (the stages operations), for the whole organization or for one project; when nothing is chosen every stage is used, and a build keeps the choice in effect when it started. The schema changes only by adding: a client ignores a field it does not know, and a service never removes or retypes one. Version 0.2 adds the roles operations, the evidence operation and new fields, and it also adds values to two lists, the holder's kinds and the stage's states; a client that does not know a state draws the stage as not_offered, and one that does not know a holder's kind shows the holder's name. Version 0.3 adds the stages operations, the state not_used, and the build's lifecycle field; a client that knows only 0.2 draws a not_used stage as not_offered. Version 0.4 adds products, stage workspaces, each stage's chat and the build's artifacts: a product is every build of one name, one build per version; each stage of a build is a workspace with what it was given, what it handed back as versioned artifacts, and its gate; and each stage has a chat with the agent holding it, kept per product per stage across builds. Answering in a chat changes nothing: a change the person asks for comes back as a proposal of the build's existing action, which the person takes with the actions operation, so a change always goes back through its gate. A client that knows only 0.3 ignores the artifacts field, and a service that does not offer the 0.4 operations answers them 404. Version 0.4.1 adds the product's boss (Agent Roles, role-boss): a conversation at the product level with an agent that answers from the product's record, routes a directive into the chat of the stage that owns it, and plans a larger request across the stages, proposing each stage's existing action; it never answers a gate, never changes an artifact, and lists everything it committed on the person's behalf. A service that does not offer the boss answers its operations 404. Version 0.4.2 adds each stage's cadence from stages.json 1.3.0 (every_build, setup or when_needed) to the build's stages and the stage workspace; carried, on a setup stage whose holder and settings are the same as an earlier version's; and two lists on a product: setup, each stage set up once per product with its holder, settings and the version it has held since, and when_needed, each action on the product with whether the service can run it now and, when it cannot, why. A client shows a build's steps from its every_build stages, and the others on the product. A client that knows only 0.4.1 ignores them. Version 0.4.3 adds features: the statement of the job carries a feature list, each feature with a stable id, a name, what it does and the offering it belongs to. A stage's agent or the boss proposes a new or changed feature in a reply (features), and the person approves it there, one feature at a time, as a recorded gate decision of Requirements, or says not now, which keeps it proposed as a backlog item; a person who may not answer Requirements asks an approver instead. Tests name the feature they check, a round of the gate reports its results per feature, and a matrix shows each feature against the spec, the tests, the code, the review and the docs, with each feature's history across the stages. A service that does not offer features answers their operations 404. Version 0.4.4 adds the guided setup and the when-needed actions: each setup item carries a form (who may hold it, a few settings with defaults, and the question a client sends the boss), saved with the roles operations, each stage's settings under its own id in the holder's settings; each when-needed item a service can run carries its needs and a confirm card (what will happen in the stage's words, who may act, the versions it acts on and what cannot be undone), is taken with the actions operation on the build it names, and answers a result that the product keeps as the item's last; and the product says which version runs and whether it is retired. How a service hands rollback, reconfigure and retire to the runtime it is given is runtime-verbs.md. A client that knows only 0.4.3 ignores them. Version 0.4.5 makes features visible at every stage: each every-build stage of a build, and its workspace, carry the stage's features (Requirements: approved of all; Test: tests per feature, a feature with none to do; Code: passing per feature; Review: findings tied to a feature through its tests, the rest not tied; Docs: which features the docs name); a matrix row carries its pending proposal, where it was proposed and the tests that check it, and the matrix the tests that check no feature; and a product made before features can have them listed from its statement of the job by the spec writer (backfill), with the tests already in the build mapped to them where their names or content make it clear and the rest left unmapped, then approved one at a time or together (approve_all). A client that knows only 0.4.4 ignores them. Version 0.4.6 adds starting from existing code (stages.json 1.4.0, Reverse engineering): a start request may name the starting point existing-code and the codebase (a repository and commit, or a local folder for local use); the build enters at Reverse engineering, whose as-built record is one artifact of kind as_built with a readable summary per part; each behavior in it reaches Requirements as a proposed feature marked as built, which the person approves as intended, marks as a bug (kept as a proposed fix item linked to the behavior, never approved silently) or drops; and the build and the product say which commit of the codebase each build knew, so a client can see when the code changed outside the lifecycle. A client that knows only 0.4.5 ignores them. The operations list names the definition each request and answer must match; lifecycle-api-check.mjs checks a running service against it, together with the rules a schema cannot say.",
   "basePath": "/v1/lifecycle",
   "operations": [
     { "method": "GET", "path": "/me", "answer": "#/$defs/MeAnswer", "does": "Who is asking, and the service's name." },
@@ -39,7 +39,9 @@
     { "method": "GET", "path": "/products/{name}/features", "answer": "#/$defs/FeaturesAnswer", "does": "The product's features as a matrix, for its newest build, or with ?version=<version> for the build of that version. Added in 0.4.3." },
     { "method": "GET", "path": "/products/{name}/features/{feature}", "answer": "#/$defs/FeatureAnswer", "does": "One feature of the product and its history across the stages and the versions, oldest first: proposed in a chat, approved, tests added, code changed, reviewed, docs updated, each entry linked to the message or the artifact. It answers 404 for a feature the product does not have. Added in 0.4.3." },
     { "method": "POST", "path": "/builds/{id}/features/backfill", "request": "#/$defs/FeatureBackfillRequest", "answer": "#/$defs/MessageReplyAnswer", "does": "List the features of a product made before features existed. The person's message goes to the agent holding Requirements, the spec writer, in that stage's chat; its reply proposes every feature of the statement of the job (features), each with id, name, what it does and its offering, and the tests already in the build that clearly check it (tests). They arrive as proposed, to approve one at a time or together. It answers 409 in words when it is not offered (the features matrix's backfill says why). Added in 0.4.5." },
-    { "method": "POST", "path": "/builds/{id}/features/approve_all", "request": "#/$defs/FeatureApproveAllRequest", "answer": "#/$defs/FeatureApproveAllAnswer", "does": "Approve several proposed features at once, such as those listed after the build: each a recorded gate decision of Requirements as one approved in a chat, together one new version of the statement of the job. Only a person who may answer the Requirements gate may; anyone else gets 403 in words. It answers 400 in words, approving none, when any proposal is not open. Added in 0.4.5." }
+    { "method": "POST", "path": "/builds/{id}/features/approve_all", "request": "#/$defs/FeatureApproveAllRequest", "answer": "#/$defs/FeatureApproveAllAnswer", "does": "Approve several proposed features at once, such as those listed after the build: each a recorded gate decision of Requirements as one approved in a chat, together one new version of the statement of the job. Only a person who may answer the Requirements gate may; anyone else gets 403 in words. It answers 400 in words, approving none, when any proposal is not open. Added in 0.4.5." },
+    { "method": "POST", "path": "/builds/{id}/features/{feature}/bug", "request": "#/$defs/FeatureDecisionRequest", "answer": "#/$defs/FeatureDecisionAnswer", "does": "Say that one behavior proposed as built is a bug: what the code does is not what is wanted. The proposal is answered bug, and a proposed fix item linked to the behavior is kept, with the person's words; the behavior is not approved, so it is not pinned by a test, and the fix item is never approved by this answer or by the Requirements gate. Only a person who may answer the Requirements gate may; anyone else gets 403 in words. It answers 400 in words for a proposal that is not open or not marked as built. Added in 0.4.6." },
+    { "method": "POST", "path": "/builds/{id}/features/{feature}/drop", "request": "#/$defs/FeatureDecisionRequest", "answer": "#/$defs/FeatureDecisionAnswer", "does": "Drop one behavior proposed as built: it is not kept, so the statement does not carry it and no test pins it. Only a person who may answer the Requirements gate may; anyone else gets 403 in words. It answers 400 in words for a proposal that is not open or not marked as built. Added in 0.4.6." }
   ],
   "errors": "#/$defs/ErrorAnswer",
   "$defs": {
@@ -144,7 +146,9 @@
         "more": { "$ref": "#/$defs/Words", "description": "Anything else the person wants said." },
         "name": { "$ref": "#/$defs/Words", "description": "A name for the agent, when the person has one." },
         "prototype": { "$ref": "#/$defs/Words", "description": "A public repository, as owner/name, to read as the agent's prototype." },
-        "project": { "$ref": "#/$defs/Words", "description": "The project the build is for, in the person's words. A role bound for that project holds its stages in place of the organization's binding. Added in 0.2." }
+        "project": { "$ref": "#/$defs/Words", "description": "The project the build is for, in the person's words. A role bound for that project holds its stages in place of the organization's binding. Added in 0.2." },
+        "starting_point": { "$ref": "#/$defs/Words", "description": "What the person brings, as the id of one of stages.json's starting_points, such as idea or existing-code; absent means idea. With existing-code the build enters at Reverse engineering and source names the codebase; does may then be words the client writes, such as \"Adopt the existing code of word-counter\". A service that does not start from the point named refuses the request and says so. Added in 0.4.6." },
+        "source": { "$ref": "#/$defs/StartSource", "description": "The codebase, for the starting point existing-code. Added in 0.4.6." }
       }
     },
 
@@ -212,7 +216,8 @@
           }
         },
         "timeline": { "type": "array", "items": { "$ref": "#/$defs/TimelineBar" }, "description": "The build's run as one bar per step per round, ordered by start; empty when the service keeps no run for it. Steps that run at the same time keep their own bars, so overlaps show. Added in 0.1." },
-        "artifacts": { "type": "array", "items": { "$ref": "#/$defs/Artifact" }, "description": "What the build has made and will make, in stage order, only for stages its lifecycle uses. Added in 0.4." }
+        "artifacts": { "type": "array", "items": { "$ref": "#/$defs/Artifact" }, "description": "What the build has made and will make, in stage order, only for stages its lifecycle uses. Added in 0.4." },
+        "source": { "$ref": "#/$defs/BuildSource", "description": "The codebase this build knew, at the commit it knew: for a build started from existing code, the commit it was adopted or reverse engineered at. Absent for a build that knew no codebase. Added in 0.4.6." }
       }
     },
     "TimelineBar": {
@@ -549,15 +554,15 @@
           "description": "made: it is there. next: the next one the build will make. later: the build will make it after that. not_made: its stage ran, or the build ended, and it was not made (summary.words says why). not_run: its stage is in the lifecycle and the service does not run it (summary.words says why)."
         },
         "kind": {
-          "enum": ["statement", "architecture", "suite", "programs", "findings", "security", "package", "build_record", "run_plan", "attestation", "agentdoc", "other"],
-          "description": "What it is, which says the shape of its summary. A client that does not know a kind reads summary.words, or the name."
+          "enum": ["statement", "architecture", "suite", "programs", "findings", "security", "package", "build_record", "run_plan", "attestation", "agentdoc", "as_built", "other"],
+          "description": "What it is, which says the shape of its summary. A client that does not know a kind reads summary.words, or the name. as_built was added in 0.4.6."
         },
         "version": { "$ref": "#/$defs/Words", "description": "Which version of it, in words, such as \"v4\" or a short commit." },
         "digest": { "$ref": "#/$defs/Words", "description": "Its digest, as sha256:<hex>, when it has one." },
         "at": { "$ref": "#/$defs/Time", "description": "When it was made." },
         "summary": {
           "type": "object",
-          "description": "What it says, readable, never raw file content. The shape is the kind's: statement StatementSummary, suite SuiteSummary, programs ProgramsSummary, findings FindingsSummary, security SecuritySummary, package PackageSummary, run_plan RunPlanSummary, any other kind or any artifact not made WordsSummary."
+          "description": "What it says, readable, never raw file content. The shape is the kind's: statement StatementSummary, suite SuiteSummary, programs ProgramsSummary, findings FindingsSummary, security SecuritySummary, package PackageSummary, run_plan RunPlanSummary, as_built AsBuiltSummary (added in 0.4.6), any other kind or any artifact not made WordsSummary."
         },
         "files": { "type": "array", "items": { "$ref": "#/$defs/File" }, "description": "The files it is, at links the service answers with the same key." }
       }
@@ -660,6 +665,105 @@
       "description": "Any other artifact, or one not made: what it is or why it is not there, in words. Added in 0.4.",
       "properties": { "words": { "$ref": "#/$defs/Words" } }
     },
+    "AsBuiltSummary": {
+      "type": "object",
+      "required": ["source", "trigger", "parts"],
+      "description": "The as-built record of Reverse engineering (stages.json 1.4.0), readable: its source, why it was made, and its five parts, each in words with one short line per item. It says what the code is, never whether it is right. Added in 0.4.6.",
+      "properties": {
+        "source": {
+          "type": "object",
+          "required": ["repository", "commit", "ran"],
+          "description": "What the record is tied to.",
+          "properties": {
+            "repository": { "$ref": "#/$defs/Words", "description": "The repository, as a URL or owner/name, or the folder it was read from." },
+            "commit": { "$ref": "#/$defs/Words", "description": "The commit digest the record describes." },
+            "ran": { "type": "boolean", "description": "Whether the code was also run, not only read." },
+            "words": { "$ref": "#/$defs/Words" }
+          }
+        },
+        "trigger": { "enum": ["adoption", "drift"], "description": "adoption: the codebase was taken on. drift: the code changed outside the lifecycle, and the record says only what changed since the last one." },
+        "since": { "$ref": "#/$defs/Words", "description": "drift: the commit of the record before, which this one is described against." },
+        "parts": { "type": "array", "minItems": 5, "maxItems": 5, "items": { "$ref": "#/$defs/AsBuiltPart" }, "description": "The five parts, once each, in this order: behaviors, architecture, interfaces, dependencies, tests_and_gaps." }
+      }
+    },
+    "AsBuiltPart": {
+      "type": "object",
+      "required": ["part", "name", "count", "words", "items"],
+      "description": "One part of the as-built record, readable. Added in 0.4.6.",
+      "properties": {
+        "part": { "enum": ["behaviors", "architecture", "interfaces", "dependencies", "tests_and_gaps"] },
+        "name": { "$ref": "#/$defs/Words", "description": "Such as \"Behaviors\" or \"Existing tests and gaps\"." },
+        "count": { "type": "integer", "minimum": 0, "description": "How many things the part lists: behaviors, parts of the architecture, interfaces, components, or tests and gaps." },
+        "words": { "$ref": "#/$defs/Words", "description": "The part in a sentence or two, such as \"4 behaviors, each with its evidence\"." },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "One short line per item, each naming its evidence where the record does, such as \"B2 Counts the words: splits on spaces (scripts/count.mjs:4)\". A gap reads as one, such as \"Gap: ...\"." },
+        "file": { "$ref": "#/$defs/Words", "description": "The path of the part's file among the artifact's files, such as as-built/behaviors.json." }
+      }
+    },
+    "StartSource": {
+      "type": "object",
+      "description": "The codebase a build starts from: a repository, at a commit when one is named, or a local folder for local use. One of repository or folder. Added in 0.4.6.",
+      "properties": {
+        "repository": { "$ref": "#/$defs/Words", "description": "A git URL, or owner/name on GitHub." },
+        "commit": { "$ref": "#/$defs/Words", "description": "The commit to start from. Absent means the repository's newest commit, which the service reads and records." },
+        "folder": { "$ref": "#/$defs/Words", "description": "A folder on the service's own computer, for a service that runs locally. A service that does not read local folders refuses the request and says so." }
+      }
+    },
+    "BuildSource": {
+      "type": "object",
+      "required": ["repository", "commit"],
+      "description": "The codebase a build knew, at the commit it knew. Added in 0.4.6.",
+      "properties": {
+        "starting_point": { "$ref": "#/$defs/Words", "description": "The starting point the build came from, such as existing-code." },
+        "trigger": { "enum": ["adoption", "drift"], "description": "Why the build reverse engineered the code: it was taken on, or it changed outside the lifecycle." },
+        "repository": { "$ref": "#/$defs/Words", "description": "The repository or folder." },
+        "commit": { "$ref": "#/$defs/Words", "description": "The commit the build knew: a git commit, or sha256:<hex> of a folder that is not a git repository." },
+        "at": { "$ref": "#/$defs/Time", "description": "When the build read it." },
+        "words": { "$ref": "#/$defs/Words", "description": "Such as \"Adopted at 3f2a9c1 from github.com/acme/word-counter\"." }
+      }
+    },
+    "ProductSource": {
+      "type": "object",
+      "required": ["repository", "commit", "build", "version", "drift", "words"],
+      "description": "The codebase of a product and the last commit any of its builds knew, and whether the code changed since, as far as the service can read it now. A client shows the words beside the when-needed Reverse engineering action. Added in 0.4.6.",
+      "properties": {
+        "repository": { "$ref": "#/$defs/Words" },
+        "commit": { "$ref": "#/$defs/Words", "description": "The last commit any build knew." },
+        "build": { "$ref": "#/$defs/Words", "description": "The build that knew it." },
+        "version": { "$ref": "#/$defs/Words", "description": "That build's version." },
+        "current": { "type": ["string", "null"], "description": "The repository's commit now; null when the service could not read it (words says why)." },
+        "drift": { "type": "boolean", "description": "Whether current differs from commit: the code changed outside the lifecycle." },
+        "words": { "$ref": "#/$defs/Words", "description": "Such as \"The code changed outside the lifecycle: the repository is at 9b1c2d4, and the last build knew 3f2a9c1.\"" }
+      }
+    },
+    "AsBuilt": {
+      "type": "object",
+      "required": ["behavior", "evidence"],
+      "description": "Marks a feature or a proposal as a behavior of the as-built record: what the code does, never a judgment of it. Added in 0.4.6.",
+      "properties": {
+        "behavior": { "$ref": "#/$defs/Words", "description": "The behavior's id in the as-built record." },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "What the claim stands on, such as a file and line or an observed run." },
+        "commit": { "$ref": "#/$defs/Words", "description": "The commit the record describes." },
+        "change": { "enum": ["new", "changed", "removed"], "description": "On drift: the behavior is new since the last record, changed, or no longer there." },
+        "record": { "type": "object", "required": ["build", "artifact"], "description": "Where the record is opened.", "properties": { "build": { "$ref": "#/$defs/Words" }, "artifact": { "$ref": "#/$defs/ArtifactId" } } }
+      }
+    },
+    "FixItem": {
+      "type": "object",
+      "required": ["id", "feature", "behavior", "name", "does", "state", "by", "at"],
+      "description": "A proposed fix: a behavior of the as-built record the person said is a bug. It is a backlog item linked to the behavior, and a change to fix it goes through Requirements like any other; nothing approves it silently. Added in 0.4.6.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Words" },
+        "feature": { "$ref": "#/$defs/FeatureId", "description": "The feature the behavior was proposed as." },
+        "behavior": { "$ref": "#/$defs/Words", "description": "The behavior's id in the as-built record." },
+        "name": { "$ref": "#/$defs/Words" },
+        "does": { "$ref": "#/$defs/Words", "description": "What the code does today, as the record says." },
+        "words": { "$ref": "#/$defs/Words", "description": "The person's words on what is wrong, when they gave some." },
+        "state": { "enum": ["proposed"], "description": "proposed: waiting to be taken up. A later version may add more." },
+        "by": { "$ref": "#/$defs/Words" },
+        "at": { "$ref": "#/$defs/Time" },
+        "build": { "$ref": "#/$defs/Words", "description": "The build it was kept on." }
+      }
+    },
 
     "BuildState": {
       "enum": ["working", "waiting_on_you", "refused", "stopped", "done"],
@@ -741,7 +845,8 @@
           "required": ["at", "version"],
           "description": "Present once the product is decommissioned: nothing of it runs, its records are kept, and its when-needed actions cannot run. Added in 0.4.4.",
           "properties": { "at": { "$ref": "#/$defs/Time" }, "by": { "$ref": "#/$defs/Words" }, "version": { "$ref": "#/$defs/Words", "description": "The version that ran when it was retired." }, "why": { "type": "string" }, "words": { "$ref": "#/$defs/Words" } }
-        }
+        },
+        "source": { "$ref": "#/$defs/ProductSource", "description": "The product's codebase and the last commit any build knew, when a build knew one. Added in 0.4.6." }
       }
     },
     "SetupForm": {
@@ -1096,12 +1201,14 @@
         "offering": { "$ref": "#/$defs/Words" },
         "change": { "enum": ["new", "changed"] },
         "was": { "type": "object", "required": ["name", "does", "offering"], "description": "changed: the feature as it was approved before.", "properties": { "name": { "$ref": "#/$defs/Words" }, "does": { "$ref": "#/$defs/Words" }, "offering": { "$ref": "#/$defs/Words" } } },
-        "state": { "enum": ["open", "asked", "approved", "not_now", "replaced"], "description": "open: not answered yet. asked: someone asked the approvers, and it waits on them. approved: approved, in a chat or by the Requirements gate. not_now: left for later, a backlog item. replaced: a newer proposal of the same feature came after it." },
+        "state": { "enum": ["open", "asked", "approved", "not_now", "replaced", "bug", "dropped"], "description": "open: not answered yet. asked: someone asked the approvers, and it waits on them. approved: approved, in a chat or by the Requirements gate. not_now: left for later, a backlog item. replaced: a newer proposal of the same feature came after it. bug: a behavior marked as built that the person said is a bug, kept as a fix item (added in 0.4.6). dropped: a behavior marked as built that the person dropped (added in 0.4.6)." },
         "you_may_approve": { "type": "boolean", "description": "Whether the person reading it may answer the Requirements gate, so may approve it. One who may not asks instead." },
         "approvers": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "Who may approve it, in words; empty when anyone may." },
-        "answered": { "type": "object", "required": ["decision", "by", "at"], "properties": { "decision": { "enum": ["approved", "not_now"] }, "by": { "$ref": "#/$defs/Words" }, "at": { "$ref": "#/$defs/Time" } } },
+        "answered": { "type": "object", "required": ["decision", "by", "at"], "properties": { "decision": { "enum": ["approved", "not_now", "bug", "dropped"], "description": "bug and dropped were added in 0.4.6." }, "by": { "$ref": "#/$defs/Words" }, "at": { "$ref": "#/$defs/Time" } } },
         "asked": { "type": "object", "required": ["by", "at", "to"], "properties": { "by": { "$ref": "#/$defs/Words" }, "at": { "$ref": "#/$defs/Time" }, "to": { "type": "array", "items": { "$ref": "#/$defs/Words" } } } },
-        "tests": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "When the features were listed after the build: the tests already in its suite that the proposer says check this feature, each one of the suite's names exactly. A test whose name or content does not make that clear is left out, never guessed. Added in 0.4.5." }
+        "tests": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "When the features were listed after the build: the tests already in its suite that the proposer says check this feature, each one of the suite's names exactly. A test whose name or content does not make that clear is left out, never guessed. Added in 0.4.5." },
+        "as_built": { "$ref": "#/$defs/AsBuilt", "description": "Present when the proposal is a behavior of the as-built record. A client offers Approve feature (the behavior is intended), This is a bug and Drop on it. Added in 0.4.6." },
+        "fix": { "$ref": "#/$defs/FixItem", "description": "bug: the fix item kept for it. Added in 0.4.6." }
       }
     },
     "FeatureBackfillRequest": {
@@ -1177,7 +1284,8 @@
       "description": "An answer to one feature proposal. Added in 0.4.3.",
       "properties": {
         "proposal": { "$ref": "#/$defs/Words", "description": "The proposal answered." },
-        "message": { "$ref": "#/$defs/Words", "description": "The message the answer was given on, when it was answered in a chat." }
+        "message": { "$ref": "#/$defs/Words", "description": "The message the answer was given on, when it was answered in a chat." },
+        "words": { "$ref": "#/$defs/Words", "description": "bug: what is wrong with the behavior, in the person's words, kept on the fix item. Added in 0.4.6." }
       }
     },
     "FeatureDecisionAnswer": {
@@ -1188,7 +1296,8 @@
         "feature": { "$ref": "#/$defs/FeatureEntry" },
         "proposal": { "$ref": "#/$defs/FeatureProposal" },
         "statement": { "$ref": "#/$defs/Words", "description": "approve: the statement of the job's new version, with the feature in it." },
-        "told": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "ask: who was asked." }
+        "told": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "ask: who was asked." },
+        "fix": { "$ref": "#/$defs/FixItem", "description": "bug: the fix item kept. Added in 0.4.6." }
       }
     },
     "FeatureEntry": {
@@ -1203,7 +1312,10 @@
         "state": { "enum": ["approved", "proposed"], "description": "approved: approved at least once; a change waiting for an answer is pending. proposed: never approved yet." },
         "backlog": { "type": "boolean", "description": "True when its newest proposal was left for later (not now)." },
         "approved": { "type": "object", "required": ["by", "at", "build", "version"], "description": "Its newest approval.", "properties": { "by": { "$ref": "#/$defs/Words" }, "at": { "$ref": "#/$defs/Time" }, "build": { "$ref": "#/$defs/Words" }, "version": { "$ref": "#/$defs/Words" } } },
-        "pending": { "$ref": "#/$defs/FeatureProposal", "description": "The proposal waiting for an answer, when one is." }
+        "pending": { "$ref": "#/$defs/FeatureProposal", "description": "The proposal waiting for an answer, when one is." },
+        "as_built": { "$ref": "#/$defs/AsBuilt", "description": "Present when the feature came from the as-built record. Added in 0.4.6." },
+        "fix": { "$ref": "#/$defs/FixItem", "description": "Present when its behavior as built was said to be a bug. Added in 0.4.6." },
+        "dropped": { "type": "object", "required": ["by", "at"], "description": "Present when its behavior as built was dropped. Added in 0.4.6.", "properties": { "by": { "$ref": "#/$defs/Words" }, "at": { "$ref": "#/$defs/Time" } } }
       }
     },
     "FeatureCell": {
@@ -1241,7 +1353,10 @@
         },
         "pending": { "$ref": "#/$defs/FeatureProposal", "description": "The proposal waiting for an answer, as the person reading it sees it, so a client can answer it beside the list. Added in 0.4.5." },
         "from": { "type": "object", "required": ["build", "message"], "description": "Where its newest proposal was said: the message, in the chat of the stage named, or the boss's when none is. Added in 0.4.5.", "properties": { "build": { "$ref": "#/$defs/Words" }, "message": { "$ref": "#/$defs/Words" }, "stage": { "$ref": "#/$defs/StageId" } } },
-        "tests": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "The tests in this build's suite that check it: those whose names start with its id, and those mapped to it when the features were listed after the build. Present when the build has a suite. Added in 0.4.5." }
+        "tests": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "The tests in this build's suite that check it: those whose names start with its id, and those mapped to it when the features were listed after the build. Present when the build has a suite. Added in 0.4.5." },
+        "as_built": { "$ref": "#/$defs/AsBuilt", "description": "Present when the feature came from the as-built record. Added in 0.4.6." },
+        "fix": { "$ref": "#/$defs/FixItem", "description": "Present when its behavior as built was said to be a bug. Added in 0.4.6." },
+        "dropped": { "type": "object", "required": ["by", "at"], "description": "Present when its behavior as built was dropped. Added in 0.4.6.", "properties": { "by": { "$ref": "#/$defs/Words" }, "at": { "$ref": "#/$defs/Time" } } }
       }
     },
     "FeaturesAnswer": {
@@ -1257,7 +1372,8 @@
         "features": { "type": "array", "items": { "$ref": "#/$defs/FeatureRow" } },
         "words": { "$ref": "#/$defs/Words", "description": "When there are no features, how they are added." },
         "unmapped": { "type": "array", "items": { "$ref": "#/$defs/Words" }, "description": "The tests in this build's suite that check no feature: neither named nor mapped. Present when the build has a suite and features. Added in 0.4.5." },
-        "backfill": { "type": "object", "required": ["offered", "words"], "description": "Whether the product's features can be listed from its statement of the job now (POST /builds/{id}/features/backfill), and in words what that does or why not. Offered only for a product with no features yet. Added in 0.4.5.", "properties": { "offered": { "type": "boolean" }, "words": { "$ref": "#/$defs/Words" } } }
+        "backfill": { "type": "object", "required": ["offered", "words"], "description": "Whether the product's features can be listed from its statement of the job now (POST /builds/{id}/features/backfill), and in words what that does or why not. Offered only for a product with no features yet. Added in 0.4.5.", "properties": { "offered": { "type": "boolean" }, "words": { "$ref": "#/$defs/Words" } } },
+        "fixes": { "type": "array", "items": { "$ref": "#/$defs/FixItem" }, "description": "The fix items kept for the product up to this build: behaviors as built the person said are bugs. Present when there is at least one. Added in 0.4.6." }
       }
     },
     "FeatureHistoryEntry": {
@@ -1266,7 +1382,7 @@
       "description": "One thing that happened to a feature. Added in 0.4.3.",
       "properties": {
         "at": { "$ref": "#/$defs/Time" },
-        "kind": { "enum": ["proposed", "approved", "not_now", "asked", "spec", "tests", "code", "review", "docs"], "description": "proposed, approved, not_now, asked: its proposals and their answers. spec, tests, code, review, docs: an artifact that covers it was made or changed." },
+        "kind": { "enum": ["proposed", "approved", "not_now", "asked", "bug", "dropped", "spec", "tests", "code", "review", "docs"], "description": "proposed, approved, not_now, asked, bug, dropped: its proposals and their answers (bug and dropped added in 0.4.6). spec, tests, code, review, docs: an artifact that covers it was made or changed." },
         "words": { "$ref": "#/$defs/Words" },
         "by": { "$ref": "#/$defs/Words" },
         "build": { "$ref": "#/$defs/Words" },
