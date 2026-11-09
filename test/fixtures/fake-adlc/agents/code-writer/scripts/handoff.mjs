@@ -6,6 +6,7 @@
 import { cpSync, readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { createHash } from "node:crypto";
+import { gunzipSync } from "node:zlib";
 
 const o = { files: [] };
 const a = process.argv.slice(2);
@@ -23,8 +24,33 @@ mkdirSync(join(dir, "scripts"), { recursive: true });
 mkdirSync(join(dir, "test"), { recursive: true });
 mkdirSync(join(dir, ".adlc"), { recursive: true });
 let suite = 0;
+/** The files of a gzip tar archive: [{ path, bytes }], ustar names with their prefix. */
+const entriesOf = (gz) => {
+  const tar = gunzipSync(gz); const out = [];
+  for (let at = 0; at + 512 <= tar.length;) {
+    const h = tar.subarray(at, at + 512);
+    if (h.every((x) => x === 0)) break;
+    const str = (a, n) => h.subarray(a, a + n).toString("utf8").replace(/\0.*$/s, "");
+    const size = parseInt(str(124, 12).trim() || "0", 8);
+    const prefix = str(345, 155);
+    out.push({ path: prefix ? `${prefix}/${str(0, 100)}` : str(0, 100), bytes: tar.subarray(at + 512, at + 512 + size) });
+    at += 512 + Math.ceil(size / 512) * 512;
+  }
+  return out;
+};
 for (const f of o.files) {
   const n = basename(f);
+  const head = readFileSync(f).subarray(0, 2);
+  // The suite with its folders, as one archive (the files the original's own tests import, under test/support/).
+  if (head[0] === 0x1f && head[1] === 0x8b) {
+    for (const e of entriesOf(readFileSync(f))) {
+      if (!e.path.startsWith("test/") || e.path.split("/").includes("..")) continue;
+      mkdirSync(dirname(join(dir, e.path)), { recursive: true });
+      writeFileSync(join(dir, e.path), e.bytes);
+      if (/^test\/[^/]+\.test\.mjs$/.test(e.path)) suite++;
+    }
+    continue;
+  }
   // The spec (stages.json 1.6.0) goes at the top of the build folder, pinned with the agent's files.
   if (["spec.json", "spec.md", "agent-descriptor.json", "agent-runtime-requirements.json", "plugin.json"].includes(n)) cpSync(f, join(dir, n));
   else if (n === "SKILL.md") { mkdirSync(join(dir, "skills", basename(dirname(f))), { recursive: true }); cpSync(f, join(dir, "skills", basename(dirname(f)), n)); }
