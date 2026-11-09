@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Checks a running service against the lifecycle API (lifecycle-api.schema.json,
-// version 0.4.5): every answer against the schema, and the rules a schema cannot
+// version 0.4.6): every answer against the schema, and the rules a schema cannot
 // say. It only reads. It asks who the key belongs to, reads who holds each
 // role and which stages the lifecycle uses, lists the builds, reads each one, reads its tries, and opens the first
 // file each build handed back (every file with --all-files).
@@ -110,6 +110,16 @@
 //     checks a feature is not unmapped; backfill is offered only with no features;
 //   - approve_all lists every proposal it was asked to approve, each approved,
 //     and names the statement's new version.
+// Version 0.4.6 adds starting from existing code: the as_built artifact, the
+// as-built mark on a feature and a proposal, the bug and drop answers with the
+// fix item, and the commit each build knew, checked by checkArtifacts,
+// checkFeatures, checkFeatureDecision and checkProduct. Their rules beyond the schema:
+//   - an as_built artifact's summary lists its five parts once each, in order,
+//     and a drift record names the commit it is described against;
+//   - a proposal answered bug or dropped is marked as built and says who answered
+//     it; one answered bug carries its fix item, for the same feature;
+//   - a product's drift is true exactly when the commit it reads now differs from
+//     the last one any build knew.
 //
 //   node standards/lifecycle-api-check.mjs <base> [--key-file <path>] [--stages <path>] [--limit <n>] [--all-files]
 //
@@ -170,6 +180,7 @@ function walk(schema, v, at, out) {
     }
   }
   if (Array.isArray(v) && schema.minItems !== undefined && v.length < schema.minItems) out.push(`${at}: has ${v.length} items, fewer than ${schema.minItems}`);
+  if (Array.isArray(v) && schema.maxItems !== undefined && v.length > schema.maxItems) out.push(`${at}: has ${v.length} items, more than ${schema.maxItems}`);
   if (Array.isArray(v) && schema.items) v.forEach((x, i) => walk(schema.items, x, `${at}[${i}]`, out));
 }
 
@@ -396,7 +407,21 @@ export function checkBuild(body, ids, id, roles, cadences = CADENCES()) {
 }
 
 // The summary's shape for each kind of artifact (added in 0.4).
-const SUMMARY_OF = { statement: "StatementSummary", suite: "SuiteSummary", programs: "ProgramsSummary", findings: "FindingsSummary", security: "SecuritySummary", package: "PackageSummary", run_plan: "RunPlanSummary" };
+const SUMMARY_OF = { statement: "StatementSummary", suite: "SuiteSummary", programs: "ProgramsSummary", findings: "FindingsSummary", security: "SecuritySummary", package: "PackageSummary", run_plan: "RunPlanSummary", as_built: "AsBuiltSummary" };
+
+/** The parts of the as-built record, in order (added in 0.4.6). */
+export const AS_BUILT_PARTS = ["behaviors", "architecture", "interfaces", "dependencies", "tests_and_gaps"];
+
+/** An as_built summary beyond its shape: its five parts once each, in order, and a drift record names the commit before (added in 0.4.6). */
+export function asBuiltRules(s, at) {
+  const p = [];
+  if (!isObj(s)) return p;
+  const parts = Array.isArray(s.parts) ? s.parts.filter(isObj).map((x) => x.part) : [];
+  if (parts.length === AS_BUILT_PARTS.length && parts.join(",") !== AS_BUILT_PARTS.join(",")) p.push(`${at}.parts: are ${parts.join(", ")}, not ${AS_BUILT_PARTS.join(", ")} in that order`);
+  if (s.trigger === "drift" && !(typeof s.since === "string" && s.since.trim())) p.push(`${at}: is a drift record, so it names the commit it is described against (since)`);
+  if (s.trigger === "adoption" && s.since !== undefined) p.push(`${at}.since: an adoption record is described against nothing before it`);
+  return p;
+}
 
 /** A build's artifacts (added in 0.4): each at a stage of stages.json, each id once, each summary in its kind's shape. */
 export function checkArtifacts(list, ids, at = "body.artifacts") {
@@ -412,6 +437,7 @@ export function checkArtifacts(list, ids, at = "body.artifacts") {
     if (isObj(a.summary)) {
       const def = a.state === "made" ? SUMMARY_OF[a.kind] ?? "WordsSummary" : "WordsSummary";
       if (a.state === "made" || a.state === "not_made" || a.state === "not_run") p.push(...validate(def, a.summary, `${here}.summary`));
+      if (a.state === "made" && a.kind === "as_built") p.push(...asBuiltRules(a.summary, `${here}.summary`));
     } else if (a.state === "not_made" || a.state === "not_run") p.push(`${here}: is ${a.state}, so its summary says why in words`);
   });
   return p;
@@ -433,6 +459,14 @@ export function checkProduct(body, name, cadences = CADENCES(), roles = stageRol
   (Array.isArray(body.activity) ? body.activity : []).forEach((e, i, all) => {
     if (i > 0 && isObj(e) && isObj(all[i - 1]) && Date.parse(all[i - 1].at) < Date.parse(e.at)) p.push(`body.activity[${i}]: the feed is newest first, and this line is newer than the one above it`);
   });
+  // The codebase and the last commit any build knew (added in 0.4.6).
+  const src = body.source;
+  if (isObj(src) && typeof src.drift === "boolean") {
+    const differs = typeof src.current === "string" && src.current !== src.commit;
+    if (src.drift && !differs) p.push("body.source.drift: is true, but the commit read now is not a different one");
+    if (!src.drift && differs) p.push(`body.source.drift: is false, but the repository is at ${src.current} and the last build knew ${src.commit}`);
+  }
+  if (isObj(src) && typeof src.build === "string" && Array.isArray(body.builds) && body.builds.length && !body.builds.some((b) => isObj(b) && b.id === src.build)) p.push(`body.source.build: ${src.build} is not one of the product's builds`);
   // The setup and when_needed lists (added in 0.4.2).
   const versions = new Set((Array.isArray(body.builds) ? body.builds : []).filter(isObj).map((b) => b.version));
   const inOrder = (key, cadence) => {
@@ -697,6 +731,11 @@ function proposalRules(list, at) {
     const here = `${at}[${i}]`;
     if ((f.state === "approved" || f.state === "not_now") && !(isObj(f.answered) && f.answered.decision === f.state)) p.push(`${here}: is ${f.state}, so it says who answered it, when, and with ${f.state}`);
     if (f.state === "asked" && !isObj(f.asked)) p.push(`${here}: is asked, so it says who asked whom, and when`);
+    // Added in 0.4.6: bug and dropped answer a behavior marked as built; bug keeps a fix item.
+    if ((f.state === "bug" || f.state === "dropped") && !(isObj(f.answered) && f.answered.decision === f.state)) p.push(`${here}: is ${f.state}, so it says who answered it, when, and with ${f.state}`);
+    if ((f.state === "bug" || f.state === "dropped") && !isObj(f.as_built)) p.push(`${here}: is ${f.state}, which only a behavior marked as built can be, and it is not marked`);
+    if (f.state === "bug" && !isObj(f.fix)) p.push(`${here}: is bug, so it carries the fix item kept for it`);
+    if (isObj(f.fix) && f.fix.feature !== f.feature) p.push(`${here}.fix: is a fix item of ${f.fix.feature}, not ${f.feature}`);
     if (f.change === "changed" && !isObj(f.was)) p.push(`${here}: changes ${f.feature}, so it says what the feature was`);
   });
   const ids = (Array.isArray(list) ? list : []).map((f) => f?.feature);
@@ -744,6 +783,14 @@ export function checkFeatures(body, build) {
     (Array.isArray(r.tests) ? r.tests : []).forEach((t) => { if (unmapped.has(t)) p.push(`body.unmapped: "${t}" checks ${r.id}, so it is not unmapped`); });
   });
   if (isObj(body.backfill) && body.backfill.offered === true && rows.length) p.push("body.backfill: is offered, but the product has features already");
+  // Added in 0.4.6: a row with a fix item or dropped came from the as-built record, and was never approved by that answer.
+  rows.forEach((r, i) => {
+    if (!isObj(r)) return;
+    if ((isObj(r.fix) || isObj(r.dropped)) && !isObj(r.as_built)) p.push(`body.features[${i}]: has ${isObj(r.fix) ? "a fix item" : "been dropped"}, which only a behavior marked as built can, and it is not marked`);
+    if (isObj(r.fix) && r.fix.feature !== r.id) p.push(`body.features[${i}].fix: is a fix item of ${r.fix.feature}, not ${r.id}`);
+  });
+  const ids2 = new Set(rows.filter(isObj).map((r) => r.id));
+  (Array.isArray(body.fixes) ? body.fixes : []).forEach((x, i) => { if (isObj(x) && rows.length && !ids2.has(x.feature)) p.push(`body.fixes[${i}]: is a fix item of ${x.feature}, which is not one of the matrix's features`); });
   return p;
 }
 
@@ -784,12 +831,16 @@ export function checkFeatureDecision(body, decision) {
   const p = validate("FeatureDecisionAnswer", body);
   if (!isObj(body) || !isObj(body.proposal)) return p;
   p.push(...proposalRules([body.proposal], "body.proposal").map((x) => x.replace("body.proposal[0]", "body.proposal")));
-  const want = { approve: "approved", not_now: "not_now", ask: "asked" }[decision];
+  const want = { approve: "approved", not_now: "not_now", ask: "asked", bug: "bug", drop: "dropped" }[decision];
   if (want && body.proposal.state !== want) p.push(`body.proposal.state: is ${body.proposal.state}, after ${decision}`);
   if (decision === "approve" && typeof body.statement !== "string") p.push("body.statement: an approval gives the statement of the job a new version, and the answer does not name it");
   if (decision === "approve" && isObj(body.feature) && body.feature.state !== "approved") p.push("body.feature.state: the feature was approved, and is not");
   if (decision === "not_now" && isObj(body.feature) && body.feature.backlog !== true) p.push("body.feature.backlog: the feature was left for later, so it is a backlog item");
   if (decision === "ask" && !Array.isArray(body.told)) p.push("body.told: an ask names who was asked");
+  // Added in 0.4.6.
+  if (decision === "bug" && !isObj(body.fix)) p.push("body.fix: a bug keeps a fix item, and the answer does not carry it");
+  if ((decision === "bug" || decision === "drop") && isObj(body.feature) && body.feature.state === "approved" && !isObj(body.feature.pending)) p.push(`body.feature.state: a behavior answered ${decision} is not approved by it`);
+  if (decision === "drop" && isObj(body.feature) && !isObj(body.feature.dropped)) p.push("body.feature.dropped: the behavior was dropped, and the feature does not say so");
   return p;
 }
 

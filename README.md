@@ -10,7 +10,7 @@ with only open-source pieces. [BUILD.md](BUILD.md) lists the milestones after it
 ## What milestone 1 does
 
 `npx product-factory` starts a small service on `127.0.0.1`. It answers the
-lifecycle API (version 0.4.5) that the [adlc console](https://github.com/CommonAgent/adlc-console)
+lifecycle API (version 0.4.6) that the [adlc console](https://github.com/CommonAgent/adlc-console)
 reads, so the console shows your builds and lets you act at your gates. The
 same command starts the console against it and opens it in your browser. It
 keeps everything in files: the lifecycle document and one folder per build.
@@ -655,6 +655,44 @@ statement; or each can be answered on its own. Approving a listed feature
 does not mark the tests or code made before it as stale, since it describes
 what was already built.
 
+## Start from existing code
+
+A build can start from code that already exists (stages.json 1.4.0, the
+starting point `existing-code`; lifecycle API 0.4.6). New build offers
+"Start from existing code": a repository (a git URL or owner/name, and a
+commit when you want one other than the newest), or a folder on this
+computer, and what the product is called. The start request is
+`{ name, starting_point: "existing-code", source: { repository, commit } }`
+or `source: { folder }`.
+
+The build runs the process "adopt existing code"
+(`processes/adopt-existing-code.txt`), which is "make a new agent" with a
+first phase:
+
+| Stage | Who holds it | What happens |
+|---|---|---|
+| 00 Reverse engineering | the reference reverse engineer (CommonAgent/adlc `agents/reverse-engineer`) | The code is read at its commit (cloned with git, or copied from a folder that is not a repository, whose commit is then sha256 over its files) and the build records that commit. The reverse engineer hands back the as-built record: `behaviors.json`, `architecture.json`, `interfaces.json`, `sbom.cdx.json`, `tests-and-gaps.json` and `record.json`. It is one artifact, kind `as_built`, with a readable summary per part. |
+| Requirements | the spec writer, then you | Each behavior arrives as a proposed feature marked as built, with its evidence. You answer each one: **Approve feature** (it is intended), **This is a bug** (kept as a proposed fix item linked to the behavior, never approved by this or by the gate), or **Drop**. The spec is approved once every behavior is answered. |
+| Test | the reference test writer | It is given the behaviors and the existing tests and gaps (parts 1 and 5) and writes characterization tests that pin each approved behavior, each named by its feature id. |
+| Code | the existing code | The build folder starts from the code at that commit: the scripts the spec names are taken from it, and the gate runs them against the characterization suite. Code that cannot be packaged as an agent (no Node scripts, such as a Python service) stops here and says why in words. Product Factory adopts agents only. |
+
+Package and the steps after it are the same as for any build: the result is
+an Agent Package.
+
+**Drift.** The product page's when-needed **Reverse engineer the change**
+turns on when the codebase's commit now differs from the last one any build
+knew, and says so in words (`source` on the product). Running it starts the
+next version from the code as it is, at Reverse engineering, with the last
+as-built record attached, so only what changed is described; each changed
+behavior reaches Requirements marked as built, the same way.
+
+The reverse engineer is run the way every reference agent is: its runtime
+requirements' run declaration names the job script, and it gets `--job`,
+`--records`, `--work`, `--text-file` and a `--file` per file. The
+message names the trigger (adoption or drift), the repository, the commit and
+the folder the code is in; the code also goes as an archive, and on drift the
+last record's six files go with it.
+
 ## Analytics
 
 Product Factory keeps a history of every build in an SQLite file beside the
@@ -765,13 +803,13 @@ and look the person up in `people.json` by its email.
 
 ## Standards it uses
 
-- Lifecycle API 0.4.5 and stages.json 1.3.0 (CommonAgent/adlc, copies in `standards/`).
+- Lifecycle API 0.4.6 and stages.json 1.4.0 (CommonAgent/adlc, copies in `standards/`).
 - The lifecycle document 0.1, through the adlc console's store, with `approvers`
   (CommonAgent/adlc#121). The console's store checks each entry's shape, so a
   wrong entry makes the file invalid, named in words, like any other wrong
   field. Product Factory then checks what a schema cannot: that each person
   and team is in `people.json`, and that a named person may answer gates.
-- Agent Processes, through the process runner, for "make a new agent".
+- Agent Processes, through the process runner, for "make a new agent" and "adopt existing code".
 - The Common Agent package format, through `@common-agent/package`.
 
 Where milestone 1 differs from one of them:

@@ -161,7 +161,7 @@ test("a setup stage with the same holder and settings as an earlier version read
   assert.deepEqual(one(p.setup, "monitor"), { stage: "monitor", name: "Monitor", role: "watcher", project: null, state: "chosen", holder: { kind: "your_agent", name: "Our watcher", handle: "watcher.ops@example.com" }, settings: WATCH, since: "0.1.0", words: "Unchanged since 0.1.0" });
   assert.deepEqual(one(p.setup, "eval"), { stage: "eval", name: "Eval", role: "agent-critic", project: null, state: "not_chosen", holder: null, settings: {}, since: null, words: "Nobody chosen: nobody holds the Agent critic role" });
   assert.equal(one(p.setup, "architecture").role, "solution-architect");
-  assert.deepEqual(p.when_needed.map((x) => [x.stage, x.can_run]), [["impact", false], ["retract", false], ["reconfigure", false], ["rollback", false], ["decommission", false]]);
+  assert.deepEqual(p.when_needed.map((x) => [x.stage, x.can_run]), [["reverse-engineering", false], ["impact", false], ["retract", false], ["reconfigure", false], ["rollback", false], ["decommission", false]]);
   // No runtime is set and nothing is deployed, so each says why in words (0.4.4: setup-actions.test.mjs runs them).
   assert.match(one(p.when_needed, "rollback").why_not, /^No runtime is set, so there is nothing for Product Factory to ask\./);
   assert.match(one(p.when_needed, "impact").why_not, /^Nothing of counter is running yet, so there is nothing to check a change against\./);
