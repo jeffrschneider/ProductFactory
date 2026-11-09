@@ -11,6 +11,7 @@ if (!asked.model.MODEL_NAME || !asked.model.MODEL_ENDPOINT || !asked.model.MODEL
 }
 const name = /^(?:changes:\s*)?name:\s*(.+)$/m.exec(asked.said)?.[1]?.trim() ?? null;
 const revision = /^changes:/m.test(asked.said);
-writeFileSync(join(RECORDS, "draft.json"), JSON.stringify({ name, revision, files: asked.files }, null, 2));
+const version = /^version:\s*(.+)$/m.exec(asked.said)?.[1]?.trim() ?? null;
+writeFileSync(join(RECORDS, "draft.json"), JSON.stringify({ name, revision, files: asked.files, ...(version ? { version } : {}) }, null, 2));
 writeFileSync(join(RECORDS, "blanks.json"), JSON.stringify(name ? [] : [{ key: "name", question: "What should this agent be called?" }]));
 console.log(JSON.stringify({ ok: true, code: 0 }));

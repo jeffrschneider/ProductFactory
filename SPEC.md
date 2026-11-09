@@ -158,6 +158,21 @@ once that exists. It answers, never estimated:
   Decommission) are bindings the build records: who holds each, with what
   settings. The factory hands them to the runtime the team brought; it does
   not run the product itself.
+- **Set up once.** Source, Architecture, Publish, Monitor, Eval, Incident,
+  Cost and Update are set up on the first build with a short guided form per
+  item (who holds it, a few settings with defaults), carried forward to later
+  versions, and revisited only when something changes. A form is saved
+  through the lifecycle's roles operation, each stage's settings under its
+  own id.
+- **When needed.** Impact, Rollback, Reconfigure, Retract and Decommission
+  are actions on the product, each behind a confirm card: who may act (the
+  lifecycle's approvers), what will happen in the stage's words, and for
+  Rollback the version and what can't be undone. Rollback, Reconfigure and
+  Decommission are the runtime's `rollback`, `reconfigure` and `retire`
+  verbs, given beside the same package and run plan in a way a runtime that
+  knows only install can ignore safely. Retract goes through the Publisher
+  holder, or is a recorded manual step. Impact runs the reference impact
+  analyst. Each result is recorded and shows in the activity feed.
 
 ### 5.10 Impacts
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Checks a running service against the lifecycle API (lifecycle-api.schema.json,
-// version 0.4.3): every answer against the schema, and the rules a schema cannot
+// version 0.4.4): every answer against the schema, and the rules a schema cannot
 // say. It only reads. It asks who the key belongs to, reads who holds each
 // role and which stages the lifecycle uses, lists the builds, reads each one, reads its tries, and opens the first
 // file each build handed back (every file with --all-files).
@@ -69,6 +69,17 @@
 //   - when_needed lists every when_needed stage once, in order, and no other;
 //     one the service cannot run says why, and one it can run names the action
 //     that runs it.
+// Version 0.4.4 adds a setup item's form, a when-needed item's needs, confirm
+// card and last run, and the product's running and retired. Their rules
+// beyond the schema, held by checkProduct:
+//   - a choice lists its options and its default is one of them; a number's
+//     default is a number; a form names each field once;
+//   - only an item that can run has a confirm card; its action names one of
+//     the product's builds;
+//   - a rollback's card names the version it goes back to, one of the
+//     product's, and what can't be undone;
+//   - a last run's version and the running build are the product's own;
+//   - a retired product runs nothing, and none of its when-needed actions can run.
 // Version 0.4.3's features are checked by checkFeatures, checkFeature and
 // checkFeatureDecision, and by the 0.4, 0.4.1 and 0.4.2 checks where a message, a
 // round or a gate carries them. Their rules beyond the schema:
@@ -424,14 +435,47 @@ export function checkProduct(body, name, cadences = CADENCES(), roles = stageRol
     if (x.state !== "chosen" && x.holder !== null && x.holder !== undefined) p.push(`${at}: is ${x.state}, so nobody holds it, but it names a holder`);
     if (x.state !== "chosen" && x.since !== null && x.since !== undefined) p.push(`${at}.since: is ${JSON.stringify(x.since)}, but a stage ${x.state} has held nothing since a version`);
     if (typeof x.since === "string" && versions.size && !versions.has(x.since)) p.push(`${at}.since: ${x.since} is not a version of the product's builds`);
+    // Its form (added in 0.4.4).
+    (isObj(x.form) && Array.isArray(x.form.fields) ? x.form.fields : []).forEach((f, j) => fieldRules(f, `${at}.form.fields[${j}]`, p));
+    if (isObj(x.form) && Array.isArray(x.form.fields)) {
+      const names = x.form.fields.filter(isObj).map((f) => f.name);
+      for (const n of new Set(names)) if (names.filter((y) => y === n).length > 1) p.push(`${at}.form.fields: "${n}" appears more than once`);
+    }
   });
+  const builds = new Set((Array.isArray(body.builds) ? body.builds : []).filter(isObj).map((b) => b.id));
   inOrder("when_needed", "when_needed").forEach((x, i) => {
     const at = `body.when_needed[${i}]`;
     if (x.can_run === false && !(typeof x.why_not === "string" && x.why_not.trim())) p.push(`${at}: cannot run, so it says why_not`);
     if (x.can_run === false && x.action !== undefined) p.push(`${at}: cannot run, so it names no action`);
     if (x.can_run === true && !isObj(x.action)) p.push(`${at}: can run, so it names the action that runs it`);
     if (x.can_run === true && x.why_not !== undefined) p.push(`${at}: can run, so it gives no why_not`);
-  });  return p;
+    // The confirm card, the needs and the last run (added in 0.4.4).
+    if (x.can_run !== true && x.confirm !== undefined) p.push(`${at}: cannot run, so it has no confirm card`);
+    if (isObj(x.action) && builds.size && typeof x.action.build === "string" && !builds.has(x.action.build)) p.push(`${at}.action.build: ${x.action.build} is not one of the product's builds`);
+    (isObj(x.action) && Array.isArray(x.action.needs) ? x.action.needs : []).forEach((n, j) => fieldRules(n, `${at}.action.needs[${j}]`, p));
+    const c = x.confirm;
+    if (isObj(c) && x.stage === "rollback") {
+      if (!(typeof c.to_version === "string" && c.to_version.trim())) p.push(`${at}.confirm: a rollback names the version it goes back to (to_version)`);
+      if (Array.isArray(c.cannot_undo) && !c.cannot_undo.length) p.push(`${at}.confirm.cannot_undo: a rollback names what can't be undone, as the stage's own words ask`);
+      if (typeof c.to_version === "string" && versions.size && !versions.has(c.to_version)) p.push(`${at}.confirm.to_version: ${c.to_version} is not a version of the product's builds`);
+    }
+    if (isObj(x.last) && typeof x.last.version === "string" && versions.size && !versions.has(x.last.version)) p.push(`${at}.last.version: ${x.last.version} is not a version of the product's builds`);
+  });
+  // Which version runs, and a retired product (added in 0.4.4).
+  if (isObj(body.running) && builds.size && !builds.has(body.running.build)) p.push(`body.running.build: ${body.running.build} is not one of the product's builds`);
+  if (isObj(body.retired)) {
+    if (isObj(body.running)) p.push("body.running: the product is retired, so nothing of it runs");
+    (Array.isArray(body.when_needed) ? body.when_needed : []).forEach((x, i) => { if (isObj(x) && x.can_run === true) p.push(`body.when_needed[${i}]: the product is retired, so ${x.stage} cannot run`); });
+  }
+  return p;
+}
+
+/** A setup form's field or an action's need (added in 0.4.4): a choice has options, and its default is one of them; a number's default is a number. */
+function fieldRules(f, at, p) {
+  if (!isObj(f)) return;
+  if (f.kind === "choice" && !(Array.isArray(f.options) && f.options.length)) p.push(`${at}: is a choice, so it lists its options`);
+  if (f.kind === "choice" && f.default !== undefined && Array.isArray(f.options) && !f.options.includes(f.default)) p.push(`${at}.default: ${JSON.stringify(f.default)} is not one of its options`);
+  if (f.kind === "number" && f.default !== undefined && typeof f.default !== "number") p.push(`${at}.default: is a number field, so its default is a number`);
 }
 
 /**
