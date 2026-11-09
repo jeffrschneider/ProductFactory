@@ -7,8 +7,9 @@ builds without leaving Claude Code. It holds two things:
   tools that are a thin client over the lifecycle API a running Product
   Factory answers. Everything they do is a route the adlc console calls too.
 - **A skill** (`skills/product-factory/SKILL.md`): when to use the tools, to
-  ask before taking any gate action and show the gate's words first, and how
-  to take the Code hand-off on a pull request in the same session.
+  ask before taking any gate action and show the gate's words first, how to
+  take the Code hand-off on a pull request in the same session, and how to
+  follow the fix loop when Product Factory runs the harness itself.
 
 ## Install it
 

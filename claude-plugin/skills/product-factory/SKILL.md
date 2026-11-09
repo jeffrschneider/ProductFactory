@@ -64,8 +64,19 @@ waiting at the Requirements gate, then show it and ask.
 ## Taking the Code hand-off on a pull request
 
 When the build is at Code and `build_status` shows a pull request, the
-engineer's coding harness writes the scripts on it. When they ask you to take
-the hand-off, do it in this same session:
+engineer's coding harness writes the scripts on it.
+
+If Product Factory's settings name `code.harness`, it runs the harness
+itself in the fix loop: each round's scripts go on the branch as a commit
+Product Factory makes, the gate runs on it, and the gate's findings go back
+to the harness in the next round, up to `code.fix_rounds` rounds. The Code
+stage shows each "Fix round". Do not push to the branch while the loop runs.
+Watch it with `build_status` and `wait_seconds`, and report the rounds. The
+loop stops and waits on the engineer on a conflict, on a security refusal, or
+when its rounds are used up; show the words and the actions offered, and ask.
+
+When the loop is not on and the engineer asks you to take the hand-off, do it
+in this same session:
 
 1. Check out the pull request's branch: `gh pr checkout <pull request URL>`
    (or `git fetch origin` and check out its branch).

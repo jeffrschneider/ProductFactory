@@ -215,6 +215,9 @@ an environment variable, and a value there is refused.
   gets before the build stops and asks you, and how long one round may take.
   `"holder": "pull-request"` puts Code on a pull request; then `repository`
   names where (see [Code on a pull request](#code-on-a-pull-request)).
+- `code.fix_rounds` (default 3): on a pull request with `code.harness` set,
+  how many fix rounds Product Factory runs before Code is refused and asks
+  you (see [The fix loop](#the-fix-loop)).
 - `code.env_remove`: environment variables removed before the harness command
   runs. The default is `["ANTHROPIC_API_KEY"]`, so a harness uses its own
   sign-in. Claude Code run headless prefers `ANTHROPIC_API_KEY` over your
@@ -240,7 +243,7 @@ build carries can become part of a command line. These words are filled in:
 
 | Word | What it becomes |
 |---|---|
-| `{prompt}` | one line: read AGENTS.md and write the scripts until the check exits 0; on a later round, also the file that says what is still wrong |
+| `{prompt}` | one line: read AGENTS.md and write the scripts until the check exits 0; on a later round, also the file that says what is still wrong. In [the fix loop](#the-fix-loop), from round 2 on, the gate's findings follow on lines of their own |
 | `{workspace}` | the build folder |
 | `{feedback_file}` | the file holding what the last check said, or empty |
 | `{round}` | the round's number |
@@ -300,6 +303,8 @@ What happens at Code:
    scripts" pull request holding it, in `agents/<name>/`. The repository's
    other files are left as they are.
 2. You point your harness at the pull request. `AGENTS.md` is the contract.
+   With `code.harness` set, Product Factory runs your harness itself instead,
+   round by round (see [The fix loop](#the-fix-loop)).
 3. Product Factory checks the pull request for a new push every
    `poll_seconds` (no webhook needed). On each one it runs the gate: the
    fence (only `scripts/` may change, and new tests under `test/`), a scan of
@@ -308,7 +313,12 @@ What happens at Code:
    then the code critic and the security reviewer, where the lifecycle uses
    Review and Security review and the reference agent is in your adlc
    checkout. It says the result on the pull request as a comment, and as the
-   commit status "Product Factory gate" where the token may post one.
+   commit status "Product Factory gate" where the token may post one. The
+   scripts and the suite run without a credential: the token's variable, the
+   model key's variable and `MODEL_KEY`, each webhook notice's address and
+   every name in `code.env_remove` are taken out of their environment by their
+   exact names, and everything else (`PATH`, `HOME` or `USERPROFILE`, `TEMP`,
+   and the settings the agent's own files declare) stays.
 4. The console shows the pull request and the latest check on the Code stage.
 5. When the gate passes, the build waits for your OK. Your OK takes the
    scripts from that exact commit, merges the pull request there, and goes on
@@ -336,6 +346,77 @@ and taking the pull request), [lib/fence.mjs](lib/fence.mjs),
 (the gate), and [lib/review.mjs](lib/review.mjs) (the reviewers). GitHub calls
 go through the adlc console's client (`adlc-console/lib/github.mjs`). Local
 mode is unchanged.
+
+## The fix loop
+
+On a pull request, the gate says what is wrong on every push. With
+`code.harness` set as well as `"holder": "pull-request"`, Product Factory acts
+on what the gate says: it runs your coding harness itself, sends the gate's
+findings back to it, and commits what it writes, for a bounded number of
+rounds. You step in only when a decision is yours.
+
+```json
+"code": { "holder": "pull-request", "harness": ["claude", "-p", "{prompt}", "--permission-mode", "acceptEdits", "--allowedTools", "Bash(node:*)", "--setting-sources", "project", "--strict-mcp-config"], "fix_rounds": 3, "minutes": 30 },
+"repository": { "host": "github", "repo": "owner/name", "token": "GITHUB_TOKEN" }
+```
+
+Without `code.harness`, nothing changes: your own harness pushes to the pull
+request, and every push runs the gate, as above.
+
+What one round does:
+
+1. The round's folder is the build folder as the branch's newest commit has
+   it, read through GitHub's API: the pinned files as you approved them (the
+   latest revision's, after Send back to Test or Requirements) and the scripts
+   on the branch.
+2. Your harness runs in that folder with the round's prompt: read `AGENTS.md`,
+   make `node .adlc/check.mjs` exit 0, change only `scripts/`, and write
+   `records/conflict.md` if a test contradicts the spec. From the second round
+   on, the prompt also carries the last gate run's findings word for word: its
+   title, its summary and its items. The findings are also in a file, given as
+   `{feedback_file}` and `PF_FEEDBACK_FILE`, and the whole prompt is in
+   `PF_PROMPT`. On Windows, a harness installed as a `.cmd` file runs through
+   cmd.exe, which cannot carry a line break in a command line, so `{prompt}`
+   reaches it with its line breaks as spaces.
+3. Product Factory commits what the harness changed under `scripts/` (and
+   `records/conflict.md` when it wrote one) to the branch through the API, as
+   one commit, "Fix round <n>: <the gate's title>" (round 1 says "Write the
+   scripts"). Anything it changed outside those paths is not committed, and the
+   round says which files. The harness never needs repository credentials, and
+   it runs without a credential, as the gate's scripts do: no repository token,
+   no model key, nothing in `code.env_remove`.
+4. The gate runs on that commit as it does on any push, and says so on the
+   pull request.
+
+Each round is a round of the Code stage, "Fix round <n>": what was sent, how
+long the harness took and what it said, the commit, and the gate's verdict.
+The console, the activity feed and the history show it.
+
+What happens after each gate run:
+
+- **It passed.** The build waits for your OK, as on any push.
+- **A conflict.** The harness wrote `records/conflict.md`. The loop stops, and
+  Code waits on you with **Send back to Test** and **Send back to
+  Requirements**.
+- **The security reviewer refused it.** The loop stops, and Code waits on you:
+  what it refused may be something only the spec can settle, such as an
+  address or a system the spec does not declare, so **Send back to
+  Requirements** comes first, with **Give it more rounds** if the scripts are
+  what is wrong.
+- **Anything else** (tests that failed, the code critic's findings, the static
+  review of the scripts, fence problems inside `scripts/`): the next round
+  starts while rounds remain.
+- **The rounds are used up** (`code.fix_rounds`, default 3). Code is refused
+  with the last gate run's words, offering **Give it more rounds** (the rounds
+  go on from where they were, with the last findings), **Send back to Test**,
+  **Send back to Requirements** and **Stop**.
+
+Stop works mid-round: the harness is stopped and nothing more of the round is
+committed. Send back to Test or Requirements mid-round ends the round in hand
+too. Product Factory's own revisions go to the branch as they always do; after
+one, the loop starts again from round 1 on the revised spec and suite. If
+Product Factory stops while the loop runs, the next round runs when it starts
+again.
 
 ## Start builds from issues
 
@@ -967,7 +1048,13 @@ a local HTTP stub with a small git in memory), with stand-in reviewers:
 opening the pull request, a failing push and a passing one, the fence
 refusing changes outside what the coding step may change, a reviewer's open
 finding, your OK taking the passing commit and refused for a newer one, Send
-back to Test, and starting again while it waits on pushes. The history's
+back to Test, and starting again while it waits on pushes. The fix loop
+(`test/fix-loop.test.mjs`) runs a stand-in harness that writes the wrong
+script until the prompt carries the gate's findings: fixed in round 2 and
+waiting for the OK, a conflict and a security refusal each stopping the loop,
+the rounds used up and given more, a round that changes nothing, edits outside
+`scripts/` left uncommitted, no `code.harness` changing nothing, and Stop and
+Send back to Test mid-round. The history's
 tests build it again from the build files, answer the four analytics
 questions over hand-made builds where every number is known, and call the
 analytics route. Teams: the people

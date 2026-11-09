@@ -6,6 +6,7 @@
 //   gh.url                       the API address to give Product Factory
 //   gh.push(branch, changes)     a commit on top of the branch: { path: text | null }, as a coding harness pushes
 //   gh.filesAt(ref)              { path: text } at a branch or commit
+//   gh.log(ref)                  the commits from a branch or commit back, newest first: [{ sha, message }]
 //   gh.branch(name), gh.dropBranch(name)  a branch made from main, or deleted
 //   gh.addIssue({ title, body, labels })  an open issue, as a person files one
 //   gh.pulls, gh.issues, gh.comments, gh.statuses, gh.calls
@@ -133,6 +134,12 @@ export async function fakeGitHub({ token = "ghs_fake_token_for_tests", repo = "a
       const sha = putCommit(putTree(t), [parent], message);
       refs.set(`heads/${branch}`, sha);
       return sha;
+    },
+    /** The commits on a branch or from a commit, newest first, following first parents: [{ sha, message }]. */
+    log(ref) {
+      const out = [];
+      for (let sha = resolve(ref); sha; sha = commits.get(sha)?.parents?.[0]) out.push({ sha, message: commits.get(sha).message });
+      return out;
     },
     filesAt(ref) {
       const t = trees.get(commits.get(resolve(ref)).tree);
