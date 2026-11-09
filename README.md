@@ -124,6 +124,24 @@ the console on the Lifecycle page. Edit `product-factory.json` (below) and set
 the model settings in your environment. Until then it says what is missing,
 on the terminal and in each build that stops for it.
 
+### Check the settings
+
+Each start prints a plain note for each thing that will stop a build: a model
+setting that is not set, an adlc checkout that is not at the `adlc` path, a
+coding harness command that is not on PATH, and, when Code goes to a pull
+request, a repository token variable that is not set.
+
+```
+npx product-factory check
+```
+
+prints the same notes, then makes one tiny real call to the model endpoint
+(a one-word answer, at most 64 tokens) through the reference agents' shared
+model caller in your adlc checkout, and says what came back in words: the
+answer, or why it was refused, such as a key that was refused or an account
+whose credit balance is too low. It never prints a key. It exits 0 when there
+are no notes and the model answered, and 1 otherwise.
+
 Start a build from the console's New build form, and act at the gates there.
 Ctrl+C stops both. A build that was running sends its phase out again the
 next time it starts.
@@ -162,7 +180,8 @@ an environment variable, and a value there is refused.
     "holder": "harness",
     "harness": ["claude", "-p", "{prompt}", "--permission-mode", "acceptEdits", "--allowedTools", "Bash(node:*)"],
     "rounds": 3,
-    "minutes": 30
+    "minutes": 30,
+    "env_remove": ["ANTHROPIC_API_KEY"]
   },
   "package": { "packer": ["npx", "--yes", "@common-agent/package@0.1.0"] },
   "runtime": { "command": ["node", "runtimes/folder.mjs", "--into", "./installed"] }
@@ -181,6 +200,13 @@ an environment variable, and a value there is refused.
   gets before the build stops and asks you, and how long one round may take.
   `"holder": "pull-request"` puts Code on a pull request; then `repository`
   names where (see [Code on a pull request](#code-on-a-pull-request)).
+- `code.env_remove`: environment variables removed before the harness command
+  runs. The default is `["ANTHROPIC_API_KEY"]`, so a harness uses its own
+  sign-in. Claude Code run headless prefers `ANTHROPIC_API_KEY` over your
+  Claude plan whenever the variable is set, and a key with no credit then
+  fails every round. Set it to `[]` to keep the key, or add other names (such
+  as `OPENAI_API_KEY`) for a harness that does the same. Only the harness loses
+  them; the reference agents and the check keep your whole environment.
 - `package.packer`: the Common Agent packer, `common-agent-pack`, or any
   command that takes the same two command lines.
 - `runtime.command` (optional): the runtime you bring, given the package's
@@ -206,7 +232,9 @@ build carries can become part of a command line. These words are filled in:
 
 The same values are in the environment as `PF_PROMPT`, `PF_WORKSPACE`,
 `PF_FEEDBACK_FILE` and `PF_ROUND`. Your harness keeps its own sign-in and
-settings; Product Factory passes your environment through.
+settings; Product Factory passes your environment through, less the variables
+in `code.env_remove` (by default `ANTHROPIC_API_KEY`, so the harness signs in
+its own way and not with a key that happens to be set).
 
 ```
 "harness": ["claude", "-p", "{prompt}", "--permission-mode", "acceptEdits", "--allowedTools", "Bash(node:*)"]
