@@ -137,6 +137,8 @@ test("Rollback: the confirm card, a refusal for someone not allowed, then the ru
 
   let p = await product(f, max);
   assert.deepEqual(p.running, { build: second.id, version: "0.2.0", words: "0.2.0 runs" });
+  // Impact compares a newer version with the one that runs, never an older one.
+  assert.equal(one(p.when_needed, "impact").can_run, false);
   const rb = one(p.when_needed, "rollback");
   assert.equal(rb.can_run, true);
   assert.deepEqual(rb.action, { build: second.id, name: "rollback", label: "Roll back", needs: [{ name: "to_version", label: "Go back to", kind: "choice", options: ["0.1.0"], default: "0.1.0" }, { name: "why", label: "Why", kind: "words" }] });
@@ -146,7 +148,8 @@ test("Rollback: the confirm card, a refusal for someone not allowed, then the ru
   assert.equal(rb.confirm.will, "The agent back on that version, why, and what can't be undone.");
   assert.match(rb.confirm.done_when, /side effects are named/);
   assert.match(rb.confirm.cannot_undo[0], /What counter 0\.2\.0 did while it ran stays done/);
-  assert.equal(rb.confirm.cannot_undo.length, 3);
+  assert.equal(rb.confirm.cannot_undo.length, 2);
+  assert.match(rb.confirm.steps[2], /^0\.1\.0 was set up the same way as 0\.2\.0/);
   // Who may act, as each person sees it.
   assert.deepEqual([rb.confirm.who_may, rb.confirm.you_may], ["Only Ana Lee (ana@example.com) may roll back counter.", false]);
   assert.equal(one((await product(f, ana)).when_needed, "rollback").confirm.you_may, true);
@@ -289,7 +292,7 @@ test("Impact runs the reference impact analyst between the running version and a
   const first = await deployed(f);
   let im = one((await product(f)).when_needed, "impact");
   assert.equal(im.can_run, false);
-  assert.match(im.why_not, /no other version has its declaration yet/);
+  assert.match(im.why_not, /no newer version has its declaration yet/);
 
   // Version 0.2.0 has its declaration once Requirements hands it back, before it is built.
   const next = await deployed(f, "0.2.0", { deploy: false });
