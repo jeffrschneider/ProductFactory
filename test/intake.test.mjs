@@ -68,6 +68,42 @@ test("a labelled issue starts one build that links back to it; a second poll sta
   assert.equal(f.store.list().length, 1, "the unlabelled issue started nothing");
 });
 
+test("POST /intake/issues/:number starts the build for one labelled issue now, once, and refuses the rest in words", async (t) => {
+  const { gh, f } = await fromIssues(t);
+  const n = gh.addIssue({ title: "Count the words in a passage.", body: "It should refuse to change the passage.", labels: ["product-factory"] });
+  const bug = gh.addIssue({ title: "Fix the footer", labels: ["bug"] });
+
+  const got = await f.post(`/intake/issues/${n}`);
+  assert.equal(got.status, 201, JSON.stringify(got.json));
+  ok(got.json.build);
+  const id = got.json.build.id;
+  assert.deepEqual(f.store.read(id).issue, { repo: "acme/agents", number: n, url: `https://github.example/acme/agents/issues/${n}` });
+  assert.equal(f.store.read(id).does, "Count the words in a passage.");
+  await settled(f, id);
+
+  const again = await f.post(`/intake/issues/${n}`);
+  assert.equal(again.status, 409);
+  assert.match(again.json.error, new RegExp(`^Issue #${n} already started build ${id} `));
+  assert.equal(again.json.build.id, id);
+  assert.deepEqual(await f.issues.pollOnce(), [], "the poll starts no second build for it");
+
+  const unlabelled = await f.post(`/intake/issues/${bug}`);
+  assert.equal(unlabelled.status, 404);
+  assert.equal(unlabelled.json.error, `Issue #${bug} is not an open issue labelled "product-factory" on acme/agents. Only those start builds.`);
+  assert.equal((await f.post("/intake/issues/twelve")).status, 400);
+  assert.equal((await f.get(`/intake/issues/${n}`)).status, 405);
+  assert.equal(f.store.list().length, 1);
+});
+
+test("POST /intake/issues/:number says so when intake is off", async (t) => {
+  const f = await factory();
+  t.after(f.close);
+  const got = await f.post("/intake/issues/7");
+  assert.equal(got.status, 409);
+  assert.match(got.json.error, /^Builds start from issues only when intake is on/);
+  assert.equal(f.store.list().length, 0);
+});
+
 test("the build comments on its issue when a gate waits on a person and when it ends", async (t) => {
   const { gh, f } = await fromIssues(t);
   const n = gh.addIssue({ title: "Count the words in a passage.", labels: ["product-factory"] });

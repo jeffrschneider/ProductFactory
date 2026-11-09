@@ -163,6 +163,21 @@ FAT32. Those drives cannot hold the links and locks `npx` makes. Point npm's
 cache at a folder on an NTFS drive (`npm config set cache <folder>`), or run
 `npm start` in a clone.
 
+## Drive it from Claude Code
+
+The [claude-plugin](claude-plugin/) folder is a Claude Code plugin: an MCP
+server and a skill that start builds, say what waits on you, read builds and
+stages, talk to a stage's agent or the boss, and take gate actions when you
+say so, all through the lifecycle API. In Claude Code:
+
+```
+/plugin marketplace add jeffrschneider/ProductFactory
+/plugin install product-factory@product-factory
+```
+
+Start Claude Code in the folder Product Factory runs in. See
+[claude-plugin/README.md](claude-plugin/README.md).
+
 ## product-factory.json
 
 One small file. It names where things are and which environment variables
