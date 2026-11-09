@@ -27,6 +27,7 @@ if (log) {
     mode, prompt, cwd: process.cwd(), round: process.env.PF_ROUND, feedback: process.env.PF_FEEDBACK_FILE,
     same_prompt: process.env.PF_PROMPT === prompt, agents_md: existsSync("AGENTS.md"),
     token: "PF_T_GITHUB_TOKEN" in process.env, anthropic_key: "ANTHROPIC_API_KEY" in process.env,
+    model_key: "PF_T_MODEL_KEY" in process.env || "MODEL_KEY" in process.env,
   })}\n`);
 }
 if (mode === "sleep") {

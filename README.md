@@ -313,7 +313,12 @@ What happens at Code:
    then the code critic and the security reviewer, where the lifecycle uses
    Review and Security review and the reference agent is in your adlc
    checkout. It says the result on the pull request as a comment, and as the
-   commit status "Product Factory gate" where the token may post one.
+   commit status "Product Factory gate" where the token may post one. The
+   scripts and the suite run without a credential: the token's variable, the
+   model key's variable and `MODEL_KEY`, each webhook notice's address and
+   every name in `code.env_remove` are taken out of their environment by their
+   exact names, and everything else (`PATH`, `HOME` or `USERPROFILE`, `TEMP`,
+   and the settings the agent's own files declare) stays.
 4. The console shows the pull request and the latest check on the Code stage.
 5. When the gate passes, the build waits for your OK. Your OK takes the
    scripts from that exact commit, merges the pull request there, and goes on
@@ -377,9 +382,9 @@ What one round does:
    `records/conflict.md` when it wrote one) to the branch through the API, as
    one commit, "Fix round <n>: <the gate's title>" (round 1 says "Write the
    scripts"). Anything it changed outside those paths is not committed, and the
-   round says which files. The harness never needs repository credentials: the
-   token's variable is taken out of its environment, with those in
-   `code.env_remove`.
+   round says which files. The harness never needs repository credentials, and
+   it runs without a credential, as the gate's scripts do: no repository token,
+   no model key, nothing in `code.env_remove`.
 4. The gate runs on that commit as it does on any push, and says so on the
    pull request.
 

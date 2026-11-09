@@ -7,14 +7,14 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { factory, stageOf, actionNames, tempDir, FIX_HARNESS } from "./helpers.mjs";
 import { fakeGitHub } from "./fixtures/fake-github.mjs";
 import { checkBuild } from "adlc-console/lib/contract.mjs";
 import { validate } from "../standards/lifecycle-api-check.mjs";
 import { STAGE_IDS } from "../lib/standards.mjs";
-import { readConfig } from "../lib/config.mjs";
+import { readConfig, credentialNames } from "../lib/config.mjs";
 import { FIX_FIRST, fixPrompt } from "../lib/fix-loop.mjs";
 import { resolveCommand } from "../lib/exec.mjs";
 
@@ -26,6 +26,7 @@ const ok = (b) => {
   assert.deepEqual(validate("BuildAnswer", { build: b }), []);
 };
 const calls = (f) => (existsSync(f.stubLog) ? readFileSync(f.stubLog, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []);
+const filesIn = (dir, at = "") => readdirSync(join(dir, at), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? filesIn(dir, `${at}${e.name}/`) : [`${at}${e.name}`])).sort();
 const fixRounds = (b) => [...stageOf(b, "code").rounds].reverse().filter((x) => /^Fix round /.test(x.label));
 
 /** A build started with the fix loop on, its spec approved; resolves once the loop has nothing running. mode: the stand-in harness's first mode. */
@@ -98,6 +99,10 @@ test("the fix loop: the harness writes the wrong script, the gate's findings go 
   assert.ok(c.every((x) => x.agents_md && x.same_prompt));
   assert.ok(c.every((x) => !x.token), "the harness never holds the repository token");
   assert.ok(c.every((x) => !x.anthropic_key), "code.env_remove goes for the fix loop too");
+  assert.ok(c.every((x) => !x.model_key), "nor the model key");
+  // The round's folder is the branch's build folder whole (the suite with any test/support/ files beside it), before the harness runs.
+  const atIssue = Object.keys(gh.filesAt(f.store.read(id).work.pr.issued_sha)).filter((p) => p.startsWith("agents/counter/")).map((p) => p.slice("agents/counter/".length)).sort();
+  assert.deepEqual(filesIn(join(f.store.folder(id), "stages", "code", "fix", "1", "build")), atIssue);
   // The log and the activity feed say each round.
   assert.ok(code.log.some((e) => /^Fix round 2: your coding harness works on [0-9a-f]{7}, with the gate's findings on [0-9a-f]{7}\.$/.test(e.said)));
 
@@ -260,6 +265,33 @@ test("Send back to Test mid-round ends the round in hand, and the loop starts ag
   assert.deepEqual(rounds.map((x) => [x.label, x.verdict]), [["Fix round 1", "Ended"], ["Fix round 1", "The tests did not pass"], ["Fix round 2", "Ready for your OK"]]);
   assert.equal(rounds[0].words, "You sent the build back to Test while fix round 1 was running, so nothing of it was committed.");
   assert.match(gh.log(BRANCH)[2].message, /^Revised tests for counter 0\.1\.0/);
+});
+
+test("the gate runs a pushed script without a credential: the token, the model key and code.env_remove are not there, and the rest is", async (t) => {
+  const gh = await fakeGitHub();
+  const seen = join(await tempDir("seen"), "env.jsonl").split("\\").join("/");
+  const f = await factory({ holder: "pull-request", github: gh, doc: { version: "0.1", organization: { used: { review: false, security: false } } }, extraEnv: { PF_T_MODEL_KEY: "a-model-key", ANTHROPIC_API_KEY: "sk-ant-not-for-scripts", PF_T_JOB_SETTING: "kept" } });
+  t.after(async () => { await f.close(); await gh.close(); });
+  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
+  await f.settled(id);
+  await f.post(`/builds/${id}/actions/approve`);
+  await f.settled(id);
+  // A script that tries to read every credential and writes what it found where the test can see it.
+  const names = ["PF_T_GITHUB_TOKEN", "PF_T_MODEL_KEY", "MODEL_KEY", "ANTHROPIC_API_KEY", "PF_T_JOB_SETTING"];
+  gh.push(BRANCH, { [SCRIPT]: `import { appendFileSync } from "node:fs";\nappendFileSync(${JSON.stringify(seen)}, JSON.stringify({ ${names.map((n) => `${n}: process.env.${n} ?? null`).join(", ")}, path: Boolean(process.env.PATH || process.env.Path) }) + "\\n");\n${RIGHT}` });
+  const r = await f.runner.poll(id);
+  assert.equal(r.passed, true);
+  const runs = readFileSync(seen, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  assert.ok(runs.length >= 1, "the script ran in the gate");
+  for (const got of runs) {
+    assert.deepEqual(got, { PF_T_GITHUB_TOKEN: null, PF_T_MODEL_KEY: null, MODEL_KEY: null, ANTHROPIC_API_KEY: null, PF_T_JOB_SETTING: "kept", path: true });
+  }
+  assert.ok(!readFileSync(seen, "utf8").includes(gh.token));
+});
+
+test("the credentials are named by their exact names: the token's, the model key's, each webhook's address, and code.env_remove", () => {
+  const c = readConfig({ model: { key: "OUR_KEY" }, code: { holder: "pull-request", env_remove: ["ANTHROPIC_API_KEY", "OPENAI_API_KEY"] }, repository: { host: "github", repo: "a/b", token: "GH_PAT" }, notify: [{ kind: "webhook", url_env: "SLACK_URL" }] }, "/");
+  assert.deepEqual(credentialNames(c, { code: { env_remove: ["OLD_KEY"] }, repository: { token: "OLD_TOKEN" } }), ["ANTHROPIC_API_KEY", "GH_PAT", "MODEL_KEY", "OLD_KEY", "OLD_TOKEN", "OPENAI_API_KEY", "OUR_KEY", "SLACK_URL"]);
 });
 
 test("code.fix_rounds is a whole number from 1 to 1000, 3 when not set", () => {
