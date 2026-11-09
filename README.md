@@ -699,7 +699,7 @@ first phase:
 
 | Stage | Who holds it | What happens |
 |---|---|---|
-| 00 Reverse engineering | the reference reverse engineer (CommonAgent/adlc `agents/reverse-engineer`) | The code is read at its commit (cloned with git, or copied from a folder that is not a repository, whose commit is then sha256 over its files) and the build records that commit. The reverse engineer hands back the as-built record: `behaviors.json`, `architecture.json`, `interfaces.json`, `sbom.cdx.json`, `tests-and-gaps.json` and `record.json`. It is one artifact, kind `as_built`, with a readable summary per part. |
+| 00 Reverse engineering | the reference reverse engineer (CommonAgent/adlc `agents/reverse-engineer`) | The code is read at its commit (cloned with git, or copied from a folder that is not a repository, whose commit is then sha256 over its files) and the build records that commit. The reverse engineer hands back the as-built record: `behaviors.json`, `architecture.json`, `interfaces.json`, `sbom.cdx.json`, `tests-and-gaps.json` and `record.json`, and, from reverse engineer 0.3.0, the code's own tests under `tests/` and the files they import under `support/`, which are carried into the suite (see The original's own tests are in the gate). It is one artifact, kind `as_built`, with a readable summary per part. |
 | Requirements | the spec writer, then you | Each behavior arrives as a proposed feature marked as built, with its evidence. You answer each one: **Approve feature** (it is intended), **This is a bug** (kept as a proposed fix item linked to the behavior, never approved by this or by the gate), or **Drop**. The spec is approved once every behavior is answered. |
 | Test | the reference test writer | It is given the behaviors, the interfaces, the architecture as built, and the existing tests and gaps, whole (the spec writer is given them too), and writes characterization tests that pin each approved behavior, each named by its feature id. |
 | Code | the existing code | The build folder starts from the code at that commit: the scripts the spec names are taken from it, and the gate runs them against the characterization suite. Code that cannot be packaged as an agent (no Node scripts, such as a Python service) stops here and says why in words. Product Factory adopts agents only. |
@@ -737,7 +737,39 @@ refused in words: it must hold `record.json` naming the repository and commit
 it describes, and its five parts (`behaviors.json`, `architecture.json`,
 `interfaces.json`, `sbom.cdx.json`, `tests-and-gaps.json`). Any other JSON
 file in the folder, such as the output schemas the reverse engineer derived,
-goes with it whole.
+goes with it whole, and so does every file of its `tests/` and `support/`
+folders: the original's own tests, and each file they import from outside the
+codebase with the whole closure of what those import (reverse engineer
+0.3.0). The same limits hold them: 100 files beside the six, 20 MB in all.
+
+### The original's own tests are in the gate
+
+The original's own tests are the strongest check on a rebuild, so they are
+carried into the suite unchanged. For a build with an as-built record, brought
+or made by Reverse engineering, the test writer is given each test that
+`tests-and-gaps.json` lists under `carried`, every file under `support/`, and a
+carried manifest made from that list (`stages/test/carried-r<n>.json`):
+
+```json
+{ "carried_tests": "v1",
+  "tests": [{ "file": "test/x.test.mjs", "at": "tests/test/x.test.mjs", "sha256": "<hex>",
+              "imports": [{ "from": "../../lib/a.mjs", "support": "support/lib/a.mjs" }] }],
+  "support": [{ "path": "support/lib/a.mjs", "sha256": "<hex>" }] }
+```
+
+The spec writer is not given them. The reference test writer (0.10.0) places
+each test at `test/<name>` with only the listed import specifiers rewritten,
+each support file at `test/support/<path from the repository's top>`, and
+their record at `test/carried-tests.json`. The hand-off is then given the
+suite as one archive, so the build folder keeps the support files' layout and
+`build.lock.json` pins them like the tests; on a pull request the fence
+refuses a changed or removed support file as it does a test. The gate runs
+`test/*.test.mjs` only, so a file under `test/support/` is never run as a
+test. In the features view the carried tests keep the names the original gave
+them and are counted as original tests, `original` beside `untied` on the
+Test slice and on the matrix, not tied to a feature. Send back to Test with
+"drop the original test <name>" in your words takes that one test out of the
+suite, recorded in `test/carried-tests.json`; no revision changes one.
 
 The build runs the process "rebuild from an as-built record"
 (`processes/rebuild-from-as-built-record.txt`), which is "make a new agent"

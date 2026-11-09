@@ -5,7 +5,7 @@
 // line; "// gap: <what>" is a gap. On drift (the last record attached) it
 // hands back only the behaviors that are new, changed or no longer there.
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync } from "node:fs";
-import { join, relative, sep, basename } from "node:path";
+import { join, relative, sep, basename, posix } from "node:path";
 
 const o = { files: [] };
 const a = process.argv.slice(2);
@@ -61,7 +61,33 @@ write("behaviors.json", { behaviors: out });
 write("architecture.json", { as_built: true, parts: [...new Set(files.filter((p) => p.includes("/")).map((p) => p.split("/")[0]))].map((p) => ({ name: p })), entry_points: files.filter((p) => /^scripts\/.*\.m?js$/.test(p)).map((p) => ({ name: p, evidence: `${p}:1` })), data_stores: [], reaches: [], settings: [], starts: "node runs a script once per job" });
 write("interfaces.json", { interfaces: files.filter((p) => /^scripts\/.*\.m?js$/.test(p)).map((p) => ({ kind: "command", name: `node ${p}`, format: "words in, words out" })) });
 write("sbom.cdx.json", { bomFormat: "CycloneDX", specVersion: "1.5", components: Object.entries(deps).map(([name, version]) => ({ type: "library", name, version: String(version).replace(/^[\^~]/, "") })) });
-write("tests-and-gaps.json", { tests, baseline: { ran: false, words: "Not run: the stand-in reads only." }, gaps });
-const pieces = ["record.json", "behaviors.json", "architecture.json", "interfaces.json", "sbom.cdx.json", "tests-and-gaps.json"].map((name) => ({ name, step: "describe", path: `out/${name}`, media_type: name.startsWith("sbom") ? "application/vnd.cyclonedx+json" : "application/json" }));
+// With PF_STUB_RE_CARRY set, the original's own tests are carried, as the reverse engineer 0.3.0 does:
+// each test at out/as-built/tests/<path>, and every file it imports outside scripts/ (and what those
+// import) at out/as-built/support/<path from the repository's top>, listed in tests-and-gaps.json.
+const carried = [];
+const extra = [];
+if (process.env.PF_STUB_RE_CARRY) {
+  const rel = (text) => [...String(text).matchAll(/(?:from\s*|import\s*\(\s*|import\s+)(["'])(\.\.?\/[^"']+)\1/g)].map((m) => m[2]);
+  const support = new Set();
+  const closure = (p) => { if (support.has(p) || !existsSync(join(folder, p))) return; support.add(p); for (const i of rel(readFileSync(join(folder, p), "utf8"))) closure(posix.normalize(posix.join(posix.dirname(p), i))); };
+  for (const t of tests) {
+    const imports = [];
+    for (const i of rel(readFileSync(join(folder, t.file), "utf8"))) {
+      const to = posix.normalize(posix.join(posix.dirname(t.file), i));
+      if (to.startsWith("scripts/") || to.startsWith("../")) continue;
+      imports.push({ from: i, support: `support/${to}` });
+      closure(to);
+    }
+    carried.push({ file: t.file, at: `tests/${t.file}`, imports });
+    extra.push({ from: t.file, to: `as-built/tests/${t.file}` });
+  }
+  for (const p of support) extra.push({ from: p, to: `as-built/support/${p}` });
+}
+write("tests-and-gaps.json", { tests, baseline: { ran: false, words: "Not run: the stand-in reads only." }, gaps, ...(carried.length ? { carried } : {}) });
+for (const e of extra) { mkdirSync(join(dir, ...e.to.split("/").slice(0, -1)), { recursive: true }); writeFileSync(join(dir, ...e.to.split("/")), readFileSync(join(folder, e.from))); }
+const pieces = [
+  ...["record.json", "behaviors.json", "architecture.json", "interfaces.json", "sbom.cdx.json", "tests-and-gaps.json"].map((name) => ({ name, step: "describe", path: `out/${name}`, media_type: name.startsWith("sbom") ? "application/vnd.cyclonedx+json" : "application/json" })),
+  ...extra.map((e) => ({ name: e.to.slice("as-built/".length), step: "describe", path: `out/${e.to}`, media_type: "text/javascript" })),
+];
 writeFileSync(join(o.job, "pieces.json"), JSON.stringify(pieces, null, 2));
 console.log(JSON.stringify({ ok: true, code: 0, reply: trigger === "drift" ? `Described what changed since ${key("since")}: ${out.length} behavior${out.length === 1 ? "" : "s"}.` : `Described ${out.length} behavior${out.length === 1 ? "" : "s"} at ${String(key("commit")).slice(0, 7)}, each with its file and line; ${gaps.length} gap${gaps.length === 1 ? "" : "s"} marked.` }));

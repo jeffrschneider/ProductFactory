@@ -6,8 +6,16 @@
 // Without one, when the message lists approved features ("- F1 (offering
 // Count): <name>. <does>"), it adds one test per feature, named "[F1] <name>".
 // A feature whose name or words say "fails" gets a test no script can pass.
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { basename, join } from "node:path";
+//
+// The original's own tests (test-writer 0.10.0): with a carried manifest
+// attached (carried_tests v1, tests and support), it places each test by its
+// digest at out/test/<name> with the listed import specifiers pointed at
+// ./support/<path>, each support file at out/test/support/<path>, and their
+// record at out/test/carried-tests.json. In a revision whose words say "drop
+// the original test <name>", it hands back the record with that test dropped.
+import { readFileSync, writeFileSync, mkdirSync, existsSync, cpSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
+import { createHash } from "node:crypto";
 
 const o = { files: [] };
 const a = process.argv.slice(2);
@@ -69,8 +77,39 @@ test("an empty passage has no words", () => {
   assert.equal(count(""), 0);
 });
 ` : ""}`);
+// The original's own tests, carried.
+const sha = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
+const docs = o.files.map((f) => { try { return JSON.parse(readFileSync(f, "utf8")); } catch { return null; } }).filter(Boolean);
+const manifest = docs.find((v) => v?.carried_tests === "v1" && Array.isArray(v.tests));
+const held = docs.find((v) => v?.carried_tests === "v1" && Array.isArray(v.placed));
+const carried = [];
+const put = (to, from, text) => { mkdirSync(dirname(join(o.job, to)), { recursive: true }); if (from) cpSync(from, join(o.job, to)); else writeFileSync(join(o.job, to), text); carried.push(to); };
+if (manifest && !revise) {
+  const record = { carried_tests: "v1", placed: [], support: [], dropped: [] };
+  for (const s of manifest.support ?? []) {
+    const from = o.files.find((f) => sha(f) === s.sha256);
+    if (!from) continue;
+    put(`out/test/support/${s.path.slice("support/".length)}`, from);
+    record.support.push({ path: `test/support/${s.path.slice("support/".length)}`, sha256: s.sha256 });
+  }
+  for (const t of manifest.tests ?? []) {
+    const from = o.files.find((f) => sha(f) === t.sha256);
+    if (!from) continue;
+    let text = readFileSync(from, "utf8");
+    for (const i of t.imports ?? []) text = text.split(JSON.stringify(i.from)).join(JSON.stringify(`./support/${i.support.slice("support/".length)}`));
+    put(`out/test/${basename(t.file)}`, null, text);
+    record.placed.push({ test: `test/${basename(t.file)}`, file: t.file, at: t.at, sha256: createHash("sha256").update(text).digest("hex") });
+  }
+  put("out/test/carried-tests.json", null, `${JSON.stringify(record, null, 2)}\n`);
+}
+const drop = revise && held ? /drop the original test ([\w.-]+)/i.exec(asked)?.[1] : null;
+if (drop) {
+  const gone = held.placed.filter((p) => basename(p.test) === drop);
+  put("out/test/carried-tests.json", null, `${JSON.stringify({ ...held, placed: held.placed.filter((p) => !gone.includes(p)), dropped: [...(held.dropped ?? []), ...gone.map((p) => ({ file: p.file, test: p.test, at: "2026-11-09T12:00:00.000Z", by: "the person, by naming it" }))] }, null, 2)}\n`);
+}
 writeFileSync(join(o.job, "pieces.json"), JSON.stringify([
   { name: "count.test.mjs", step: "write-the-suite", path: "out/test/count.test.mjs", media_type: "text/javascript", about: "a test file" },
   ...(kept.length ? [{ name: "kept-interfaces.test.mjs", step: "write-the-suite", path: "out/test/kept-interfaces.test.mjs", media_type: "text/javascript", about: "the kept interfaces' tests" }] : []),
+  ...carried.map((p) => ({ name: p.slice("out/test/".length), step: "write-the-suite", path: p, media_type: p.endsWith(".json") ? "application/vnd.agentmesh.carried-tests+json" : "text/javascript", about: "carried" })),
 ], null, 2));
 console.log(JSON.stringify({ ok: true, code: 0, reply: `Wrote ${kept.length ? 2 : 1} test file${kept.length ? "s" : ""} for ${JSON.parse(readFileSync(descriptor, "utf8")).name}. It fails against an empty stand-in.`, pieces: "pieces.json" }));
