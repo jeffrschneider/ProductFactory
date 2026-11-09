@@ -8,7 +8,7 @@ import { join } from "node:path";
 const log = process.env.PF_STUB_LOG;
 const calls = log && existsSync(log) ? readFileSync(log, "utf8").split("\n").filter(Boolean).length : 0;
 const fail = calls < Number(process.env.PF_STUB_FAIL_ROUNDS ?? 0);
-if (log) appendFileSync(log, `${JSON.stringify({ prompt: process.argv[2], cwd: process.cwd(), round: process.env.PF_ROUND, feedback: process.env.PF_FEEDBACK_FILE, agents_md: existsSync("AGENTS.md") })}\n`);
+if (log) appendFileSync(log, `${JSON.stringify({ prompt: process.argv[2], cwd: process.cwd(), round: process.env.PF_ROUND, feedback: process.env.PF_FEEDBACK_FILE, agents_md: existsSync("AGENTS.md"), anthropic_key: "ANTHROPIC_API_KEY" in process.env, model_name: process.env.MODEL_NAME ?? null })}\n`);
 writeFileSync(join("scripts", "count.mjs"), fail
   ? "export function count() { return 0; }\n"
   : "export function count(text) { return String(text).split(/\\s+/).filter(Boolean).length; }\n");

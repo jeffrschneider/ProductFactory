@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 // npx product-factory [--config <path>] [--port <n>] [--console-port <n>] [--no-console] [--no-open]
 // npx product-factory init [--config <path>]
+// npx product-factory check [--config <path>]                                  (lib/check.mjs)
 // npx product-factory people | person ... | team add ... | project add ...   (lib/people.mjs)
 
 import { parseArgs } from "node:util";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { loadConfig, writeStarter, modelEnv, localPerson, CONFIG_FILE } from "../lib/config.mjs";
+import { loadConfig, writeStarter, localPerson, CONFIG_FILE } from "../lib/config.mjs";
+import { startupNotes, checkModel } from "../lib/check.mjs";
 import { createStore } from "../lib/store.mjs";
 import { createLifecycle } from "../lib/lifecycle.mjs";
 import { createRunner } from "../lib/runner.mjs";
@@ -27,6 +29,8 @@ lifecycle API the adlc console reads.
   npx product-factory                 start it and the adlc console, and open the console
                                       (with no ${CONFIG_FILE} here yet, it writes the starter first)
   npx product-factory init            write a starter ${CONFIG_FILE} here
+  npx product-factory check           check the settings, and make one tiny call to the model
+                                      to see that the endpoint, the key and the model answer
 
   --config <path>        the settings file (default ./${CONFIG_FILE})
   --port <n>             the service listens on this port, overriding the settings (0 takes any free port)
@@ -53,6 +57,17 @@ async function main() {
     if (writeStarter(configPath)) console.log(`Wrote ${configPath}. Set "adlc" to your checkout of CommonAgent/adlc and "code.harness" to your coding harness, then run npx product-factory.`);
     else console.log(`${configPath} is already there; it was left as it is.`);
     return;
+  }
+  if (positionals[0] === "check") {
+    let config;
+    try { config = loadConfig(configPath); } catch (e) { console.error(e.message); process.exit(2); }
+    const { notes, info } = startupNotes(config, process.env);
+    for (const i of info) console.log(i);
+    for (const n of notes) console.log(`Note: ${n}`);
+    if (!notes.length) console.log("The settings are in order.");
+    const m = await checkModel(config, process.env);
+    console.log(`Model: ${m.words}`);
+    process.exit(notes.length || !m.ok ? 1 : 0);
   }
   if (["people", "person", "team", "project"].includes(positionals[0])) {
     let config;
@@ -113,19 +128,10 @@ async function main() {
   const info = [];
   const notes = [];
   if (firstRun) notes.push(`This is the first run here, so it wrote ${config.file} with the starter settings. Set "adlc" to your checkout of CommonAgent/adlc and "code.harness" to your coding harness in it.`);
-  if (!existsSync(join(config.adlc, "agents", "spec-writer"))) notes.push(`There is no CommonAgent/adlc checkout at ${config.adlc}, so builds will stop at Requirements. Set "adlc" in ${config.file}.`);
-  const { missing } = modelEnv(config, process.env);
-  if (missing.length) notes.push(`The model settings are read from ${missing.join(", ")}, which ${missing.length === 1 ? "is" : "are"} not set, so Requirements and Test will stop and say so.`);
+  const found = startupNotes(config, process.env);
+  info.push(...found.info);
+  notes.push(...found.notes);
   if (HISTORY_UNAVAILABLE) notes.push(HISTORY_UNAVAILABLE);
-  if (config.code.holder === "pull-request") {
-    if (!String(process.env[config.repository.token] ?? "").trim()) notes.push(`Code goes to a pull request on ${config.repository.repo}, and the token is read from ${config.repository.token}, which is not set, so Code will stop and say so.`);
-    else info.push(`Code goes to a pull request on ${config.repository.repo}. Product Factory checks it for pushes every ${config.repository.poll_seconds} seconds.`);
-  } else if (!config.code.harness) notes.push(`No coding harness is set, so Code will stop and say so. Set "code.harness" in ${config.file}.`);
-  if (config.intake) {
-    if (!String(process.env[config.repository.token] ?? "").trim()) notes.push(`Builds start from issues labelled "${config.intake.github_issues.label}" on ${config.repository.repo}, and the token is read from ${config.repository.token}, which is not set, so no issue starts a build until it is.`);
-    else info.push(`Open issues labelled "${config.intake.github_issues.label}" on ${config.repository.repo} start builds. Product Factory reads them every ${config.intake.github_issues.poll_seconds} seconds.`);
-  }
-  for (const t of config.notify) if (t.kind === "webhook" && !String(process.env[t.url_env] ?? "").trim()) notes.push(`A webhook notice reads its address from ${t.url_env}, which is not set, so that notice will not be sent.`);
 
   if (adlcConsole) {
     // One line with the address. What is missing follows as notes, and each build says it in words too.
