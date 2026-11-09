@@ -6,6 +6,7 @@
 //   gh.url                       the API address to give Product Factory
 //   gh.push(branch, changes)     a commit on top of the branch: { path: text | null }, as a coding harness pushes
 //   gh.filesAt(ref)              { path: text } at a branch or commit
+//   gh.branch(name), gh.dropBranch(name)  a branch made from main, or deleted
 //   gh.addIssue({ title, body, labels })  an open issue, as a person files one
 //   gh.pulls, gh.issues, gh.comments, gh.statuses, gh.calls
 
@@ -121,6 +122,9 @@ export async function fakeGitHub({ token = "ghs_fake_token_for_tests", repo = "a
     /** An open issue, as a person files one: numbered from 101, so it never shares a number with a pull request here. */
     addIssue({ title, body = "", labels = [] }) { const number = 101 + issues.length; issues.push({ number, title, body, labels, state: "open" }); return number; },
     head: (branch) => refs.get(`heads/${branch}`),
+    /** A branch made from main, as one left over from an earlier build; and a branch deleted. */
+    branch: (name) => refs.set(`heads/${name}`, refs.get("heads/main")),
+    dropBranch: (name) => refs.delete(`heads/${name}`),
     /** A commit on top of the branch, as a coding harness pushes one: { path: text | null }. */
     push(branch, changes, message = "A push") {
       const parent = refs.get(`heads/${branch}`);
