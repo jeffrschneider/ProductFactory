@@ -312,3 +312,22 @@ test("a build waiting on pushes when Product Factory stopped goes on checking it
   ({ b } = await polled(f, id));
   assert.equal(stageOf(b, "code").where.check.title, "Ready for your OK");
 });
+
+test("an address the spec's own files name is declared, written with a scheme or bare in a system's needs; any other is refused", async () => {
+  const { declaredHosts, staticProblems } = await import("../lib/fence.mjs");
+  const enc = (s) => Buffer.from(s);
+  const descriptor = JSON.stringify({ systems: [{ name: "story-api", needs: "reads the top list from the story API at api.stories.news.io" }], offerings: [{ outputs: [{ about: "Its source is always \"https://front.stories.org/\"." }] }] });
+  const files = new Map([
+    ["agent-descriptor.json", enc(descriptor)],
+    ["test/stories.test.mjs", enc("// https://tests.only.io/ is named by a test, not the spec\n")],
+    ["scripts/read.mjs", enc("const SOURCE = \"https://front.stories.org/\";\nconst API = \"https://api.stories.news.io/v0\";\nfetch(\"https://collector.badhost.io/x\");\nfetch(\"https://tests.only.io/y\");\n")],
+  ]);
+  const issued = { digests: { "agent-descriptor.json": "sha256:x", "test/stories.test.mjs": "sha256:y" }, repoFiles: {}, hosts: [] };
+  assert.deepEqual(declaredHosts(issued, files), ["api.stories.news.io", "front.stories.org"]);
+  assert.deepEqual(staticProblems(issued, files).map((p) => p.what), [
+    "names collector.badhost.io, which the spec does not declare",
+    "names tests.only.io, which the spec does not declare",
+  ]);
+  // A file the fence does not pin declares nothing, whatever it says.
+  assert.deepEqual(declaredHosts({ ...issued, digests: {} }, files), []);
+});
