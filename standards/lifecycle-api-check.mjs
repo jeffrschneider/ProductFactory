@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Checks a running service against the lifecycle API (lifecycle-api.schema.json,
-// version 0.4.2): every answer against the schema, and the rules a schema cannot
+// version 0.4.3): every answer against the schema, and the rules a schema cannot
 // say. It only reads. It asks who the key belongs to, reads who holds each
 // role and which stages the lifecycle uses, lists the builds, reads each one, reads its tries, and opens the first
 // file each build handed back (every file with --all-files).
@@ -68,7 +68,25 @@
 //     one of the product's builds;
 //   - when_needed lists every when_needed stage once, in order, and no other;
 //     one the service cannot run says why, and one it can run names the action
-//     that runs it.//
+//     that runs it.
+// Version 0.4.3's features are checked by checkFeatures, checkFeature and
+// checkFeatureDecision, and by the 0.4, 0.4.1 and 0.4.2 checks where a message, a
+// round or a gate carries them. Their rules beyond the schema:
+//   - a matrix's columns are spec, tests, code, review and docs, in that
+//     order; each feature is a row once; its version is one of its versions;
+//   - a tests or code cell that is failing has fewer tests passed than it
+//     has, and one that is done with tests run has them all passed;
+//   - a cell opens its artifact at its own feature;
+//   - a feature never approved has a spec cell that is missing;
+//   - a feature's history is oldest first, an entry linked to a message names
+//     it and one linked to an artifact names it, and an approved feature has
+//     an approval in its history;
+//   - a proposal that is approved or not_now says who answered it and how,
+//     one that is asked says who asked whom, and a changed one says what the
+//     feature was;
+//   - a round's results per feature never pass more tests than it has;
+//   - a gate's features are only at Requirements, each feature once.
+//
 //   node standards/lifecycle-api-check.mjs <base> [--key-file <path>] [--stages <path>] [--limit <n>] [--all-files]
 //
 //   <base>        the service's lifecycle address, e.g. https://example.com/v1/lifecycle/
@@ -117,6 +135,7 @@ function walk(schema, v, at, out) {
   if (typeof v === "string") {
     if (schema.minLength !== undefined && v.length < schema.minLength) out.push(`${at}: is empty`);
     if (schema.format === "date-time" && !isTime(v)) out.push(`${at}: is ${JSON.stringify(v)}, not an ISO 8601 time with a zone`);
+    if (schema.pattern !== undefined && !new RegExp(schema.pattern).test(v)) out.push(`${at}: is ${JSON.stringify(v)}, which is not in the form ${schema.pattern}`);
   }
   if (typeof v === "number" && schema.minimum !== undefined && v < schema.minimum) out.push(`${at}: is below ${schema.minimum}`);
   if (isObj(v)) {
@@ -305,6 +324,10 @@ export function checkBuild(body, ids, id, roles, cadences = CADENCES()) {
     if (!Array.isArray(s.rounds)) return;
     s.rounds.forEach((r, j) => {
       if (j > 0 && Number.isInteger(r?.n) && Number.isInteger(s.rounds[j - 1]?.n) && !(r.n < s.rounds[j - 1].n)) p.push(`body.build.stages[${i}].rounds[${j}]: rounds are newest first, and n ${r.n} follows n ${s.rounds[j - 1].n}`);
+      // Results per feature (added in 0.4.3).
+      (Array.isArray(r?.by_feature) ? r.by_feature : []).forEach((x, k) => {
+        if (isObj(x) && Number.isInteger(x.passed) && Number.isInteger(x.total) && x.passed > x.total) p.push(`body.build.stages[${i}].rounds[${j}].by_feature[${k}]: ${x.feature} passed ${x.passed} of ${x.total} tests, more than it has`);
+      });
     });
   });
   // The timeline (added in 0.1): bars ordered by start, each ending no earlier than it began.
@@ -436,6 +459,13 @@ export function checkStageWorkspace(body, ids, stage, build, cadences = CADENCES
       body.gate.actions.forEach((n, i) => { if (!offered.has(n)) p.push(`body.gate.actions[${i}]: "${n}" is not an action the build offers at ${body.stage}`); });
     }
   }
+  // A gate's features (added in 0.4.3): only at Requirements, each feature once.
+  const gf = isObj(body.gate) && isObj(body.gate.features) ? body.gate.features : null;
+  if (gf) {
+    if (body.stage !== "requirements") p.push(`body.gate.features: a gate carries features only at Requirements, and this is ${body.stage}`);
+    const all = ["approved", "to_approve", "backlog"].flatMap((k) => (Array.isArray(gf[k]) ? gf[k] : []).map((x) => x?.id));
+    for (const id of new Set(all)) if (all.filter((x) => x === id).length > 1) p.push(`body.gate.features: ${id} is listed more than once`);
+  }
   return p;
 }
 
@@ -446,6 +476,7 @@ export function checkMessages(body, stage) {
     if (!isObj(m)) return;
     if (i > 0 && isObj(all[i - 1]) && Date.parse(all[i - 1].at) > Date.parse(m.at)) p.push(`body.messages[${i}]: the chat is oldest first, and this message is older than the one above it`);
     if (stage !== undefined && isObj(m.from) && m.from.stage !== stage) p.push(`body.messages[${i}].from.stage: is ${JSON.stringify(m.from.stage)}, not the stage asked about (${stage})`);
+    p.push(...proposalRules(m.features, `body.messages[${i}].features`));
   });
   return p;
 }
@@ -453,6 +484,7 @@ export function checkMessages(body, stage) {
 /** POST /products/{name}/stages/{stage}/messages (added in 0.4). build: the build's answer, to hold a proposal to its actions. */
 export function checkMessageReply(body, build) {
   const p = validate("MessageReplyAnswer", body);
+  if (isObj(body) && isObj(body.reply)) p.push(...proposalRules(body.reply.features, "body.reply.features"));
   const prop = isObj(body) && isObj(body.reply) && isObj(body.reply.proposes) ? body.reply.proposes : null;
   const b = isObj(build) ? build.build : null;
   if (prop && isObj(b)) {
@@ -487,6 +519,7 @@ function bossMessageRules(m, ids, at) {
   }
   const prop = isObj(m.proposes) ? m.proposes : null;
   if (prop?.action === "start_version" && !(isObj(prop.needs) && typeof prop.needs.version === "string" && prop.needs.version)) p.push(`${at}.proposes.needs: has no version, which start_version needs`);
+  p.push(...proposalRules(m.features, `${at}.features`));
   return p;
 }
 
@@ -535,6 +568,100 @@ export function checkBossCommitments(body, ids) {
     if (c.kind === "started" && !isObj(c.confirmation)) p.push(`${at}: is started, so it carries the confirmation it was started on`);
     if (ids && typeof c.stage === "string" && !ids.includes(c.stage)) p.push(`${at}.stage: "${c.stage}" is not a stage in stages.json`);
   });
+  return p;
+}
+
+// ---------- features (added in 0.4.3) ----------
+
+/** The matrix's columns, in their order. */
+export const FEATURE_COLUMNS = ["spec", "tests", "code", "review", "docs"];
+
+/**
+ * The features a test names: the ids in square brackets its name starts with,
+ * such as "[F3] counts an empty passage as none" or "[F1, F2] ...". None when
+ * it starts with no such brackets.
+ */
+export function featuresOfTest(name) {
+  const m = /^\s*\[([^\]]+)\]/.exec(String(name ?? ""));
+  if (!m) return [];
+  const ids = m[1].split(",").map((s) => s.trim());
+  return ids.every((id) => /^[A-Za-z][A-Za-z0-9._-]{0,63}$/.test(id)) ? [...new Set(ids)] : [];
+}
+
+/** Feature proposals on a message: an answer says who gave it and how, an ask says who asked whom, a change says what the feature was. */
+function proposalRules(list, at) {
+  const p = [];
+  (Array.isArray(list) ? list : []).forEach((f, i) => {
+    if (!isObj(f)) return;
+    const here = `${at}[${i}]`;
+    if ((f.state === "approved" || f.state === "not_now") && !(isObj(f.answered) && f.answered.decision === f.state)) p.push(`${here}: is ${f.state}, so it says who answered it, when, and with ${f.state}`);
+    if (f.state === "asked" && !isObj(f.asked)) p.push(`${here}: is asked, so it says who asked whom, and when`);
+    if (f.change === "changed" && !isObj(f.was)) p.push(`${here}: changes ${f.feature}, so it says what the feature was`);
+  });
+  const ids = (Array.isArray(list) ? list : []).map((f) => f?.feature);
+  for (const id of new Set(ids)) if (ids.filter((x) => x === id).length > 1) p.push(`${at}: proposes ${id} more than once in one reply`);
+  return p;
+}
+
+/** GET /builds/{id}/features and GET /products/{name}/features (added in 0.4.3). build: the build asked for, when it was named. */
+export function checkFeatures(body, build) {
+  const p = validate("FeaturesAnswer", body);
+  if (!isObj(body)) return p;
+  if (build !== undefined && body.build !== build) p.push(`body.build: is ${JSON.stringify(body.build)}, not the build asked for (${build})`);
+  if (Array.isArray(body.columns) && body.columns.join(",") !== FEATURE_COLUMNS.join(",")) p.push(`body.columns: are ${body.columns.join(", ")}, not ${FEATURE_COLUMNS.join(", ")} in that order`);
+  const versions = Array.isArray(body.versions) ? body.versions.filter(isObj) : [];
+  const vs = versions.map((v) => v.version);
+  for (const v of new Set(vs)) if (vs.filter((x) => x === v).length > 1) p.push(`body.versions: ${v} appears more than once`);
+  if (versions.length && !versions.some((v) => v.version === body.version && v.build === body.build)) p.push(`body.version: ${body.version} (build ${body.build}) is not one of the product's versions`);
+  const rows = Array.isArray(body.features) ? body.features : [];
+  const ids = rows.map((r) => r?.id);
+  for (const id of new Set(ids)) if (ids.filter((x) => x === id).length > 1) p.push(`body.features: ${id} is a row more than once`);
+  rows.forEach((r, i) => {
+    if (!isObj(r) || !isObj(r.cells)) return;
+    for (const col of FEATURE_COLUMNS) {
+      const c = r.cells[col];
+      if (!isObj(c)) continue;
+      const here = `body.features[${i}].cells.${col}`;
+      const t = isObj(c.tests) ? c.tests : null;
+      if (t && Number.isInteger(t.passed) && Number.isInteger(t.total)) {
+        if (t.passed > t.total) p.push(`${here}.tests: passed ${t.passed} of ${t.total}, more than it has`);
+        if (c.state === "failing" && t.passed >= t.total) p.push(`${here}: is failing, but every test naming ${r.id} passed`);
+        if (c.state === "done" && t.passed < t.total) p.push(`${here}: is done, but ${t.total - t.passed} test${t.total - t.passed === 1 ? "" : "s"} naming ${r.id} failed`);
+      }
+      if (isObj(c.link) && c.link.feature !== r.id) p.push(`${here}.link: opens ${c.link.feature}, not ${r.id}`);
+    }
+    if (r.state === "proposed" && isObj(r.cells.spec) && r.cells.spec.state !== "missing") p.push(`body.features[${i}].cells.spec: ${r.id} was never approved, so the spec does not carry it yet, and the cell is missing`);
+  });
+  return p;
+}
+
+/** GET /products/{name}/features/{feature} (added in 0.4.3): the feature asked for, its history oldest first. */
+export function checkFeature(body, id) {
+  const p = validate("FeatureAnswer", body);
+  if (!isObj(body)) return p;
+  if (id !== undefined && isObj(body.feature) && body.feature.id !== id) p.push(`body.feature.id: is ${JSON.stringify(body.feature.id)}, not the feature asked for (${id})`);
+  const h = Array.isArray(body.history) ? body.history : [];
+  h.forEach((e, i) => {
+    if (!isObj(e)) return;
+    if (i > 0 && isObj(h[i - 1]) && Date.parse(h[i - 1].at) > Date.parse(e.at)) p.push(`body.history[${i}]: the history is oldest first, and this entry is older than the one above it`);
+    if (isObj(e.link) && e.link.kind === "message" && typeof e.link.message !== "string") p.push(`body.history[${i}].link: is a message, so it names the message`);
+    if (isObj(e.link) && e.link.kind === "artifact" && typeof e.link.artifact !== "string") p.push(`body.history[${i}].link: is an artifact, so it names the artifact`);
+  });
+  if (isObj(body.feature) && body.feature.state === "approved" && !h.some((e) => isObj(e) && e.kind === "approved")) p.push("body.history: the feature is approved, and its history has no approval");
+  return p;
+}
+
+/** POST /builds/{id}/features/{feature}/{decision} (added in 0.4.3): the proposal reads as the decision taken. */
+export function checkFeatureDecision(body, decision) {
+  const p = validate("FeatureDecisionAnswer", body);
+  if (!isObj(body) || !isObj(body.proposal)) return p;
+  p.push(...proposalRules([body.proposal], "body.proposal").map((x) => x.replace("body.proposal[0]", "body.proposal")));
+  const want = { approve: "approved", not_now: "not_now", ask: "asked" }[decision];
+  if (want && body.proposal.state !== want) p.push(`body.proposal.state: is ${body.proposal.state}, after ${decision}`);
+  if (decision === "approve" && typeof body.statement !== "string") p.push("body.statement: an approval gives the statement of the job a new version, and the answer does not name it");
+  if (decision === "approve" && isObj(body.feature) && body.feature.state !== "approved") p.push("body.feature.state: the feature was approved, and is not");
+  if (decision === "not_now" && isObj(body.feature) && body.feature.backlog !== true) p.push("body.feature.backlog: the feature was left for later, so it is a backlog item");
+  if (decision === "ask" && !Array.isArray(body.told)) p.push("body.told: an ask names who was asked");
   return p;
 }
 

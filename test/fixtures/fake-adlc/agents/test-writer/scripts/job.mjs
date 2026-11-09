@@ -1,5 +1,8 @@
 // A stand-in for the reference test writer's job.mjs: the same command line,
-// no model. It writes one test file for scripts/count.mjs.
+// no model. It writes one test file for scripts/count.mjs. When the message
+// lists approved features ("- F1 (offering Count): <name>. <does>"), it adds one
+// test per feature, named "[F1] <name>" as the message asks; a feature whose
+// name or words say "fails" gets a test no script can pass.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -29,7 +32,11 @@ import { count } from "../scripts/count.mjs";
 test("counts the words in a passage", () => {
   assert.equal(count("one two  three"), 3);
 });
-${revise ? `
+${[...asked.matchAll(/^- (F\d+) \(offering [^)]*\): ([^.]+)\.(.*)$/gm)].map((m) => `
+test(${JSON.stringify(`[${m[1]}] ${m[2].toLowerCase()}`)}, () => {
+  assert.equal(count("one two"), ${/fails/i.test(m[2] + m[3]) ? 99 : 2});
+});
+`).join("")}${revise ? `
 test("an empty passage has no words", () => {
   assert.equal(count(""), 0);
 });
