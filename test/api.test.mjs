@@ -13,8 +13,11 @@ import { STAGES_DOC, STAGE_IDS, API_SCHEMA } from "../lib/standards.mjs";
 const ROLE_IDS = STAGES_DOC.roles.map((r) => r.id);
 const doc = { version: "0.1", organization: { used: { impact: false }, holders: { "code-critic": { kind: "person", name: "Our review team" } } }, projects: { web: { used: { docs: false } } } };
 
-test("the vendored schema is lifecycle API 0.4.7, and stages.json 1.5.0 has 25 stages, Reverse engineering numbered 0", () => {
-  assert.equal(API_SCHEMA.version, "0.4.7");
+test("the vendored schema is lifecycle API 0.4.8, and stages.json 1.6.0 has 25 stages, Reverse engineering numbered 0, and Requirements hands back the spec", () => {
+  assert.equal(API_SCHEMA.version, "0.4.8");
+  assert.equal(STAGES_DOC.version, "1.6.0");
+  assert.equal(STAGES_DOC.stages.find((s) => s.id === "requirements").asset, "Spec");
+  assert.ok(API_SCHEMA.$defs.SpecSummary);
   assert.equal(STAGE_IDS.length, 25);
   assert.equal(STAGE_IDS[0], "reverse-engineering");
 });

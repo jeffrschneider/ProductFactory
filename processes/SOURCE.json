@@ -19,7 +19,8 @@
       "<who>": "the person who started the build",
       "<date>": "the day the build started",
       "<the agent's owner>": "the person who started the build"
-    }
+    },
+    "reworded_for_the_spec": "stages.json 1.6.0: Requirements hands back the spec, and the agent's own files are made from it. Two places said the package is made from the spec, as if the spec were the agent's own files; they now say the package is made from the agent's own files, which the spec writer makes from the spec: the make-the-package phase, and the approve-the-spec -> make-the-package handoff. No phase, handoff key or deviation changed. adopt-existing-code.txt and rebuild-from-as-built-record.txt carry the same two changes."
   },
   "rebuild-from-as-built-record.txt": {
     "what": "Product Factory's own process for a build started from an as-built record (stages.json 1.5.0, the starting point as-built-record): make-a-new-agent.txt with its trigger, goal, three writing phases, one handoff, data and its last policy reworded for an as-built record of code kept elsewhere, built again without taking that code on. Its phases, handoffs and deviations are the same as make-a-new-agent.txt's.",

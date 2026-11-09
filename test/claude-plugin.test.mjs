@@ -90,9 +90,9 @@ test("start_build starts a build from words, and waiting_on_me shows its gate wi
   assert.match(s.words, /Current stage: Requirements, waiting_on_you\./);
   const ws = await m.call("stage", { build: id });
   assert.equal(ws.json.stage, "requirements");
-  assert.deepEqual(ws.json.outputs.map((a) => [a.id, a.version]), [["statement", "v1"]]);
-  assert.match(ws.words, /Statement of the job v1, made: agent: counter 0\.1\.0; offerings: Count/);
-  assert.match(ws.words, /Done when: a package could be built from it/);
+  assert.deepEqual(ws.json.outputs.map((a) => [a.id, a.version]), [["spec", "v1"]]);
+  assert.match(ws.words, /Spec v1, made: product: counter 0\.1\.0; purpose: Counts the words in a passage, for anyone who sends one\./);
+  assert.match(ws.words, /Done when: every feature has requirements and at least one acceptance scenario a test can check/);
   assert.equal(f.store.read(id).status, "waiting");
 
   // The key is never in an answer.
@@ -125,7 +125,7 @@ test("ask returns a stage agent's reply with the action it proposes, and a featu
   assert.match(no.words, /decision approve or not_now/);
   const yes = await m.call("act", { id: p.id, decision: "approve", engineer_said: said });
   assert.equal(yes.error, false, yes.words);
-  assert.equal(yes.words, `Approved feature F1 "Count lines" of counter. The statement of the job is now v2.`);
+  assert.equal(yes.words, `Approved feature F1 "Count lines" of counter. The spec is now v2.`);
   assert.equal((await m.call("waiting_on_me")).json.features.length, 0);
   const twice = await m.call("act", { id: p.id, decision: "approve", engineer_said: said });
   assert.equal(twice.error, true);

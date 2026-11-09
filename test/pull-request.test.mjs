@@ -65,6 +65,11 @@ test("Code opens a Write the scripts pull request; a failing push, then a passin
   assert.match(pr.body, /Nothing here merges by itself/);
   const issued = gh.filesAt(BRANCH);
   for (const p of ["README.md", "agents/counter/AGENTS.md", "agents/counter/build.lock.json", "agents/counter/.adlc/check.mjs", "agents/counter/test/count.test.mjs", SCRIPT, "agents/counter/agent-descriptor.json"]) assert.ok(p in issued, p);
+  // The spec (stages.json 1.6.0) goes on the branch with the agent's files, and the fence pins it like them.
+  for (const p of ["spec.json", "spec.md"]) {
+    assert.ok(`agents/counter/${p}` in issued, p);
+    assert.match(f.store.read(id).work.pr.digests[p] ?? "", /^sha256:/, `${p} is pinned`);
+  }
   assert.equal(calls(f).length, 0, "no harness runs here: the person's own harness works on the pull request");
 
   // Nothing pushed yet: the gate does not run on Product Factory's own commit.
@@ -103,7 +108,8 @@ test("Code opens a Write the scripts pull request; a failing push, then a passin
   assert.equal(c.done_when_met, true);
   assert.equal(c.where.check.title, "Ready for your OK");
   assert.equal(c.where.check.passed, true);
-  assert.match(c.where.check.words, /All 1 tests passed\. Blanking each of the 1 script made the suite fail, as it should\./);
+  // The count test and the kept interface's test (stages.json 1.6.0).
+  assert.match(c.where.check.words, /All 2 tests passed\. Blanking each of the 1 script made the suite fail, as it should\./);
   assert.match(c.where.check.words, /The code critic reviewed the scripts and left nothing open\./);
   assert.match(c.where.check.words, /The security reviewer passed it\./);
   assert.deepEqual(actionNames(b), ["accept", "back_to_test", "back_to_requirements", "stop"]);
@@ -263,7 +269,7 @@ test("Send back to Test: the test writer revises the suite, and the revised test
   gh.push(BRANCH, { [SCRIPT]: RIGHT });
   ({ b } = await polled(f, id));
   assert.equal(stageOf(b, "code").where.check.title, "Ready for your OK");
-  assert.match(stageOf(b, "code").where.check.words, /All 2 tests passed/);
+  assert.match(stageOf(b, "code").where.check.words, /All 3 tests passed/);
   await f.post(`/builds/${id}/actions/accept`);
   b = await f.settled(id);
   assert.equal(stageOf(b, "package").state, "done");
