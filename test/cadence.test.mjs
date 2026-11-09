@@ -155,14 +155,16 @@ test("a setup stage with the same holder and settings as an earlier version read
   // The product: its setup stages and when-needed actions, held to the check.
   let p = (await f.get("/products/counter")).json;
   assert.deepEqual(checkProduct(p, "counter"), []);
-  const one = (list, stage) => list.find((x) => x.stage === stage);
+  // Each setup item also carries its form (0.4.4), tested in setup-actions.test.mjs.
+  const one = (list, stage) => { const { form, ...x } = list.find((i) => i.stage === stage); return x; };
   assert.deepEqual(p.setup.map((x) => x.stage), STAGES_DOC.stages.filter((s) => s.cadence === "setup").map((s) => s.id));
   assert.deepEqual(one(p.setup, "monitor"), { stage: "monitor", name: "Monitor", role: "watcher", project: null, state: "chosen", holder: { kind: "your_agent", name: "Our watcher", handle: "watcher.ops@example.com" }, settings: WATCH, since: "0.1.0", words: "Unchanged since 0.1.0" });
   assert.deepEqual(one(p.setup, "eval"), { stage: "eval", name: "Eval", role: "agent-critic", project: null, state: "not_chosen", holder: null, settings: {}, since: null, words: "Nobody chosen: nobody holds the Agent critic role" });
   assert.equal(one(p.setup, "architecture").role, "solution-architect");
   assert.deepEqual(p.when_needed.map((x) => [x.stage, x.can_run]), [["impact", false], ["retract", false], ["reconfigure", false], ["rollback", false], ["decommission", false]]);
-  assert.match(one(p.when_needed, "rollback").why_not, /^Product Factory does not run the product, so it cannot run Rollback\. The run plan hands it to the runtime you bring, where the reference deployment manager holds it as Deployment manager\.$/);
-  assert.match(one(p.when_needed, "impact").why_not, /^Product Factory does not run Impact yet/);
+  // No runtime is set and nothing is deployed, so each says why in words (0.4.4: setup-actions.test.mjs runs them).
+  assert.match(one(p.when_needed, "rollback").why_not, /^No runtime is set, so there is nothing for Product Factory to ask\./);
+  assert.match(one(p.when_needed, "impact").why_not, /^Nothing of counter is running yet, so there is nothing to check a change against\./);
 
   // A new choice holds from the next version; the builds already started keep theirs.
   assert.equal((await f.put("/roles/watcher", { holder: watcher({ every_minutes: 60 }) })).status, 200);

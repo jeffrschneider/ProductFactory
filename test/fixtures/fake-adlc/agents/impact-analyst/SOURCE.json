@@ -1,0 +1,7 @@
+{
+  "about": "The reference impact analyst's scripts, copied as they are so the tests run the real agent for the Impact action. It calls no model and reaches no network: without LEDGER_TOKEN and MESH_API_BASE it lists what is owed in its report instead of filing it.",
+  "from": "https://github.com/CommonAgent/adlc",
+  "path": "agents/impact-analyst/scripts",
+  "commit": "b1007e02183907e003cf22238497c90415ba69fc",
+  "license": "Apache-2.0"
+}
