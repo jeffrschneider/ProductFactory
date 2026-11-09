@@ -309,6 +309,34 @@ test("Send back to Requirements on a pull request: the spec is revised, then the
   assert.deepEqual(run.events.filter((e) => e.type === "deviated").map((e) => e.action), ["back_to_requirements", "back_to_requirements"]);
 });
 
+test("Send back to Requirements when Code was refused before any pull request: the pull request then opened is watched, and its gate runs", async (t) => {
+  const gh = await fakeGitHub();
+  const f = await factory({ holder: "pull-request", github: gh, doc: { version: "0.1", organization: { used: { review: false, security: false } } } });
+  t.after(async () => { await f.close(); await gh.close(); });
+  gh.branch(BRANCH); // left over from an earlier build, so the pull request cannot be opened
+  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
+  await f.settled(id);
+  await f.post(`/builds/${id}/actions/approve`);
+  let b = await f.settled(id);
+  assert.equal(stageOf(b, "code").state, "refused");
+  assert.equal(gh.pulls.size, 0);
+  assert.equal((await f.post(`/builds/${id}/actions/back_to_requirements`, { changes: "Say what an empty passage counts as." })).status, 200);
+  b = await f.settled(id);
+  await f.post(`/builds/${id}/actions/approve`);
+  b = await f.settled(id);
+  assert.equal(stageOf(b, "code").state, "refused", "the branch is still there");
+  gh.dropBranch(BRANCH);
+  await f.post(`/builds/${id}/actions/resume`);
+  b = await f.settled(id);
+  assert.equal(gh.pulls.size, 1);
+  assert.equal(f.store.read(id).work.back_to_requirements, undefined, "the pull request was opened from the revised spec, so nothing is left to send");
+  gh.push(BRANCH, { [SCRIPT]: RIGHT });
+  const { judged } = await f.runner.poll(id);
+  assert.equal(judged, true, "the gate runs on the push");
+  b = await f.settled(id);
+  assert.equal(stageOf(b, "code").where.check.title, "Ready for your OK");
+});
+
 test("Send back to Requirements when Code was refused on this computer: the spec and suite are revised, and the scripts written so far carry over", async (t) => {
   const f = await factory({ failRounds: 2, rounds: 2 });
   t.after(f.close);
