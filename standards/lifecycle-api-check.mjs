@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Checks a running service against the lifecycle API (lifecycle-api.schema.json,
-// version 0.4.8): every answer against the schema, and the rules a schema cannot
+// version 0.4.9): every answer against the schema, and the rules a schema cannot
 // say. It only reads. It asks who the key belongs to, reads who holds each
 // role and which stages the lifecycle uses, lists the builds, reads each one, reads its tries, and opens the first
 // file each build handed back (every file with --all-files).
@@ -125,6 +125,10 @@
 //   - a build started from an as-built record says where the record was read
 //     (source.record);
 //   - back_to_requirements acts at Code, and asks for the person's words.
+// Version 0.4.9 adds the holder's skills, checked by checkStageWorkspace and
+// wherever a holder is checked. Its rules beyond the schema:
+//   - a holder lists each skill once, by name;
+//   - a holder lists its skills or says why it cannot (skills_note), not both.
 //
 //   node standards/lifecycle-api-check.mjs <base> [--key-file <path>] [--stages <path>] [--limit <n>] [--all-files]
 //
@@ -248,6 +252,15 @@ function checkHolder(h, at, p) {
   if (!isObj(h) || typeof h.kind !== "string") return;
   if (NEEDS_HANDLE.has(h.kind) && !(typeof h.handle === "string" && h.handle.length > 0)) p.push(`${at}: a ${h.kind} holder names its handle`);
   if (NO_HANDLE.has(h.kind) && "handle" in h) p.push(`${at}: ${h.kind === "person" ? "a" : "an"} ${h.kind} holder has no handle`);
+  skillRules(h, at, p);
+}
+
+/** A holder's skills (added in 0.4.9): each once, and never beside the note that says they cannot be seen. */
+function skillRules(h, at, p) {
+  if (!isObj(h)) return;
+  const names = Array.isArray(h.skills) ? h.skills.filter(isObj).map((s) => s.name) : [];
+  for (const n of new Set(names)) if (names.filter((x) => x === n).length > 1) p.push(`${at}.skills: "${n}" is listed more than once`);
+  if (Array.isArray(h.skills) && "skills_note" in h) p.push(`${at}: lists its skills and also says they cannot be seen (skills_note); it says one or the other`);
 }
 
 /**
@@ -549,6 +562,7 @@ export function checkStageWorkspace(body, ids, stage, build, cadences = CADENCES
   if (!isObj(body)) return p;
   if (stage !== undefined && body.stage !== stage) p.push(`body.stage: is ${JSON.stringify(body.stage)}, not the stage asked for (${stage})`);
   cadenceRules(body, "body", cadences, p);
+  skillRules(body.holder, "body.holder", p);
   const b0 = isObj(build) ? build.build : null;
   const same = isObj(b0) && Array.isArray(b0.stages) ? b0.stages.find((s) => isObj(s) && s.stage === body.stage) : null;
   if (same && same.cadence !== undefined && body.cadence !== undefined && same.cadence !== body.cadence) p.push(`body.cadence: is ${JSON.stringify(body.cadence)}, but the build's stage says ${JSON.stringify(same.cadence)}`);
