@@ -10,7 +10,7 @@ with only open-source pieces. [BUILD.md](BUILD.md) lists the milestones after it
 ## What milestone 1 does
 
 `npx product-factory` starts a small service on `127.0.0.1`. It answers the
-lifecycle API (version 0.4.8) that the [adlc console](https://github.com/CommonAgent/adlc-console)
+lifecycle API (version 0.4.9) that the [adlc console](https://github.com/CommonAgent/adlc-console)
 reads, so the console shows your builds and lets you act at your gates. The
 same command starts the console against it and opens it in your browser. It
 keeps everything in files: the lifecycle document and one folder per build.
