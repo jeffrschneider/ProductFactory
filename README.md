@@ -505,6 +505,12 @@ to Test stays in the feature's run. Send back to Requirements takes the version
 back to its spec; each feature still open waits for the revised spec, then
 revises its suite against it and goes on, on the same pull request.
 
+A feature's test writer is asked for that feature's tests alone, with a line
+`feature: F2` in its message and the accepted features' tests attached to add
+to; the reference test writer reads that line from 0.11.0 (CommonAgent/adlc),
+and names each file for the feature. An older one writes the whole spec's tests
+in every feature's run, which still works, with more tests than needed.
+
 A build started before version 2 keeps its own copy of the document in its
 folder, and finishes the old way, in one run.
 
@@ -1006,7 +1012,7 @@ and look the person up in `people.json` by its email.
 
 ## Standards it uses
 
-- Lifecycle API 0.4.9 and stages.json 1.6.0 (CommonAgent/adlc, copies in `standards/`).
+- Lifecycle API 0.4.10 and stages.json 1.6.0 (CommonAgent/adlc, copies in `standards/`).
 - The spec, spec-v1 (CommonAgent/adlc `standards/spec.schema.json`): what Requirements
   hands back. `lib/spec.mjs` is the one place the spec writer's `spec.json` and
   `spec.md` are found and read; it tells the spec apart from any other `spec.json` by

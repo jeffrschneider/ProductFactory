@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import { factory, stageOf, actionNames, codeRun } from "./helpers.mjs";
 import { fakeGitHub } from "./fixtures/fake-github.mjs";
 import { checkBuild } from "adlc-console/lib/contract.mjs";
-import { validate } from "../standards/lifecycle-api-check.mjs";
+import { validate, checkBuild as checkBuildApi, checkBuildList } from "../standards/lifecycle-api-check.mjs";
 import { STAGE_IDS } from "../lib/standards.mjs";
 import { openRun, event, parse } from "../lib/orchestrator.mjs";
 import { upToDate, UP_TO_DATE_FILE } from "../lib/feature-runs.mjs";
@@ -32,6 +32,8 @@ const branchOf = (feature) => `adlc/counter-0.1.0-${feature.toLowerCase()}`;
 const ok = (b) => {
   assert.deepEqual(checkBuild({ build: b }, STAGE_IDS), []);
   assert.deepEqual(validate("BuildAnswer", { build: b }), []);
+  // Lifecycle API 0.4.10: each feature run named once, its actions naming it, and the build's actions and bars naming runs it has.
+  assert.deepEqual(checkBuildApi({ build: b }, STAGE_IDS, b.id), []);
 };
 const runOf = (b, id) => b.feature_runs.find((x) => x.id === id);
 
@@ -75,7 +77,9 @@ test("two features run at once, each with its own pull request; the version wait
   assert.equal(opened.summary, "Making 2 features, each in a run of its own");
   assert.deepEqual(opened.feature_runs.map((x) => x.pull_request?.url), ["https://github.example/acme/agents/pull/1", "https://github.example/acme/agents/pull/2"]);
   // The board shows a card for each run.
-  const card = (await f.get("/builds")).json.builds.find((x) => x.id === id);
+  const listed = (await f.get("/builds")).json;
+  assert.deepEqual(checkBuildList(listed, STAGE_IDS), []);
+  const card = listed.builds.find((x) => x.id === id);
   assert.deepEqual(card.feature_runs.map((x) => [x.id, x.at.stage, x.at.state]), [["F1", "code", "working"], ["F2", "code", "working"]]);
 
   // Both pass the gate: each waits for your OK, and each action names its run.
