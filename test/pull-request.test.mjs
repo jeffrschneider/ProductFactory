@@ -8,7 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { factory, stageOf, actionNames } from "./helpers.mjs";
+import { factory, stageOf, actionNames, codeRun, codeDir } from "./helpers.mjs";
 import { fakeGitHub } from "./fixtures/fake-github.mjs";
 import { checkBuild } from "adlc-console/lib/contract.mjs";
 import { validate } from "../standards/lifecycle-api-check.mjs";
@@ -68,7 +68,7 @@ test("Code opens a Write the scripts pull request; a failing push, then a passin
   // The spec (stages.json 1.6.0) goes on the branch with the agent's files, and the fence pins it like them.
   for (const p of ["spec.json", "spec.md"]) {
     assert.ok(`agents/counter/${p}` in issued, p);
-    assert.match(f.store.read(id).work.pr.digests[p] ?? "", /^sha256:/, `${p} is pinned`);
+    assert.match(codeRun(f, id).work.pr.digests[p] ?? "", /^sha256:/, `${p} is pinned`);
   }
   assert.equal(calls(f).length, 0, "no harness runs here: the person's own harness works on the pull request");
 
@@ -119,7 +119,7 @@ test("Code opens a Write the scripts pull request; a failing push, then a passin
   const bytes = await f.call("GET", `/builds/${id}/files?path=${encodeURIComponent(handed.path)}`, undefined, { raw: true });
   assert.match(bytes.text, /split/);
   // The security reviewer was told the owner's spending limit.
-  const asked = readFileSync(join(f.store.folder(id), "stages", "code", "pr", good.slice(0, 12), "review", "security", "job", "message.txt"), "utf8");
+  const asked = readFileSync(join(codeDir(f, id), "stages", "code", "pr", good.slice(0, 12), "review", "security", "job", "message.txt"), "utf8");
   assert.match(asked, /^spending limit: 10 USD per day$/m);
 
   // Your OK: the scripts from that exact commit, the pull request merged there, and Package packs them.
@@ -138,9 +138,10 @@ test("Code opens a Write the scripts pull request; a failing push, then a passin
   assert.deepEqual(actionNames(b), ["approve", "stop"]);
   await f.post(`/builds/${id}/actions/approve`);
   await f.settled(id);
-  const run = f.store.read(id).run;
+  const run = codeRun(f, id).run;
   assert.ok(run.approvals.some((a) => a.phase === "write-the-scripts" && a.text === `OK'd in the console at ${good.slice(0, 7)}`));
-  assert.equal(run.outcome, "ended");
+  assert.equal(run.outcome, "completed", "the feature's run closed with your OK");
+  assert.equal(f.store.read(id).run.outcome, "ended", "the version's run ended before deploy-the-agent");
 
   // The token is read from its variable each time and never kept.
   assert.ok(!readFileSync(join(f.store.folder(id), "build.json"), "utf8").includes(gh.token));
@@ -167,8 +168,8 @@ test("the fence refuses a change outside what the coding step may change, and no
     `${SCRIPT} names collector.badhost.io, which the spec does not declare`,
   ]);
   assert.match(c.where.check.words, /Nothing was run\. Fix these and push again\./);
-  assert.ok(!existsSync(join(f.store.folder(id), "stages", "code", "pr", sha.slice(0, 12), "build")), "nothing refused is ever run");
-  assert.equal(f.store.read(id).status, "working");
+  assert.ok(!existsSync(join(codeDir(f, id), "stages", "code", "pr", sha.slice(0, 12), "build")), "nothing refused is ever run");
+  assert.equal(codeRun(f, id).status, "working");
   // A token that may not post commit statuses: the gate's word goes on the pull request as a comment only.
   assert.equal(gh.statuses.length, 0);
   assert.equal(gh.comments.length, 1);
@@ -193,14 +194,14 @@ test("a push after the gate passed: your OK waits for the gate on the newest com
   // A newer commit that fails takes the OK away until one passes.
   const failing = gh.push(BRANCH, { [SCRIPT]: WRONG });
   ({ b } = await polled(f, id));
-  assert.equal(f.store.read(id).status, "working");
+  assert.equal(codeRun(f, id).status, "working");
   assert.equal(stageOf(b, "code").state, "working");
   assert.deepEqual(actionNames(b), ["back_to_test", "back_to_requirements", "stop"]);
   assert.equal(stageOf(b, "code").where.head, failing.slice(0, 7));
   assert.ok(b.log.some((e) => /did not pass the gate, so your OK waits for one that does/.test(e.said)));
   gh.push(BRANCH, { [SCRIPT]: RIGHT });
   ({ b } = await polled(f, id));
-  assert.equal(f.store.read(id).status, "waiting");
+  assert.equal(codeRun(f, id).status, "waiting");
   assert.equal((await f.post(`/builds/${id}/actions/accept`)).status, 200);
   b = await f.settled(id);
   assert.equal(stageOf(b, "package").state, "done");
@@ -216,7 +217,7 @@ test("a reviewer that leaves a finding open fails the gate, quoting it", async (
   assert.equal(check.passed, false);
   assert.deepEqual(check.items, ["The code critic: `scripts/count.mjs` the script says TODO-CRITIC it is not finished."]);
   assert.match(check.words, /The security reviewer passed it\./);
-  assert.equal(f.store.read(id).status, "working");
+  assert.equal(codeRun(f, id).status, "working");
 });
 
 test("Send back to Test: the test writer revises the suite, and the revised tests go on the same pull request", async (t) => {
@@ -240,7 +241,7 @@ test("Send back to Test: the test writer revises the suite, and the revised test
   const testStage = stageOf(b, "test");
   assert.equal(testStage.state, "done");
   assert.equal(testStage.rounds[0].verdict, "Suite revised");
-  const records = join(f.store.folder(id), "stages", "test", "jobs", "r2", "message.txt");
+  const records = join(codeDir(f, id), "stages", "test", "jobs", "r2", "message.txt");
   const said = readFileSync(records, "utf8");
   assert.match(said, /^Revise the suite\.\n\nSay that an empty passage has no words\.\n\nThe coding agent said, in records\/conflict\.md:\nThe suite never says/);
   assert.equal(stageOf(b, "requirements").state, "done", "the spec stands as approved");
@@ -251,7 +252,7 @@ test("Send back to Test: the test writer revises the suite, and the revised test
   assert.match(files["agents/counter/test/count.test.mjs"], /an empty passage has no words/);
   assert.ok(!("agents/counter/records/conflict.md" in files));
   const lock = JSON.parse(files["agents/counter/build.lock.json"]);
-  const pr = f.store.read(id).work.pr;
+  const pr = codeRun(f, id).work.pr;
   assert.equal(lock.digests["test/count.test.mjs"], pr.digests["test/count.test.mjs"], "the lock and the fence agree");
   const revised = gh.comments.at(-1).body;
   assert.match(revised, /^\*\*The tests were revised\*\*/);
@@ -276,11 +277,12 @@ test("Send back to Test: the test writer revises the suite, and the revised test
   await f.post(`/builds/${id}/actions/approve`);
   await f.settled(id);
 
-  // The run records the document's way back from Code, in the person's words, and the spec's gate answered again.
-  const run = f.store.read(id).run;
-  assert.deepEqual(run.deviations.map((d) => [d.key, d.from, d.to, d.text]), [["conflict", "write-the-scripts", "approve-the-spec", "Say that an empty passage has no words."]]);
-  assert.equal(run.approvals.filter((a) => a.phase === "approve-the-spec").length, 2);
-  assert.equal(run.outcome, "ended");
+  // The feature's run records its way back from Code to its suite, in the person's words; the version's spec was approved once.
+  const run = codeRun(f, id).run;
+  assert.deepEqual(run.deviations.map((d) => [d.key, d.from, d.to, d.text]), [["conflict", "write-the-scripts", "write-the-suite", "Say that an empty passage has no words."]]);
+  assert.equal(f.store.read(id).run.approvals.filter((a) => a.phase === "approve-the-spec").length, 1);
+  assert.equal(run.outcome, "completed");
+  assert.equal(f.store.read(id).run.outcome, "ended");
 });
 
 test("Code on a pull request stops and says so when the token is not set, and the settings refuse a token value", async (t) => {

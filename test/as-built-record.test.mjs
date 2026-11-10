@@ -23,7 +23,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { factory, tempDir, stageOf, actionNames } from "./helpers.mjs";
+import { factory, tempDir, stageOf, actionNames, codeRun, codeDir } from "./helpers.mjs";
 import { fakeGitHub } from "./fixtures/fake-github.mjs";
 import { checkBuild as consoleCheckBuild } from "adlc-console/lib/contract.mjs";
 import { checkBuild, checkArtifacts, checkFeatures, checkStageWorkspace, AS_BUILT_PARTS, run as apiCheck, stageIds, stageRoles, stageFacts } from "../standards/lifecycle-api-check.mjs";
@@ -134,7 +134,7 @@ test("start from an as-built record: Requirements first, the record brought, beh
   assert.equal((await f.post(`/builds/${id}/actions/approve`)).status, 200);
   b = await f.settled(id);
   ok(b);
-  const job = join(f.store.folder(id), "stages", "test", "jobs", "r1");
+  const job = join(codeDir(f, id), "stages", "test", "jobs", "r1");
   const said = readFileSync(join(job, "message.txt"), "utf8");
   assert.match(said, /^Write the suite for the spec and the agent's files attached\. The code is written fresh from them/);
   assert.match(said, /Gaps the record marked: what the code does when it runs: no test command was run\./);
@@ -250,7 +250,7 @@ test("Send back to Requirements on a pull request: the spec is revised, then the
   assert.deepEqual(actionNames(b), ["accept", "back_to_test", "back_to_requirements", "stop"]);
   const offered = b.actions.find((a) => a.name === "back_to_requirements");
   assert.deepEqual([offered.stage, offered.label, offered.needs], ["code", "Send back to Requirements", [{ name: "changes", label: "What should change in the spec, for the spec writer", kind: "words" }]]);
-  const before = { ...f.store.read(id).work.pr.digests };
+  const before = { ...codeRun(f, id).work.pr.digests };
 
   // It needs words; with them, Requirements opens again as an ask for changes.
   assert.equal((await f.post(`/builds/${id}/actions/back_to_requirements`, {})).status, 400);
@@ -273,7 +273,7 @@ test("Send back to Requirements on a pull request: the spec is revised, then the
   assert.equal((await f.post(`/builds/${id}/actions/approve`)).status, 200);
   b = await f.settled(id);
   ok(b);
-  const said = readFileSync(join(f.store.folder(id), "stages", "test", "jobs", "r2", "message.txt"), "utf8");
+  const said = readFileSync(join(codeDir(f, id), "stages", "test", "jobs", "r2", "message.txt"), "utf8");
   assert.match(said, /^Revise the suite\.\n\nThe spec was revised at Requirements: the build was sent back from Code/);
   assert.match(said, /Declare the address of the counting service as a setting\./);
   assert.equal(stageOf(b, "test").rounds[0].verdict, "Suite revised");
@@ -285,7 +285,7 @@ test("Send back to Requirements on a pull request: the spec is revised, then the
   assert.match(files["agents/counter/test/count.test.mjs"], /an empty passage has no words/);
   assert.equal(files[SCRIPT], RIGHT, "the coding agent's script is as it was");
   const lock = JSON.parse(files["agents/counter/build.lock.json"]);
-  const pr = f.store.read(id).work.pr;
+  const pr = codeRun(f, id).work.pr;
   assert.deepEqual(lock.digests, pr.digests, "the lock and the fence agree");
   assert.notEqual(pr.digests["skills/count/SKILL.md"], before["skills/count/SKILL.md"]);
   const comment = gh.comments.at(-1).body;
@@ -307,13 +307,15 @@ test("Send back to Requirements on a pull request: the spec is revised, then the
   b = await f.settled(id);
   assert.equal(stageOf(b, "package").state, "done");
 
-  // The run records both ways back, in the person's words, as deviations.
+  // The version's run records both ways back, in the person's words, as deviations: from its features to the spec's gate, and to the spec writer.
   const run = f.store.read(id).run;
   assert.deepEqual(run.deviations.map((d) => [d.key, d.from, d.to, d.text]), [
-    ["conflict", "write-the-scripts", "approve-the-spec", "Declare the address of the counting service as a setting."],
+    ["conflict", "gather-the-features", "approve-the-spec", "Declare the address of the counting service as a setting."],
     ["changes", "approve-the-spec", "write-the-spec", "Declare the address of the counting service as a setting."],
   ]);
   assert.deepEqual(run.events.filter((e) => e.type === "deviated").map((e) => e.action), ["back_to_requirements", "back_to_requirements"]);
+  // The feature's run went back to its suite with the revised spec, and on to Code, on the same pull request.
+  assert.deepEqual(codeRun(f, id).run.deviations.map((d) => [d.key, d.from, d.to]), [["conflict", "write-the-scripts", "write-the-suite"]]);
 });
 
 test("Send back to Requirements when Code was refused before any pull request: the pull request then opened is watched, and its gate runs", async (t) => {
@@ -336,7 +338,7 @@ test("Send back to Requirements when Code was refused before any pull request: t
   await f.post(`/builds/${id}/actions/resume`);
   b = await f.settled(id);
   assert.equal(gh.pulls.size, 1);
-  assert.equal(f.store.read(id).work.back_to_requirements, undefined, "the pull request was opened from the revised spec, so nothing is left to send");
+  assert.equal(codeRun(f, id).work.back_to_requirements, undefined, "the pull request was opened from the revised spec, so nothing is left to send");
   gh.push(BRANCH, { [SCRIPT]: RIGHT });
   const { judged } = await f.runner.poll(id);
   assert.equal(judged, true, "the gate runs on the push");
@@ -363,7 +365,7 @@ test("Send back to Requirements when Code was refused on this computer: the spec
   const code = stageOf(b, "code");
   assert.equal(code.state, "waiting_on_you", "the harness passes the revised suite");
   assert.ok(code.log.some((e) => e.said === "The scripts written before the build went back to Requirements are in it, over the stubs: scripts/count.mjs."));
-  assert.equal(f.store.read(id).work.back_to_requirements, undefined);
+  assert.equal(codeRun(f, id).work.back_to_requirements, undefined);
   const run = f.store.read(id).run;
   assert.deepEqual(run.deviations.map((d) => d.key), ["conflict", "changes"]);
 });

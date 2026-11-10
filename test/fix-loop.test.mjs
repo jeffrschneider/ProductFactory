@@ -9,7 +9,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { factory, stageOf, actionNames, tempDir, FIX_HARNESS } from "./helpers.mjs";
+import { factory, stageOf, actionNames, tempDir, FIX_HARNESS, codeRun, codeDir } from "./helpers.mjs";
 import { fakeGitHub } from "./fixtures/fake-github.mjs";
 import { checkBuild } from "adlc-console/lib/contract.mjs";
 import { validate } from "../standards/lifecycle-api-check.mjs";
@@ -54,7 +54,7 @@ test("the fix loop: the harness writes the wrong script, the gate's findings go 
   const { gh, f, id, b } = await looped(t);
   ok(b);
   const code = stageOf(b, "code");
-  assert.equal(f.store.read(id).status, "waiting");
+  assert.equal(codeRun(f, id).status, "waiting");
   assert.equal(code.state, "waiting_on_you");
   assert.deepEqual(actionNames(b), ["accept", "back_to_test", "back_to_requirements", "stop"]);
   assert.equal(code.holder.name, "your coding harness (node), run by Product Factory on a pull request (acme/agents)");
@@ -63,7 +63,7 @@ test("the fix loop: the harness writes the wrong script, the gate's findings go 
   // Two rounds, each one round of Code: what was sent, how long it took, what the harness said, the commit, the gate's verdict.
   const rounds = fixRounds(b);
   assert.deepEqual(rounds.map((x) => [x.label, x.verdict, x.back]), [["Fix round 1", "The tests did not pass", true], ["Fix round 2", "Ready for your OK", false]]);
-  const kept = f.store.read(id).stages.code.rounds.filter((x) => x.fix);
+  const kept = codeRun(f, id).stages.code.rounds.filter((x) => x.fix);
   assert.deepEqual(kept.map((x) => x.fix.round), [1, 2]);
   assert.equal(kept[0].fix.sent, FIX_FIRST);
   assert.match(kept[1].fix.sent, /This is fix round 2/);
@@ -90,7 +90,7 @@ test("the fix loop: the harness writes the wrong script, the gate's findings go 
   assert.match(c[0].prompt, /AGENTS\.md/);
   assert.match(c[0].prompt, /`node \.adlc\/check\.mjs` exits 0/);
   assert.match(c[0].prompt, /records\/conflict\.md/);
-  const run1 = f.store.read(id).work.pr.runs[0];
+  const run1 = codeRun(f, id).work.pr.runs[0];
   assert.equal(c[1].prompt, fixPrompt({ round: 2, last: run1 }));
   assert.ok(c[1].prompt.includes(`The tests did not pass\n\n${run1.summary}\n\nItems:\n- counts the words in a passage`));
   assert.deepEqual(c.map((x) => x.round), ["1", "2"]);
@@ -101,8 +101,8 @@ test("the fix loop: the harness writes the wrong script, the gate's findings go 
   assert.ok(c.every((x) => !x.anthropic_key), "code.env_remove goes for the fix loop too");
   assert.ok(c.every((x) => !x.model_key), "nor the model key");
   // The round's folder is the branch's build folder whole (the suite with any test/support/ files beside it), before the harness runs.
-  const atIssue = Object.keys(gh.filesAt(f.store.read(id).work.pr.issued_sha)).filter((p) => p.startsWith("agents/counter/")).map((p) => p.slice("agents/counter/".length)).sort();
-  assert.deepEqual(filesIn(join(f.store.folder(id), "stages", "code", "fix", "1", "build")), atIssue);
+  const atIssue = Object.keys(gh.filesAt(codeRun(f, id).work.pr.issued_sha)).filter((p) => p.startsWith("agents/counter/")).map((p) => p.slice("agents/counter/".length)).sort();
+  assert.deepEqual(filesIn(join(codeDir(f, id), "stages", "code", "fix", "1", "build")), atIssue);
   // The log and the activity feed say each round.
   assert.ok(code.log.some((e) => /^Fix round 2: your coding harness works on [0-9a-f]{7}, with the gate's findings on [0-9a-f]{7}\.$/.test(e.said)));
 
@@ -117,7 +117,7 @@ test("the fix loop: the harness writes the wrong script, the gate's findings go 
 test("the fix loop stops on a conflict and waits on you, offering Send back to Test and Send back to Requirements; after the revision it starts again from round 1", async (t) => {
   const { gh, f, id, b, setMode } = await looped(t, { mode: "conflict", doc: { version: "0.1", organization: { used: { review: false, security: false } } } });
   ok(b);
-  assert.equal(f.store.read(id).status, "refused");
+  assert.equal(codeRun(f, id).status, "refused");
   assert.deepEqual(actionNames(b), ["back_to_test", "back_to_requirements", "stop"]);
   const code = stageOf(b, "code");
   assert.equal(code.state, "refused");
@@ -148,7 +148,7 @@ test("the fix loop stops on a conflict and waits on you, offering Send back to T
 test("a security refusal stops the fix loop and waits on you, saying the spec may need to change", async (t) => {
   const { f, id, b } = await looped(t, { mode: "security" });
   ok(b);
-  assert.equal(f.store.read(id).status, "refused");
+  assert.equal(codeRun(f, id).status, "refused");
   assert.deepEqual(actionNames(b), ["back_to_requirements", "resume", "stop"]);
   const code = stageOf(b, "code");
   assert.equal(fixRounds(b).at(-1).verdict, "The security reviewer refused");
@@ -164,12 +164,12 @@ test("a security refusal stops the fix loop and waits on you, saying the spec ma
 test("with the rounds used up, Code is refused with the last gate run's words, offering more rounds, Send back to Test, Send back to Requirements and Stop", async (t) => {
   const { gh, f, id, b, setMode } = await looped(t, { mode: "never", rounds: 2 });
   ok(b);
-  assert.equal(f.store.read(id).status, "refused");
+  assert.equal(codeRun(f, id).status, "refused");
   assert.deepEqual(actionNames(b), ["resume", "back_to_test", "back_to_requirements", "stop"]);
   assert.equal(b.actions[0].label, "Give it more rounds");
   assert.deepEqual(fixRounds(b).map((x) => x.verdict), ["The tests did not pass", "The tests did not pass"]);
   const said = stageOf(b, "code").handed_back.words[0];
-  const last = f.store.read(id).work.pr.runs.at(-1);
+  const last = codeRun(f, id).work.pr.runs.at(-1);
   assert.ok(said.startsWith(`The gate still does not pass after 2 fix rounds. What the last gate run on ${last.sha.slice(0, 7)} said:\n\nThe tests did not pass\n\n${last.summary}\n\nItems:\n- counts the words in a passage`));
   assert.equal(calls(f).length, 2);
   assert.equal(b.summary, "Refused at Code: waiting on you");
@@ -188,13 +188,13 @@ test("with the rounds used up, Code is refused with the last gate run's words, o
 test("a round whose harness changes nothing commits nothing: the gate judges the branch's newest commit once, and then its word stands", async (t) => {
   const { gh, f, id, b } = await looped(t, { mode: "idle", rounds: 2 });
   ok(b);
-  const issued = f.store.read(id).work.pr.issued_sha;
+  const issued = codeRun(f, id).work.pr.issued_sha;
   assert.equal(gh.head(BRANCH), issued, "nothing was committed");
   const rounds = fixRounds(b);
   assert.deepEqual(rounds.map((x) => x.verdict), ["The tests did not pass", "Nothing changed"]);
   assert.match(rounds[0].words, new RegExp(`It changed nothing under scripts/, so nothing was committed; the gate runs on ${issued.slice(0, 7)}, which it had not judged\\.`));
   assert.match(rounds[1].words, new RegExp(`It changed nothing under scripts/, so nothing was committed, and the gate's word on ${issued.slice(0, 7)} stands\\.`));
-  assert.equal(f.store.read(id).work.pr.runs.length, 1);
+  assert.equal(codeRun(f, id).work.pr.runs.length, 1);
   assert.deepEqual(actionNames(b), ["resume", "back_to_test", "back_to_requirements", "stop"]);
 });
 
@@ -210,7 +210,7 @@ test("what the harness changes outside scripts/ is not committed, and the round'
   const rounds = fixRounds(b);
   assert.equal(rounds[0].verdict, "The tests did not pass", "the fence had nothing to refuse");
   assert.match(rounds[0].words, /Not committed, as a fix round commits only scripts\/ and records\/conflict\.md: notes\.txt, records\/account\.md, test\/count\.test\.mjs\./);
-  assert.deepEqual(f.store.read(id).stages.code.rounds.find((x) => x.fix).fix.left_out, ["notes.txt", "records/account.md", "test/count.test.mjs"]);
+  assert.deepEqual(codeRun(f, id).stages.code.rounds.find((x) => x.fix).fix.left_out, ["notes.txt", "records/account.md", "test/count.test.mjs"]);
 });
 
 test("with no code.harness on a pull request nothing changes: no harness runs, and the build waits for your harness's push", async (t) => {
@@ -229,7 +229,7 @@ test("with no code.harness on a pull request nothing changes: no harness runs, a
   assert.equal(stageOf(b, "code").rounds.length, 0);
   assert.equal(calls(f).length, 0);
   assert.equal(gh.log(BRANCH).length, 2, "the hand-off's commit on main's, and nothing more");
-  assert.equal(f.store.read(id).work.pr.fix, undefined);
+  assert.equal(codeRun(f, id).work.pr.fix, undefined);
   gh.push(BRANCH, { [SCRIPT]: RIGHT });
   await f.runner.poll(id);
   assert.equal(stageOf(await f.settled(id), "code").state, "waiting_on_you");
@@ -238,13 +238,13 @@ test("with no code.harness on a pull request nothing changes: no harness runs, a
 test("Stop works mid-round: the harness is stopped, nothing is committed, and the round says so", async (t) => {
   const { gh, f, id } = await looped(t, { mode: "sleep", wait: false });
   await harnessCalled(f, 1);
-  const issued = f.store.read(id).work.pr.issued_sha;
+  const issued = codeRun(f, id).work.pr.issued_sha;
   const started = Date.now();
   assert.equal((await f.post(`/builds/${id}/actions/stop`)).status, 200);
   const b = await f.settled(id);
   ok(b);
   assert.ok(Date.now() - started < 60_000, "the harness did not run on");
-  assert.equal(f.store.read(id).status, "stopped");
+  assert.equal(codeRun(f, id).status, "stopped");
   assert.equal(b.summary, "Stopped at Code");
   assert.equal(gh.head(BRANCH), issued, "nothing was committed");
   const last = fixRounds(b).at(-1);

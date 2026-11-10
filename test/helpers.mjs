@@ -102,4 +102,9 @@ export const codeRun = (f, id, feature = null) => {
   const runs = b?.feature_runs ?? [];
   return (feature ? runs.find((x) => x.feature === feature) : runs.at(-1)) ?? b;
 };
+/** The folder that run keeps its files in: the feature run's own (runs/<id>/), or the build's. */
+export const codeDir = (f, id, feature = null) => {
+  const r = codeRun(f, id, feature);
+  return r.feature ? join(f.store.folder(id), "runs", r.id) : f.store.folder(id);
+};
 export const actionNames = (build) => build.actions.map((a) => a.name);

@@ -12,7 +12,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { factory, tempDir, stageOf } from "./helpers.mjs";
+import { factory, tempDir, stageOf, codeDir } from "./helpers.mjs";
 import { checkArtifacts, checkBuild, checkFeatures, checkStageWorkspace, validate } from "../standards/lifecycle-api-check.mjs";
 import { STAGE_IDS } from "../lib/standards.mjs";
 import { specPieces, specSummary, specFeatures, specOfBuild, specFilesOf, isSpec } from "../lib/spec.mjs";
@@ -155,14 +155,14 @@ test("Requirements hands back the spec: its features come to you as proposed, Te
   // Approving the spec approves the feature; Test is given the spec (spec.json) with the agent's own files.
   await f.post(`/builds/${id}/actions/approve`);
   b = await f.settled(id);
-  const attached = JSON.parse(readFileSync(join(f.store.folder(id), "stages", "test", "jobs", "r1", "attached.json"), "utf8"));
+  const attached = JSON.parse(readFileSync(join(codeDir(f, id), "stages", "test", "jobs", "r1", "attached.json"), "utf8"));
   assert.deepEqual(attached, ["spec.json", "agent-descriptor.json", "agent-runtime-requirements.json", "plugin.json", "SKILL.md"]);
   assert.match(stageOf(b, "test").given, /^The spec from Requirements, as you approved it \(spec\.json\), and the agent's own files made from it at Design/);
   const suite = b.artifacts.find((a) => a.id === "suite");
-  assert.deepEqual(suite.summary.tests, ["counts the words in a passage", "[F1.A1] count words", "[I1] count is exported, as the spec keeps it"]);
+  assert.deepEqual(suite.summary.tests, ["[F1.A1] count words", "[I1] count is exported, as the spec keeps it"]);
 
   // The hand-off laid the spec out in the build folder and pinned it; AGENTS.md says to read it first.
-  const folder = join(f.store.folder(id), "stages", "code", "handoff", "work", "build");
+  const folder = join(codeDir(f, id), "stages", "code", "handoff", "work", "build");
   const lock = JSON.parse(readFileSync(join(folder, "build.lock.json"), "utf8"));
   for (const p of ["spec.json", "spec.md", "agent-descriptor.json"]) assert.equal(lock.digests[p], digestOf(readFileSync(join(folder, p))), `${p} is pinned`);
   assert.deepEqual(JSON.parse(readFileSync(join(folder, "spec.json"), "utf8")).features.map((x) => x.id), ["F1"]);
@@ -177,7 +177,7 @@ test("Requirements hands back the spec: its features come to you as proposed, Te
   const row = m.features.find((x) => x.id === "F1");
   assert.deepEqual(row.tests, ["[F1.A1] count words"]);
   assert.deepEqual([row.cells.spec.state, row.cells.spec.link.artifact, row.cells.tests.words, row.cells.code.words], ["done", "spec", "Tests 1/1", "Passes 1/1"]);
-  assert.deepEqual(m.unmapped, ["counts the words in a passage"]);
+  assert.deepEqual(m.unmapped, [], "the feature's test writer wrote that feature's tests alone");
 });
 
 test("a spec writer from before stages.json 1.6.0 hands back no spec: the spec reads not made, the build goes on from the agent's own files, and the hand-off is given none", async (t) => {
@@ -193,9 +193,9 @@ test("a spec writer from before stages.json 1.6.0 hands back no spec: the spec r
   assert.equal(b.artifacts.find((a) => a.id === "statement").state, "made");
   await f.post(`/builds/${id}/actions/approve`);
   b = await f.settled(id);
-  const attached = JSON.parse(readFileSync(join(f.store.folder(id), "stages", "test", "jobs", "r1", "attached.json"), "utf8"));
+  const attached = JSON.parse(readFileSync(join(codeDir(f, id), "stages", "test", "jobs", "r1", "attached.json"), "utf8"));
   assert.ok(!attached.includes("spec.json"));
-  const folder = join(f.store.folder(id), "stages", "code", "handoff", "work", "build");
+  const folder = join(codeDir(f, id), "stages", "code", "handoff", "work", "build");
   const lock = JSON.parse(readFileSync(join(folder, "build.lock.json"), "utf8"));
   assert.equal(lock.digests["spec.json"], undefined);
   assert.equal(stageOf(b, "code").rounds.at(-1).verdict, "The suite passes");

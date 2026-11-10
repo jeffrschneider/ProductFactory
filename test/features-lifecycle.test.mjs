@@ -143,7 +143,7 @@ test("each stage carries its features: Requirements, Test with untied tests, Cod
   assert.equal((await f.get(`/builds/${id}/stages/package`)).json.features, undefined);
 });
 
-test("a feature approved after the suite has no test: to do at Test and at Code", async (t) => {
+test("a feature approved after the spec starts its own run then: its tests and its code, beside the first feature's", async (t) => {
   const f = await factory({ rounds: 1 });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
@@ -153,21 +153,25 @@ test("a feature approved after the suite has no test: to do at Test and at Code"
   await f.post(`/builds/${id}/features/F1/approve`, { proposal: p1.proposal });
   await f.post(`/builds/${id}/actions/approve`);
   await f.settled(id);
+  assert.deepEqual(f.store.read(id).feature_runs.map((x) => [x.feature, x.status]), [["F1", "waiting"]]);
   const p2 = await say("Add a feature: Lines - Says how many lines there are.");
   await f.post(`/builds/${id}/features/F2/approve`, { proposal: p2.proposal });
+  // Its run starts at its approval, while the first feature waits for your OK.
+  assert.deepEqual(f.store.read(id).feature_runs.map((x) => x.feature), ["F1", "F2"]);
+  await f.settled(id);
 
   const b = (await f.get(`/builds/${id}`)).json;
   assert.deepEqual(checkBuild(b, STAGE_IDS, id), []);
-  assert.deepEqual(stageIn(b.build, "test").features, { covered: 1, total: 2, words: "1 of 2 features" });
+  assert.deepEqual(stageIn(b.build, "test").features, { covered: 2, total: 2, words: "2 of 2 features" });
   const tst = (await f.get(`/builds/${id}/stages/test`)).json.features;
-  assert.deepEqual(tst.items.map((x) => [x.id, x.state, x.words, x.tests]), [["F1", "done", "1 test", ["[F1] count words"]], ["F2", "to_do", "No test yet: to do", []]]);
-  assert.deepEqual(tst.untied, { words: "1 test not tied to a feature", items: ["counts the words in a passage"] });
+  assert.deepEqual(tst.items.map((x) => [x.id, x.state, x.words, x.tests]), [["F1", "done", "1 test", ["[F1] count words"]], ["F2", "done", "1 test", ["[F2] lines"]]]);
+  assert.equal(tst.untied, undefined, "each feature's test writer wrote that feature's tests alone");
   const code = (await f.get(`/builds/${id}/stages/code`)).json.features;
-  assert.deepEqual(code.items.map((x) => [x.id, x.state, x.words]), [["F1", "done", "1 of 1 passing"], ["F2", "to_do", "No test checks it yet"]]);
+  assert.deepEqual(code.items.map((x) => [x.id, x.state, x.words]), [["F1", "done", "1 of 1 passing"], ["F2", "done", "1 of 1 passing"]]);
   assert.equal(stageIn(b.build, "review").features, undefined, "the code critic is not asked on this computer, so Review has none");
   const m = (await f.get(`/builds/${id}/features`)).json;
   assert.deepEqual(checkFeatures(m, id), []);
-  assert.deepEqual(m.unmapped, ["counts the words in a passage"]);
+  assert.deepEqual(m.unmapped, []);
   assert.equal(m.backfill.offered, false, "the product has features already");
 });
 
