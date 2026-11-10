@@ -8,12 +8,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { factory, stageOf, actionNames } from "./helpers.mjs";
+import { factory, stageOf, actionNames, FAKE_ADLC } from "./helpers.mjs";
 import { fakeGitHub } from "./fixtures/fake-github.mjs";
 import { createKeys, KEYS_FILE } from "../lib/people.mjs";
 import { checkBuild } from "adlc-console/lib/contract.mjs";
 import { validate, checkProducts, checkProduct, checkStageWorkspace, checkMessages, checkMessageReply } from "../standards/lifecycle-api-check.mjs";
 import { STAGE_IDS } from "../lib/standards.mjs";
+import { holderWithSkills } from "../lib/view.mjs";
 
 const BRANCH = "adlc/counter-0.1.0";
 const SCRIPT = "agents/counter/scripts/count.mjs";
@@ -281,4 +282,39 @@ test("teams rules: anyone who may see the build may talk to its agents, and a pr
   assert.deepEqual(yes.json.reply.proposes, { action: "changes", needs: { changes: "Change the price to free." } });
   // Without a key, nobody is answered.
   assert.equal((await f.call("POST", "/products/counter/stages/requirements/messages", { text: "x" }, { auth: null })).status, 401);
+});
+
+test("0.4.9: a stage's holder lists its skills: a reference agent's from the adlc checkout, none without a skills folder, one sentence for your coding harness", async (t) => {
+  const { gh, f, id } = await counter(t);
+  // The reference spec writer: each skill by its frontmatter name and description, and its SKILL.md as written.
+  const req = (await ws(f, id, "requirements")).json;
+  const at = (slug) => readFileSync(join(FAKE_ADLC, "agents", "spec-writer", "skills", slug, "SKILL.md"), "utf8");
+  assert.deepEqual(req.holder.skills, [
+    { name: "ask-what-is-missing", description: "last, to put the open questions to the person", text: at("ask-what-is-missing") },
+    { name: "write-a-spec", description: "the whole job, when someone asks for a spec of an agent", text: at("write-a-spec") },
+  ]);
+  assert.equal(req.holder.skills_note, undefined);
+  await toCodeGate(f, gh, id);
+  // Your coding harness keeps its own skills, so one sentence says so and none are listed.
+  const code = (await ws(f, id, "code")).json;
+  assert.equal(code.holder.kind, "your_agent");
+  assert.equal(code.holder.skills, undefined);
+  assert.equal(code.holder.skills_note, "Its skills are whatever your coding harness has installed; Product Factory cannot see them.");
+  // The stand-in code critic has no skills folder, so it lists none.
+  const review = (await ws(f, id, "review")).json;
+  assert.equal(review.holder.kind, "reference_agent");
+  assert.deepEqual(review.holder.skills, []);
+  // The build's stages leave the skills out, where every stage would repeat them.
+  const b = (await f.get(`/builds/${id}`)).json.build;
+  assert.ok(b.stages.every((s) => !s.holder || (s.holder.skills === undefined && s.holder.skills_note === undefined)));
+});
+
+test("0.4.9: a holder Product Factory cannot read skills for is left as it is", () => {
+  const ref = { kind: "reference_agent", name: "spec-writer", role: "spec-writer" };
+  assert.deepEqual(holderWithSkills(ref, null), ref);
+  assert.deepEqual(holderWithSkills({ ...ref, name: "nobody", role: "requester" }, FAKE_ADLC), { ...ref, name: "nobody", role: "requester" });
+  assert.deepEqual(holderWithSkills({ kind: "person", name: "Ana" }, FAKE_ADLC), { kind: "person", name: "Ana" });
+  assert.deepEqual(holderWithSkills({ kind: "outside_tool", name: "the packer" }, FAKE_ADLC), { kind: "outside_tool", name: "the packer" });
+  assert.equal(holderWithSkills({ kind: "contracted", name: "A review supplier", handle: "r.s@example.com" }, FAKE_ADLC).skills_note, "Its skills are whatever that agent has installed; Product Factory cannot see them.");
+  assert.equal(holderWithSkills(null, FAKE_ADLC), null);
 });
