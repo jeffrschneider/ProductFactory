@@ -135,6 +135,8 @@ export async function fakeGitHub({ token = "ghs_fake_token_for_tests", repo = "a
       refs.set(`heads/${branch}`, sha);
       return sha;
     },
+    /** A commit's parents, by sha: a merge commit has two. */
+    parents: (ref) => commits.get(resolve(ref))?.parents ?? [],
     /** The commits on a branch or from a commit, newest first, following first parents: [{ sha, message }]. */
     log(ref) {
       const out = [];

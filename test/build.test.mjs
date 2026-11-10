@@ -131,11 +131,20 @@ test("a build runs every stage: spec, your approval, suite, a failed round, your
   assert.equal(run.process.name, "make a new agent");
   assert.equal(run.status, "closed");
   assert.equal(run.outcome, "ended");
-  for (const p of ["write-the-spec", "approve-the-spec", "write-the-suite", "write-the-scripts", "make-the-package", "approve-the-deploy"]) assert.equal(run.phases[p].status, "closed", p);
+  for (const p of ["write-the-spec", "approve-the-spec", "gather-the-features", "make-the-package", "approve-the-deploy"]) assert.equal(run.phases[p].status, "closed", p);
   assert.deepEqual(run.open, ["deploy-the-agent", "check-conformance", "publish-the-agent"]);
-  assert.deepEqual(run.approvals.map((a) => [a.phase, a.by]), [["write-the-spec", "person@example.com"], ["approve-the-spec", "person@example.com"], ["write-the-scripts", "person@example.com"], ["approve-the-deploy", "person@example.com"]]);
+  assert.deepEqual(run.approvals.map((a) => [a.phase, a.by]), [["write-the-spec", "person@example.com"], ["approve-the-spec", "person@example.com"], ["approve-the-deploy", "person@example.com"]]);
   assert.deepEqual(run.deviations.map((d) => d.key), ["changes"]);
   assert.ok(existsSync(join(f.store.folder(id), "run", run.run_id, "events.jsonl")), "the run is kept on disk the process runner's way too");
+  // A spec with no features is made in one run of make-a-feature: its suite, its scripts and your OK.
+  const [one] = f.store.read(id).feature_runs;
+  assert.equal(one.feature, "all");
+  assert.equal(one.run.process.name, "make a feature");
+  assert.equal(one.run.outcome, "completed");
+  for (const p of ["write-the-suite", "write-the-scripts", "ok-the-feature"]) assert.equal(one.run.phases[p].status, "closed", p);
+  assert.deepEqual(one.run.approvals.map((a) => a.phase), ["write-the-scripts", "ok-the-feature"]);
+  assert.deepEqual(one.run.trigger.carried.map((c) => [c.key, c.given]), [["spec", true], ["feature", true], ["suite", false]]);
+  assert.ok(existsSync(join(f.store.folder(id), "runs", "all", "run", one.run.run_id, "events.jsonl")), "the feature's run is kept in its own folder");
 
   const list = (await f.get("/builds")).json;
   assert.deepEqual(checkBuildList(list), []);

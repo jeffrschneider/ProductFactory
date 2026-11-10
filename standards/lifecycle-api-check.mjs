@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Checks a running service against the lifecycle API (lifecycle-api.schema.json,
-// version 0.4.9): every answer against the schema, and the rules a schema cannot
+// version 0.4.10): every answer against the schema, and the rules a schema cannot
 // say. It only reads. It asks who the key belongs to, reads who holds each
 // role and which stages the lifecycle uses, lists the builds, reads each one, reads its tries, and opens the first
 // file each build handed back (every file with --all-files).
@@ -129,6 +129,15 @@
 // wherever a holder is checked. Its rules beyond the schema:
 //   - a holder lists each skill once, by name;
 //   - a holder lists its skills or says why it cannot (skills_note), not both.
+// Version 0.4.10 adds feature runs: each feature of a version made in a run of
+// its own, on the build (feature_runs) and as a card on the build list, an
+// action's run and a timeline bar's run, checked by checkBuild and
+// checkBuildList. Their rules beyond the schema:
+//   - a build and a list item name each feature run once, and a run's stages
+//     are stages of stages.json, each once, with its rounds newest first;
+//   - a run's actions each name that run, and are offered only while it is open;
+//   - an action or a timeline bar that names a run names one of the build's,
+//     and an action that does is on that run's own list too.
 //
 //   node standards/lifecycle-api-check.mjs <base> [--key-file <path>] [--stages <path>] [--limit <n>] [--all-files]
 //
@@ -352,9 +361,66 @@ export function checkBuildList(body, ids) {
   if (isObj(body) && Array.isArray(body.builds)) {
     body.builds.forEach((b, i) => {
       if (isObj(b?.at) && typeof b.at.stage === "string" && !ids.includes(b.at.stage)) p.push(`body.builds[${i}].at.stage: "${b.at.stage}" is not a stage in stages.json`);
+      // A card per feature run (added in 0.4.10).
+      const cards = Array.isArray(b?.feature_runs) ? b.feature_runs.filter(isObj) : [];
+      p.push(...onceEach(cards.map((c) => c.id), `body.builds[${i}].feature_runs`, "feature run"));
+      cards.forEach((c, j) => { if (isObj(c.at) && typeof c.at.stage === "string" && !ids.includes(c.at.stage)) p.push(`body.builds[${i}].feature_runs[${j}].at.stage: "${c.at.stage}" is not a stage in stages.json`); });
     });
   }
   return p;
+}
+
+/** A name listed more than once, said once for each. */
+function onceEach(names, at, what) {
+  const out = [];
+  for (const n of new Set(names)) if (names.filter((x) => x === n).length > 1) out.push(`${at}: the ${what} ${JSON.stringify(n)} is listed more than once`);
+  return out;
+}
+
+/** Rounds newest first, n falling, and no feature passing more tests than it has. */
+function roundRules(s, at, p) {
+  if (!Array.isArray(s.rounds)) return;
+  s.rounds.forEach((r, j) => {
+    if (j > 0 && Number.isInteger(r?.n) && Number.isInteger(s.rounds[j - 1]?.n) && !(r.n < s.rounds[j - 1].n)) p.push(`${at}.rounds[${j}]: rounds are newest first, and n ${r.n} follows n ${s.rounds[j - 1].n}`);
+    // Results per feature (added in 0.4.3).
+    (Array.isArray(r?.by_feature) ? r.by_feature : []).forEach((x, k) => {
+      if (isObj(x) && Number.isInteger(x.passed) && Number.isInteger(x.total) && x.passed > x.total) p.push(`${at}.rounds[${j}].by_feature[${k}]: ${x.feature} passed ${x.passed} of ${x.total} tests, more than it has`);
+    });
+  });
+}
+
+/**
+ * A build's feature runs (added in 0.4.10): each named once, with its own
+ * stages, each a stage of stages.json listed once; each of its actions names
+ * it and none is offered once it ended; and every action and timeline bar of
+ * the build that names a run names one of these, an action being on that
+ * run's own list too.
+ */
+function featureRunRules(b, ids, p) {
+  const runs = Array.isArray(b.feature_runs) ? b.feature_runs.filter(isObj) : [];
+  p.push(...onceEach(runs.map((x) => x.id), "body.build.feature_runs", "feature run"));
+  runs.forEach((fr, i) => {
+    const at = `body.build.feature_runs[${i}]`;
+    const stages = Array.isArray(fr.stages) ? fr.stages.filter(isObj) : [];
+    for (const s of stages) if (typeof s.stage === "string" && !ids.includes(s.stage)) p.push(`${at}.stages: "${s.stage}" is not a stage in stages.json`);
+    p.push(...onceEach(stages.map((s) => s.stage), `${at}.stages`, "stage"));
+    stages.forEach((s, j) => roundRules(s, `${at}.stages[${j}]`, p));
+    (Array.isArray(fr.actions) ? fr.actions : []).forEach((a, j) => {
+      if (!isObj(a)) return;
+      if (a.run !== fr.id) p.push(`${at}.actions[${j}]: "${a.name}" is this run's, so it names it as run (${JSON.stringify(fr.id)})`);
+      if (fr.ended === true) p.push(`${at}.actions[${j}]: "${a.name}" is offered on a run that has ended`);
+    });
+  });
+  const byId = new Map(runs.map((x) => [x.id, x]));
+  (Array.isArray(b.actions) ? b.actions : []).forEach((a, i) => {
+    if (!isObj(a) || a.run === undefined) return;
+    const fr = byId.get(a.run);
+    if (!fr) { p.push(`body.build.actions[${i}]: "${a.name}" names the feature run ${JSON.stringify(a.run)}, which the build does not have`); return; }
+    if (!(Array.isArray(fr.actions) ? fr.actions : []).some((x) => isObj(x) && x.name === a.name && x.stage === a.stage)) p.push(`body.build.actions[${i}]: "${a.name}" names the feature run ${a.run}, which does not offer it`);
+  });
+  (Array.isArray(b.timeline) ? b.timeline : []).forEach((x, i) => {
+    if (isObj(x) && x.run !== undefined && !byId.has(x.run)) p.push(`body.build.timeline[${i}]: names the feature run ${JSON.stringify(x.run)}, which the build does not have`);
+  });
 }
 
 /**
@@ -374,16 +440,7 @@ export function checkBuild(body, ids, id, roles, cadences = CADENCES()) {
   }
   const missing = ids.filter((s) => !listed.includes(s));
   if (missing.length) p.push(`body.build.stages: does not list ${missing.join(", ")} (a stage the service does not run is listed as not_offered)`);
-  stages.forEach((s, i) => {
-    if (!Array.isArray(s.rounds)) return;
-    s.rounds.forEach((r, j) => {
-      if (j > 0 && Number.isInteger(r?.n) && Number.isInteger(s.rounds[j - 1]?.n) && !(r.n < s.rounds[j - 1].n)) p.push(`body.build.stages[${i}].rounds[${j}]: rounds are newest first, and n ${r.n} follows n ${s.rounds[j - 1].n}`);
-      // Results per feature (added in 0.4.3).
-      (Array.isArray(r?.by_feature) ? r.by_feature : []).forEach((x, k) => {
-        if (isObj(x) && Number.isInteger(x.passed) && Number.isInteger(x.total) && x.passed > x.total) p.push(`body.build.stages[${i}].rounds[${j}].by_feature[${k}]: ${x.feature} passed ${x.passed} of ${x.total} tests, more than it has`);
-      });
-    });
-  });
+  stages.forEach((s, i) => roundRules(s, `body.build.stages[${i}]`, p));
   // The timeline (added in 0.1): bars ordered by start, each ending no earlier than it began.
   (Array.isArray(b.timeline) ? b.timeline : []).forEach((t, i, all) => {
     if (!isObj(t)) return;
@@ -416,6 +473,8 @@ export function checkBuild(body, ids, id, roles, cadences = CADENCES()) {
   (Array.isArray(b.actions) ? b.actions : []).forEach((a, i) => {
     if (isObj(a) && typeof a.stage === "string" && !offered.has(a.stage)) p.push(`body.build.actions[${i}]: "${a.name}" acts at ${a.stage}, a stage the build does not offer`);
   });
+  // Each feature in a run of its own (added in 0.4.10).
+  featureRunRules(b, ids, p);
   // Starting from an as-built record, and back_to_requirements (added in 0.4.7).
   if (isObj(b.source) && b.source.starting_point === "as-built-record" && !isObj(b.source.record)) p.push("body.build.source: the build started from an as-built record, and does not say where the record was read (record)");
   (Array.isArray(b.actions) ? b.actions : []).forEach((a, i) => {

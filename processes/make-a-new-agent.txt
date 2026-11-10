@@ -1,13 +1,16 @@
-PROCESS: make a new agent             id: product-factory/make-a-new-agent   v1
+PROCESS: make a new agent             id: product-factory/make-a-new-agent   v2
 from: ref/dev/make-a-new-agent v1
 owner: <who>                          effective: <date>
 trigger: a person asks for an agent in words, through
          the Product Factory console, with a prototype attached when one
          exists; or asks for a released agent to differ, with the
          version that runs today attached as the prototype
-concurrency: runs may overlap - one run per agent at a time
+concurrency: runs may overlap - one run per agent at a time; each feature
+             of the version is made in a run of its own, of
+             product-factory/make-a-feature v1, and those runs overlap
 goal: a running agent whose package was made from a spec the owner
-      approved, whose scripts pass a suite written before them, and
+      approved, whose scripts were made one feature at a time, each
+      passing a suite written before it, and
       whose conformance was checked by an agent that did not build it,
       with every step on the record
 phases:
@@ -26,24 +29,23 @@ phases:
                        owner: <the agent's owner>
                        after: write-the-spec
                        automation: never
-  write-the-suite    - harness: the tests the scripts will be held to,
-                       written from the spec alone and shown to fail
-                       against an empty stand-in for every script the
-                       spec names
-                       owner: test-writer          after: approve-the-spec
+  gather-the-features - system: every feature approved for the version
+                       made in a run of its own, of
+                       product-factory/make-a-feature v1, started at the
+                       spec's approval or at the feature's own approval
+                       after it; once every one of those runs has
+                       closed, the scripts as the last feature accepted
+                       merged them on the version's base, which passed
+                       the whole suite
+                       owner: product-factory      after: approve-the-spec
                        automation: autonomous
-  write-the-scripts  - harness: the scripts the spec names, in
-                       node 22, passing the suite, with the
-                       prototype read when there is one
-                       owner: code-writer          after: write-the-suite
-                       automation: supervised
   make-the-package   - harness: the signed Agent Package made from the
                        agent's own files, which the spec writer makes
                        from the spec, and the delivered scripts and
                        nothing else, carrying the draft Descriptor in
                        agent-descriptor.json and the runtime
                        requirements in agent-runtime-requirements.json
-                       owner: package-maker        after: write-the-scripts
+                       owner: package-maker        after: gather-the-features
                        automation: autonomous
   approve-the-deploy - human: the owner reads the package's build record
                        and says whether it goes on the host you bring
@@ -73,18 +75,16 @@ handoffs:
   write-the-spec -> approve-the-spec [spec-drafted]: the spec, the four answers
     as the person settled them, and the list of what the request left
     open
-  approve-the-spec -> write-the-suite [approved-spec]: the spec as the
-    owner left it, with who approved it and when
-  approve-the-spec -> write-the-scripts [approved-spec]: the same spec,
-    and the prototype when one came with the request
-  write-the-suite -> write-the-scripts [suite-written]: every test file, and the
-    note of what the suite could not cover
+  approve-the-spec -> gather-the-features [approved-spec]: the spec as
+    the owner left it, with who approved it and when, which every
+    feature's run carries, and the prototype when one came with the
+    request
   approve-the-spec -> make-the-package [approved-spec]: the agent's own
     files made from the spec as the owner left it, which name the scripts
     the package must ship
-  write-the-scripts -> make-the-package [scripts]: every script the spec
-    names, the writer's account, and the signed job manifest that came
-    with the delivery
+  gather-the-features -> make-the-package [scripts]: every script the
+    spec names, as the last feature accepted left them, with the record
+    of each feature's run
   make-the-package -> approve-the-deploy [package]: the package's
     address, its sha256, and the build record
   approve-the-deploy -> deploy-the-agent [approved-package]: the
@@ -97,24 +97,26 @@ handoffs:
 deviations:
   approve-the-spec -> write-the-spec [changes]: the owner names what is
     wrong or answers a blank; the spec is revised, not drafted again
-  write-the-scripts -> approve-the-spec [conflict]: a test cannot pass
-    without breaking what the spec says; the owner decides which of the
-    two is wrong, and the suite or the spec is revised
-  make-the-package -> write-the-scripts [untraced]: a script the package
-    would ship cannot be traced to the delivery of write-the-scripts; it
-    goes back through that phase
-  check-conformance -> write-the-scripts [failed]: a case the package's
-    own declarations promise has failed; the scripts are revised
-    against the same suite
+  gather-the-features -> approve-the-spec [conflict]: a test of a
+    feature's run cannot pass without breaking what the spec says, and
+    the owner judges the spec wrong; the spec is revised, and each
+    feature's run still open revises its suite against the revised spec
+    and goes on
+  make-the-package -> gather-the-features [untraced]: a script the
+    package would ship cannot be traced to a feature's run; the
+    features are gathered again
+  check-conformance -> gather-the-features [failed]: a case the
+    package's own declarations promise has failed; the features are
+    gathered again, and the feature that broke it is made again
   approve-the-deploy -> write-the-spec [wrong-spec]: what was built is
     not what was wanted; the request is restated and the spec redone
 bindings:
   roster:  named for each build in the roster Product Factory sends
-           with the run: the reference agents of CommonAgent/adlc for
-           write-the-spec and write-the-suite, your coding harness or the
-           reference code writer for write-the-scripts, the Common Agent
-           packer for make-the-package, and the agent's owner (person),
-           who holds the three human phases
+           with the run: the reference spec writer of CommonAgent/adlc
+           for write-the-spec, Product Factory itself for
+           gather-the-features, the Common Agent packer for
+           make-the-package, and the agent's owner (person), who holds the
+           three human phases; each feature's run is sent its own roster
   systems: none of the phases reaches a system of its own; each agent
            brings what its package declares
   data:    the request, the prototype when there is one,
@@ -127,8 +129,9 @@ policy:
   the suite is written from the spec and never from the scripts
   no test is edited to make a script pass, and no script is delivered
     that the suite fails
-  only scripts delivered by write-the-scripts are packed; a script
-    written or changed outside that phase goes back through it
+  only scripts delivered by a feature's run are packed; a script
+    written or changed outside one goes back through a feature's run
+  the version is packed only once every feature's run has closed
   nothing is deployed without the owner's yes on the package
   a prototype is read as the most exact statement of what was wanted
     and is never shipped as it stands
@@ -137,15 +140,14 @@ measures:
                 or whose package differs from the one the owner approved
   cycle time: none set from the request to the deployed agent's name
   rounds: revisions before the owner approves the spec, and before the
-          conformance check passes
+          conformance check passes; each feature's run counts its own
   defects: cases the conformance check failed on the first pass
 records:
   spec              - the spec as the owner approved it, the four
                       answers, and who approved it and when
-  suite             - every test file, its failure against empty
-                      stand-ins, and what it could not cover
-  delivery          - the scripts, the writer's account, the record of
-                      every round, and the signed job manifest
+  features          - each feature's run: the feature, its run, and how
+                      it closed; the suite and the delivery are that
+                      run's records
   build-record      - the package's address and sha256, and the signed
                       build record
   deploy-decision   - the owner's yes on the package, and when it was

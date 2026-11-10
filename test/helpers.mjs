@@ -92,4 +92,19 @@ export async function factory({ doc = null, holder = "harness", rounds = 3, fail
 }
 
 export const stageOf = (build, id) => build.stages.find((s) => s.stage === id);
+/**
+ * The record of the run that made a build's Test and Code, as build.json keeps it: a version's newest
+ * feature run (make-a-feature.txt), or the build itself when it made them in one chain (an old build,
+ * or one started from existing code or an as-built record). feature: the run of that feature.
+ */
+export const codeRun = (f, id, feature = null) => {
+  const b = f.store.read(id);
+  const runs = b?.feature_runs ?? [];
+  return (feature ? runs.find((x) => x.feature === feature) : runs.at(-1)) ?? b;
+};
+/** The folder that run keeps its files in: the feature run's own (runs/<id>/), or the build's. */
+export const codeDir = (f, id, feature = null) => {
+  const r = codeRun(f, id, feature);
+  return r.feature ? join(f.store.folder(id), "runs", r.id) : f.store.folder(id);
+};
 export const actionNames = (build) => build.actions.map((a) => a.name);

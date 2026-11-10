@@ -7,6 +7,12 @@
 // Count): <name>. <does>"), it adds one test per feature, named "[F1] <name>".
 // A feature whose name or words say "fails" gets a test no script can pass.
 //
+// One feature's tests (test-writer 0.11.0): when the message has a line
+// "feature: F2", it writes that feature's tests alone, in a file named for it
+// (test/f2.test.mjs), and nothing else but kept-interfaces.test.mjs, which is
+// the same bytes in every feature's run. A revision rewrites the feature's
+// own file when one came with it.
+//
 // The original's own tests (test-writer 0.10.0): with a carried manifest
 // attached (carried_tests v1, tests and support), it places each test by its
 // digest at out/test/<name> with the listed import specifiers pointed at
@@ -44,11 +50,12 @@ if (revise && !o.files.some((f) => f.endsWith(".test.mjs"))) { console.log(JSON.
 const spec = o.files.map((f) => { try { return JSON.parse(readFileSync(f, "utf8")); } catch { return null; } }).find((v) => v?.format === "spec-v1") ?? null;
 // A feature approved after the spec was written has no scenario in it: its test is named by the feature.
 // When the message lists the approved features, only theirs are pinned: a behavior called a bug or dropped is left out.
-const approvedIds = [...asked.matchAll(/^- (F\d+) \(offering /gm)].map((m) => m[1]);
+const only = /^feature:\s*(F\d+)\s*$/m.exec(asked)?.[1] ?? null;
+const approvedIds = only ? [only] : [...asked.matchAll(/^- (F\d+) \(offering /gm)].map((m) => m[1]);
 const scenarios = (spec?.features ?? []).filter((f) => !approvedIds.length || approvedIds.includes(f.id)).flatMap((f) => (f.acceptance ?? []).map((a) => ({ feature: f.id, name: `[${a.id}] ${/Scenario:\s*(.+)/.exec(a.gherkin)?.[1]?.trim() ?? f.name.toLowerCase()}`, fails: /fails/i.test(f.name + f.does) })));
 const cases = [
   ...scenarios,
-  ...[...asked.matchAll(/^- (F\d+) \(offering [^)]*\): ([^.]+)\.(.*)$/gm)].filter((m) => !scenarios.some((c) => c.feature === m[1])).map((m) => ({ name: `[${m[1]}] ${m[2].toLowerCase()}`, fails: /fails/i.test(m[2] + m[3]) })),
+  ...[...asked.matchAll(/^- (F\d+) \(offering [^)]*\): ([^.]+)\.(.*)$/gm)].filter((m) => !scenarios.some((c) => c.feature === m[1]) && (!only || m[1] === only)).map((m) => ({ name: `[${m[1]}] ${m[2].toLowerCase()}`, fails: /fails/i.test(m[2] + m[3]) })),
 ];
 const kept = (spec?.interfaces ?? []).filter((x) => x.keep === true);
 if (kept.length) {
@@ -61,14 +68,17 @@ test(${JSON.stringify(`[${x.id}] ${x.name} is exported, as the spec keeps it`)},
 });
 `).join("")}`);
 }
-writeFileSync(join(o.job, "out", "test", "count.test.mjs"), `import { test } from "node:test";
+// The file it writes: the feature's own in a feature's run, the one it was sent back for in a revision of one, else count.test.mjs.
+const own = only ? `${only.toLowerCase()}.test.mjs` : revise ? o.files.map((x) => basename(x)).find((x) => /^f\d+\.test\.mjs$/.test(x)) ?? "count.test.mjs" : "count.test.mjs";
+const forFeature = /^f\d+\.test\.mjs$/.test(own);
+writeFileSync(join(o.job, "out", "test", own), `import { test } from "node:test";
 import assert from "node:assert/strict";
 import { count } from "../scripts/count.mjs";
-
+${forFeature ? "" : `
 test("counts the words in a passage", () => {
   assert.equal(count("one two  three"), 3);
 });
-${cases.map((c) => `
+`}${cases.map((c) => `
 test(${JSON.stringify(c.name)}, () => {
   assert.equal(count("one two"), ${c.fails ? 99 : 2});
 });
@@ -108,7 +118,7 @@ if (drop) {
   put("out/test/carried-tests.json", null, `${JSON.stringify({ ...held, placed: held.placed.filter((p) => !gone.includes(p)), dropped: [...(held.dropped ?? []), ...gone.map((p) => ({ file: p.file, test: p.test, at: "2026-11-09T12:00:00.000Z", by: "the person, by naming it" }))] }, null, 2)}\n`);
 }
 writeFileSync(join(o.job, "pieces.json"), JSON.stringify([
-  { name: "count.test.mjs", step: "write-the-suite", path: "out/test/count.test.mjs", media_type: "text/javascript", about: "a test file" },
+  { name: own, step: "write-the-suite", path: `out/test/${own}`, media_type: "text/javascript", about: "a test file" },
   ...(kept.length ? [{ name: "kept-interfaces.test.mjs", step: "write-the-suite", path: "out/test/kept-interfaces.test.mjs", media_type: "text/javascript", about: "the kept interfaces' tests" }] : []),
   ...carried.map((p) => ({ name: p.slice("out/test/".length), step: "write-the-suite", path: p, media_type: p.endsWith(".json") ? "application/vnd.agentmesh.carried-tests+json" : "text/javascript", about: "carried" })),
 ], null, 2));

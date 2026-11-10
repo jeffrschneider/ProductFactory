@@ -482,9 +482,37 @@ Each build runs a process document: "make a new agent", as published at
 [agentprocesses.ai](https://agentprocesses.ai/make-a-new-agent.html), in
 [processes/make-a-new-agent.txt](processes/make-a-new-agent.txt) with its
 blanks filled for one computer ([processes/SOURCE.json](processes/SOURCE.json)
-lists each fill). Its levels make the two gates: `approve-the-spec` is a
-person's gate, and `write-the-scripts` is supervised, so the scripts wait for
-your OK before they are packed.
+lists each fill). Its version 2 makes each feature in a run of its own, so a
+feature that is ready never waits for the slowest. The version's run keeps what
+is product-wide: `write-the-spec`, then `approve-the-spec`, a person's gate.
+Once the spec is approved, each approved feature runs
+[processes/make-a-feature.txt](processes/make-a-feature.txt) as a run of its
+own, all at the same time: its suite (`write-the-suite`), its scripts
+(`write-the-scripts`, supervised, on a pull request of its own when Code is on
+one) and your OK on it (`ok-the-feature`). A feature approved later in a chat
+starts its own run then. A spec with no features is made in one run, the whole
+spec. The version waits at `gather-the-features`, a phase Product Factory holds,
+and goes on to `make-the-package` once every feature's run has closed.
+
+The gate on a feature's scripts runs the whole suite: the tests of every feature
+already accepted and its own. When you accept a feature, its tests and scripts
+become the version's base, and every other feature open at Code is brought up
+to date with it before its gate runs again: on a pull request, one merge commit
+on its branch; on this computer, its build folder laid out again. A script both
+changed is the base's, with the feature's own beside it under `records/yours/`
+and `records/up-to-date.md` saying so, for the next round to work in. Send back
+to Test stays in the feature's run. Send back to Requirements takes the version
+back to its spec; each feature still open waits for the revised spec, then
+revises its suite against it and goes on, on the same pull request.
+
+A feature's test writer is asked for that feature's tests alone, with a line
+`feature: F2` in its message and the accepted features' tests attached to add
+to; the reference test writer reads that line from 0.11.0 (CommonAgent/adlc),
+and names each file for the feature. An older one writes the whole spec's tests
+in every feature's run, which still works, with more tests than needed.
+
+A build started before version 2 keeps its own copy of the document in its
+folder, and finishes the old way, in one run.
 
 The open-source process runner
 ([AgentMesh-Community/process-runner](https://github.com/AgentMesh-Community/process-runner),
@@ -497,7 +525,7 @@ mesh messages, and reaches no service: it supplies only the delivery.
 
 That boundary is one file, [lib/orchestrator.mjs](lib/orchestrator.mjs), the
 only one that imports the runner. It opens a run from the document, gives the
-runner's next action, applies an event, and says which stage and which holder
+runner's next actions, applies an event, and says which stage and which holder
 adapter a phase belongs to. [lib/runner.mjs](lib/runner.mjs) drives it: it asks
 for the next action, hands a phase to its adapter, and tells the runner what
 came back. [lib/adapters.mjs](lib/adapters.mjs) holds the holder adapters, the
@@ -511,6 +539,13 @@ lines, gates, holds, ways back, refusals, resuming), and reusing it keeps one
 implementation of the Agent Processes rules. Product Factory stays small, and
 a newer runner, or another runner that gives the same answers, drops in at
 one file.
+
+Phases no `after:` path connects never wait for each other (Agent Processes
+6.2): when the runner has more than one phase ready, the driver sends each now.
+Every open run of a version, its own and each feature's, is driven at the same
+time. A feature run lives in its version's build.json, under `feature_runs`, and
+[lib/feature-runs.mjs](lib/feature-runs.mjs) says how: the driver reads and
+changes one by its key, `<build id>~<run id>`, as if it were a build.
 
 A phase at a stage milestone 1 does not run, or at a stage the build's
 lifecycle leaves out, ends the run there. The run's record names the phases
@@ -972,11 +1007,12 @@ and look the person up in `people.json` by its email.
 <data>/builds/<id>/build.json      the build's record: the lifecycle it started under, each stage, the run
 <data>/builds/<id>/run/            the process document, and the run as the process runner keeps it
 <data>/builds/<id>/stages/         every job folder, record, log and file each stage made
+<data>/builds/<id>/runs/<run>/     each feature's own run: what its trigger carried (given/), its run/ and its stages/
 ```
 
 ## Standards it uses
 
-- Lifecycle API 0.4.9 and stages.json 1.6.0 (CommonAgent/adlc, copies in `standards/`).
+- Lifecycle API 0.4.10 and stages.json 1.6.0 (CommonAgent/adlc, copies in `standards/`).
 - The spec, spec-v1 (CommonAgent/adlc `standards/spec.schema.json`): what Requirements
   hands back. `lib/spec.mjs` is the one place the spec writer's `spec.json` and
   `spec.md` are found and read; it tells the spec apart from any other `spec.json` by
