@@ -1,0 +1,88 @@
+PROCESS: make a feature                id: product-factory/make-a-feature   v1
+from: ref/dev/make-a-new-agent v1
+owner: <who>                          effective: <date>
+trigger: a feature of a product's version is approved, through the
+         Product Factory console, once the version's spec is approved:
+         at the spec's own approval for every feature approved by then,
+         and at its approval in a chat for a feature approved later
+         carries: spec - the version's spec as the owner approved it,
+                  at its digest, with the agent's own files made from
+                  it, required
+         carries: feature - the id of the approved feature this run
+                  makes, or all when the spec as approved holds no
+                  feature to make one at a time, required
+         carries: suite - the tests of the features of the version
+                  already accepted, optional
+concurrency: runs may overlap - one run per feature; the runs of one
+             version share the spec, the version's pull request base and
+             the suite each accepted feature adds to
+goal: the feature's scripts, merged on the version's base, passing every
+      test of the features already accepted and the tests written for
+      this feature before its scripts, with the owner's OK and every
+      step on the record
+phases:
+  write-the-suite    - harness: the tests of this feature alone, written
+                       from the spec alone and added to the suite the
+                       accepted features have, each named for the
+                       feature, shown to fail against an empty stand-in
+                       for every script the spec names
+                       owner: test-writer          after: trigger
+                       automation: autonomous
+  write-the-scripts  - harness: the scripts the spec names, in node 22,
+                       changed for this feature on the version's base,
+                       passing the whole suite: every test of the
+                       features already accepted and this feature's
+                       owner: code-writer          after: write-the-suite
+                       automation: supervised
+  ok-the-feature     - human: the owner reads the feature's scripts and
+                       the gate's word on them and gives the OK, which
+                       merges them on the version's base
+                       owner: <the agent's owner>
+                       after: write-the-scripts
+                       automation: never
+handoffs:
+  write-the-suite -> write-the-scripts [suite-written]: the whole suite:
+    the tests of the features already accepted and the test files
+    written for this feature, and the note of what the suite could not
+    cover
+  write-the-scripts -> ok-the-feature [scripts]: every script the spec
+    names, the gate's word on them, and, on a pull request, the commit
+    the gate passed
+deviations:
+  write-the-scripts -> write-the-suite [conflict]: a test cannot pass
+    without breaking what the spec says; the owner judges the test
+    wrong, and this feature's tests are revised against the same spec
+  ok-the-feature -> write-the-scripts [changes]: the owner names what
+    is wrong with the scripts; they are revised against the same suite
+bindings:
+  roster:  named for each build in the roster Product Factory sends
+           with the run: the reference test writer of CommonAgent/adlc
+           for write-the-suite, your coding harness or the reference code
+           writer for write-the-scripts, and the agent's owner (person),
+           who holds ok-the-feature
+  systems: none of the phases reaches a system of its own; each agent
+           brings what its package declares
+  data:    the spec as approved, the suite of the features already
+           accepted, node 22
+policy:
+  the suite is written from the spec and never from the scripts
+  no test is edited to make a script pass, and no script is delivered
+    that the suite fails
+  a feature's scripts are judged with every test of the features
+    already accepted, so a feature cannot break one already accepted
+  when an accepted feature moves the version's base while this run is
+    open, the scripts are brought up to date with it and judged again
+    before the OK is offered
+  only the scripts the gate passed are merged, at the commit it passed
+measures:
+  quality gate: no feature is merged whose scripts fail any test of the
+                features already accepted or of its own
+  cycle time: none set from the feature's approval to its OK
+  rounds: revisions before the gate passes, and before the owner's OK
+records:
+  suite             - this feature's test files, their failure against
+                      empty stand-ins, and what they could not cover
+  delivery          - the scripts, the writer's account, the record of
+                      every round, and the gate's word on each
+  ok                - the owner's OK, when it was given, and the commit
+                      it merged
