@@ -61,9 +61,12 @@ test("two features run at once, each with its own pull request; the version wait
 
   // Each approved feature is a run of its own, both at Code now, each on its own branch and pull request.
   assert.deepEqual(opened.feature_runs.map((x) => [x.id, x.feature, x.name, x.at.stage, x.at.state]), [["F1", "F1", "F1 Count words", "code", "working"], ["F2", "F2", "F2 Count lines", "code", "working"]]);
+  // The two runs open their pull requests at the same time, so either may be numbered first.
   assert.equal(gh.pulls.size, 2);
-  assert.deepEqual([...gh.pulls.values()].map((p) => [p.head, p.title]), [[branchOf("F1"), "Write the scripts: counter 0.1.0, F1 Count words"], [branchOf("F2"), "Write the scripts: counter 0.1.0, F2 Count lines"]]);
-  assert.match(gh.pulls.get(1).body, /makes one feature of the version, \*\*F1 Count words\*\*/);
+  const prOf = (feature) => codeRun(f, id, feature).work.pr.number;
+  assert.deepEqual([...gh.pulls.values()].map((p) => [p.head, p.title]).sort(), [[branchOf("F1"), "Write the scripts: counter 0.1.0, F1 Count words"], [branchOf("F2"), "Write the scripts: counter 0.1.0, F2 Count lines"]]);
+  assert.equal(gh.pulls.get(prOf("F1")).head, branchOf("F1"));
+  assert.match(gh.pulls.get(prOf("F1")).body, /makes one feature of the version, \*\*F1 Count words\*\*/);
   // Each feature's tests were written for it alone, in a file named for it.
   assert.ok("agents/counter/test/f1.test.mjs" in gh.filesAt(branchOf("F1")) && !("agents/counter/test/f2.test.mjs" in gh.filesAt(branchOf("F1"))));
   assert.ok("agents/counter/test/f2.test.mjs" in gh.filesAt(branchOf("F2")) && !("agents/counter/test/f1.test.mjs" in gh.filesAt(branchOf("F2"))));
@@ -75,7 +78,7 @@ test("two features run at once, each with its own pull request; the version wait
   assert.equal(v.run.phases["gather-the-features"].status, "working");
   assert.equal(v.at, "code");
   assert.equal(opened.summary, "Making 2 features, each in a run of its own");
-  assert.deepEqual(opened.feature_runs.map((x) => x.pull_request?.url), ["https://github.example/acme/agents/pull/1", "https://github.example/acme/agents/pull/2"]);
+  assert.deepEqual(opened.feature_runs.map((x) => x.pull_request?.url), [`https://github.example/acme/agents/pull/${prOf("F1")}`, `https://github.example/acme/agents/pull/${prOf("F2")}`]);
   // The board shows a card for each run.
   const listed = (await f.get("/builds")).json;
   assert.deepEqual(checkBuildList(listed, STAGE_IDS), []);
@@ -97,7 +100,8 @@ test("two features run at once, each with its own pull request; the version wait
   assert.equal((await f.post(`/builds/${id}/actions/accept`, { run: "F1" })).status, 200);
   b = await f.settled(id);
   ok(b);
-  assert.equal(gh.pulls.get(1).merged, true);
+  assert.equal(gh.pulls.get(prOf("F1")).merged, true);
+  assert.equal(gh.pulls.get(prOf("F2")).merged, false);
   assert.equal(runOf(b, "F1").ended, true);
   assert.equal(stageOf(b, "package").state, "not_started", "the version waits for every feature's run");
   assert.equal(f.store.read(id).base.feature, "F1");
@@ -112,7 +116,7 @@ test("two features run at once, each with its own pull request; the version wait
   assert.equal(files["agents/counter/records/yours/scripts/count.mjs"], RIGHT_TOO, "and this feature's own is kept beside it");
   assert.match(files[`agents/counter/${UP_TO_DATE_FILE}`], /Carry this feature's change into the base's version/);
   assert.deepEqual(JSON.parse(files["agents/counter/build.lock.json"]).digests, codeRun(f, id, "F2").work.pr.digests, "the lock and the fence agree");
-  assert.match(gh.comments.find((c) => c.number === 2 && /Brought up to date/.test(c.body)).body, /`test\/f1\.test\.mjs`/);
+  assert.match(gh.comments.find((c) => c.number === prOf("F2") && /Brought up to date/.test(c.body)).body, /`test\/f1\.test\.mjs`/);
   // Its gate ran again on the merge commit, with every test of F1 too, and its OK is offered again.
   const pr2 = codeRun(f, id, "F2").work.pr;
   assert.equal(pr2.runs.at(-1).sha, head);
@@ -124,7 +128,7 @@ test("two features run at once, each with its own pull request; the version wait
   await f.post(`/builds/${id}/actions/accept`, { run: "F2" });
   b = await f.settled(id);
   ok(b);
-  assert.equal(gh.pulls.get(2).merged, true);
+  assert.equal(gh.pulls.get(prOf("F2")).merged, true);
   assert.equal(stageOf(b, "package").state, "done");
   assert.equal(b.summary, "Packed and validated · counter 0.1.0 · Approve the deploy");
   const run = f.store.read(id).run;
