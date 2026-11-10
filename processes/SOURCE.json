@@ -20,7 +20,17 @@
       "<date>": "the day the build started",
       "<the agent's owner>": "the person who started the build"
     },
-    "reworded_for_the_spec": "stages.json 1.6.0: Requirements hands back the spec, and the agent's own files are made from it. Two places said the package is made from the spec, as if the spec were the agent's own files; they now say the package is made from the agent's own files, which the spec writer makes from the spec: the make-the-package phase, and the approve-the-spec -> make-the-package handoff. No phase, handoff key or deviation changed. adopt-existing-code.txt and rebuild-from-as-built-record.txt carry the same two changes."
+    "reworded_for_the_spec": "stages.json 1.6.0: Requirements hands back the spec, and the agent's own files are made from it. Two places said the package is made from the spec, as if the spec were the agent's own files; they now say the package is made from the agent's own files, which the spec writer makes from the spec: the make-the-package phase, and the approve-the-spec -> make-the-package handoff. No phase, handoff key or deviation changed. adopt-existing-code.txt and rebuild-from-as-built-record.txt carry the same two changes.",
+    "version_2": "Product Factory's v2 of its adoption, for each feature in a run of its own (approved 2026-11-10): write-the-suite and write-the-scripts leave this document for make-a-feature.txt, and gather-the-features, a system phase Product Factory holds, takes their place after approve-the-spec: it starts each approved feature's run, and closes once every one of them has, handing on the scripts as the last feature accepted merged them. make-the-package comes after it; the handoffs into and out of the two phases that left go to and from gather-the-features, and so do the ways back [untraced] and [failed]. A new way back, gather-the-features -> approve-the-spec [conflict], is Send back to Requirements from a feature's run. The concurrency line, the goal, the roster, the policy on what is packed, the rounds and the records say the same. A build started on v1 keeps its own copy of v1 and finishes on it; test/fixtures/make-a-new-agent-v1.txt is that copy."
+  },
+  "make-a-feature.txt": {
+    "what": "Product Factory's own process for one feature of a version, made in a run of its own once the version's spec is approved (make-a-new-agent.txt v2): the suite, the scripts and the owner's OK of make-a-new-agent.txt v1 (write-the-suite, write-the-scripts), for that feature alone and held to every test of the features already accepted, with a person's phase of its own for the OK (ok-the-feature). Its trigger carries the spec as approved, at its digest, and the feature's id (Agent Processes 5.4), and its concurrency line is one run per feature. Its ways back are write-the-scripts -> write-the-suite [conflict] (Send back to Test, which stays in the feature's run) and ok-the-feature -> write-the-scripts [changes].",
+    "from": "make-a-new-agent.txt in this folder, v1",
+    "filled_for_each_build": {
+      "<who>": "the person who started the build",
+      "<date>": "the day the feature's run started",
+      "<the agent's owner>": "the person who started the build"
+    }
   },
   "rebuild-from-as-built-record.txt": {
     "what": "Product Factory's own process for a build started from an as-built record (stages.json 1.5.0, the starting point as-built-record): make-a-new-agent.txt with its trigger, goal, three writing phases, one handoff, data and its last policy reworded for an as-built record of code kept elsewhere, built again without taking that code on. Its phases, handoffs and deviations are the same as make-a-new-agent.txt's.",

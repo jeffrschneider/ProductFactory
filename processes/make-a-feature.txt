@@ -41,10 +41,9 @@ phases:
                        after: write-the-scripts
                        automation: never
 handoffs:
-  write-the-suite -> write-the-scripts [suite-written]: the whole suite:
-    the tests of the features already accepted and the test files
-    written for this feature, and the note of what the suite could not
-    cover
+  write-the-suite -> write-the-scripts [suite-written]: the test files
+    written for this feature, which go beside every test of the features
+    already accepted, and the note of what the suite could not cover
   write-the-scripts -> ok-the-feature [scripts]: every script the spec
     names, the gate's word on them, and, on a pull request, the commit
     the gate passed
