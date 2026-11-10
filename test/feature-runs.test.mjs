@@ -103,6 +103,7 @@ test("two features run at once, each with its own pull request; the version wait
   assert.equal(gh.pulls.get(prOf("F1")).merged, true);
   assert.equal(gh.pulls.get(prOf("F2")).merged, false);
   assert.equal(runOf(b, "F1").ended, true);
+  assert.equal(runOf(b, "F1").at.summary, `You OK'd the code on pull request #${prOf("F1")}`, "an accepted run says so, and nothing about Package");
   assert.equal(stageOf(b, "package").state, "not_started", "the version waits for every feature's run");
   assert.equal(f.store.read(id).base.feature, "F1");
 
