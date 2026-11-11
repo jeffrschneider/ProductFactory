@@ -34,6 +34,22 @@ async function adlcWithKit() {
 
 const harnessCalls = (f) => (existsSync(f.stubLog) ? readFileSync(f.stubLog, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((c) => c.builder) : []);
 
+/** Your own coding assistant runs the folder's check, as AGENTS.md says, and pushes the lock it pinned. */
+async function personChecks(gh, branch, folder) {
+  const work = await tempDir("checkout");
+  const files = gh.filesAt(branch);
+  for (const [p, text] of Object.entries(files)) {
+    if (!p.startsWith(`${folder}/`)) continue;
+    const at = join(work, ...p.slice(folder.length + 1).split("/"));
+    mkdirSync(dirname(at), { recursive: true });
+    writeFileSync(at, text);
+  }
+  spawnSync(process.execPath, [join(work, ".adlc", "check.mjs"), "--json"], { cwd: work, encoding: "utf8" });
+  const lock = readFileSync(join(work, "build.lock.json"), "utf8");
+  if (lock !== files[`${folder}/build.lock.json`]) gh.push(branch, { [`${folder}/build.lock.json`]: lock });
+  return JSON.parse(lock).gates;
+}
+
 /** Your own coding assistant: the branch's build folder checked out, the stand-in builder run in it, and what it wrote pushed. */
 async function personPushes(gh, branch, folder) {
   const work = await tempDir("checkout");
@@ -115,6 +131,51 @@ test("one builder on a pull request: the folder goes to a branch, your own assis
   for (const s of ["architecture", "test", "code"]) assert.equal(stageOf(b, s).state, "done", s);
   assert.equal(stageOf(b, "package").state, "done");
   assert.deepEqual(harnessCalls(f), [], "still no coding agent on this machine");
+});
+
+test("a send back from the console goes on the pull request: approve.mjs --send-back run in a mirror of the branch, pushed, and the next push's check finds the stage open", async (t) => {
+  const adlc = await adlcWithKit();
+  const gh = await fakeGitHub();
+  const f = await factory({ doc: leftOut, holder: "builder", where: "pull-request", github: gh, adlc });
+  t.after(async () => { await f.close(); await gh.close(); });
+  const folder = "agents/word-counter";
+  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "word-counter" })).json.build.id;
+  await f.settled(id);
+  await f.post(`/builds/${id}/actions/approve`);
+  await f.settled(id);
+  const branch = [...gh.pulls.values()][0].head;
+
+  // Your assistant pushes everything but the script, you answer, and the build waits at Code.
+  await personPushes(gh, branch, folder);
+  gh.push(branch, { [`${folder}/scripts/count.mjs`]: null });
+  await f.runner.poll(id);
+  await f.settled(id);
+  await f.post(`/builds/${id}/actions/changes`, { changes: "egress-1: yes" });
+  await f.settled(id);
+  // Your assistant pulls your answer, runs the check, and pushes the lock it pinned: up to Test, with Code still to write.
+  assert.deepEqual(Object.keys(await personChecks(gh, branch, folder)), ["requirements", "architecture", "files", "test"]);
+  await f.runner.poll(id);
+  let b = await f.settled(id);
+  ok(b);
+  assert.equal(stageOf(b, "test").state, "done");
+  assert.equal(stageOf(b, "code").state, "working");
+  assert.ok(b.actions.find((a) => a.name === "send_back").needs.find((n) => n.name === "to").options.includes("test"));
+
+  // You send it back to Test in the console: the send back is run in a mirror of the branch and pushed as Product Factory's commit.
+  assert.equal((await f.post(`/builds/${id}/actions/send_back`, { to: "test", changes: "Test the empty passage too." })).status, 200);
+  b = await f.settled(id);
+  ok(b);
+  assert.match(gh.log(branch)[0].message, /^Product Factory: you sent the build back to test$/);
+  assert.deepEqual(Object.keys(JSON.parse(gh.filesAt(branch)[`${folder}/build.lock.json`]).gates), ["requirements", "architecture", "files"], "Test and Code are open again on the branch");
+
+  // Your assistant takes the test out to rewrite it: the next push's check finds Test open, and the build is back at it.
+  gh.push(branch, { [`${folder}/test/f1.test.mjs`]: null });
+  assert.equal((await f.runner.poll(id)).judged, true);
+  b = await f.settled(id);
+  ok(b);
+  assert.equal(stageOf(b, "test").state, "working");
+  assert.equal(stageOf(b, "code").state, "not_started");
+  assert.ok(gh.comments.some((c) => /test is not passed yet/.test(c.body ?? c)), "the check's word is said on the pull request");
 });
 
 test("the folder mirrors its branch, keeps records/, and names only what changed since", async () => {
