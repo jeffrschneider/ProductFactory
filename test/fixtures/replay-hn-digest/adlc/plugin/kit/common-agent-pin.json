@@ -1,0 +1,9 @@
+{
+  "common_agent_pin": "v1",
+  "about": "The one version of the Common Agent Specification the whole lifecycle cites: every agent in agents/ and every standard in standards/ is written against it. The pin names the version, the tag it was published under in the Common Agent Standards repository, and the sha256 digest of common-agent/SPEC.md at that tag, so a reader can fetch the tag and check the bytes. A section number written without a version, such as Common Agent 12.4.1, is a section of this version. standards/test/common-agent-pin.test.mjs fails when a file cites any other version as a rule it follows, so a new version is adopted on purpose: read what changed, update the citations, re-pin, run the tests, release.",
+  "version": "0.41.0",
+  "tag": "common-agent-v0.41.0",
+  "repository": "CommonAgent/common-agent-standards",
+  "path": "common-agent/SPEC.md",
+  "sha256": "sha256:33b9278ff80809c9930c68a433f6a3b97122ba0cd2937d11dad67e6d739d7656"
+}

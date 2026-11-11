@@ -1,0 +1,387 @@
+{
+  "house_stack": "v1",
+  "about": "The platform's defaults as AgentMesh publishes them: the reserved system names and, for each, the House Stack's product, read from GET /v1/stack/vocabulary on dev and on production on 2026-10-27 (the two answered byte for byte the same). An architecture job uses this copy only when the platform's defaults are not attached, and says so. One change from what was read: the House Stack's product on each model system (text-reasoning, image-reading, speech-to-text, text-to-speech) is written as platform, because AgentMesh does not say which provider stands behind the House Stack.",
+  "read_at": "2026-10-27",
+  "targets": {
+    "about": "Whether the platform's targets enforce an egress allowlist, per environment. Every deploy the AgentMesh deployment manager makes today records egress open, enforced by none (adlc agents/deployment-manager/steps.py EGRESS_OPEN).",
+    "dev": {
+      "egress": "open"
+    },
+    "test": {
+      "egress": "open"
+    },
+    "production": {
+      "egress": "open"
+    }
+  },
+  "systems": [
+    {
+      "name": "database",
+      "label": "Database",
+      "purpose": "Where an agent keeps what has to outlive a single job.",
+      "promises": "A store with a document or row door over HTTP. A package reads and writes through the house script and never through a vendor client.",
+      "state": "defined",
+      "products": [
+        "platform",
+        "supabase",
+        "firestore"
+      ],
+      "platform_gap": "The House Stack has no database for agents yet. An agent that needs one uses a database your organization connects: Supabase or Firestore.",
+      "house": {
+        "system": "database",
+        "system_label": "Database",
+        "product": "none",
+        "label": "Not covered yet",
+        "why": "AgentMesh does not run a database for agents.",
+        "covered": false,
+        "gap": "The House Stack has no database for agents yet. An agent that needs one uses a database your organization connects: Supabase or Firestore.",
+        "swap": [
+          "Supabase",
+          "Firestore"
+        ]
+      },
+      "meters": {
+        "unit": "rows"
+      }
+    },
+    {
+      "name": "files",
+      "label": "Files",
+      "purpose": "Where an agent puts pieces and records that outlive a run.",
+      "promises": "A bucket or folder addressed by key, with read, write and list.",
+      "state": "defined",
+      "products": [
+        "platform",
+        "google-cloud-storage",
+        "s3"
+      ],
+      "platform_gap": "The House Stack has no file store for agents yet. An agent that needs one uses a bucket your organization connects: Google Cloud Storage today.",
+      "house": {
+        "system": "files",
+        "system_label": "Files",
+        "product": "none",
+        "label": "Not covered yet",
+        "why": "AgentMesh does not run a file store for agents.",
+        "covered": false,
+        "gap": "The House Stack has no file store for agents yet. An agent that needs one uses a bucket your organization connects: Google Cloud Storage today.",
+        "swap": [
+          "Google Cloud Storage",
+          "Amazon S3"
+        ],
+        "swap_note": "Amazon S3 can be recorded, but the shared file script cannot sign S3 requests yet."
+      },
+      "meters": {
+        "unit": "gigabyte-months"
+      }
+    },
+    {
+      "name": "agent-memory",
+      "label": "Agent memory",
+      "purpose": "What an agent remembers between jobs: facts it learned, what people told it, and what happened.",
+      "promises": "Three mesh tools, remember, recall and reflect, over one agent's own memory. An agent reaches only its own memory and never another agent's, and remembering finishes a few seconds after the call returns.",
+      "state": "defined",
+      "products": [
+        "platform"
+      ],
+      "house": {
+        "system": "agent-memory",
+        "system_label": "Agent memory",
+        "product": "hindsight",
+        "label": "Hindsight",
+        "why": "An open source memory service (MIT licensed) that keeps what an agent learns and can recall and reflect on it. AgentMesh runs one shared copy with its own database, and each agent reaches only its own memory.",
+        "covered": true,
+        "swap": [],
+        "swap_note": "Nothing else can stand behind agent memory yet. Something else can be recorded, and a deploy then needs it bound by hand.",
+        "access": "brokered",
+        "access_words": "Reached through a short-lived credential the mesh issues. When an agent is stopped, its access ends within ten minutes, because nothing renews it."
+      },
+      "meters": {
+        "unit": "calls"
+      }
+    },
+    {
+      "name": "sign-in",
+      "label": "Sign-in",
+      "purpose": "Who a person is, for an agent that faces people.",
+      "promises": "An identity provider that returns a verified person and an email, and nothing about what they may do.",
+      "state": "defined",
+      "products": [
+        "platform",
+        "okta",
+        "google"
+      ],
+      "platform_gap": "The House Stack has no sign-in for agents that face people yet. Connect Okta or Google.",
+      "house": {
+        "system": "sign-in",
+        "system_label": "Sign-in",
+        "product": "none",
+        "label": "Not covered yet",
+        "why": "AgentMesh signs its own people in with email links and passkeys, and does not offer that sign-in to agents.",
+        "covered": false,
+        "gap": "The House Stack has no sign-in for agents that face people yet. Connect Okta or Google.",
+        "swap": [
+          "Okta",
+          "Google"
+        ]
+      },
+      "meters": null
+    },
+    {
+      "name": "mail",
+      "label": "Mail",
+      "purpose": "Sending a message to a person by email.",
+      "promises": "A sender that takes one address, a subject and a body, and reports what happened to it.",
+      "state": "defined",
+      "products": [
+        "platform",
+        "resend",
+        "ses"
+      ],
+      "platform_gap": "The House Stack has no mail sender for agents yet. Connect your own Resend or Amazon SES.",
+      "house": {
+        "system": "mail",
+        "system_label": "Mail",
+        "product": "none",
+        "label": "Not covered yet",
+        "why": "AgentMesh sends its own mail through Resend, and does not lend that sender to agents.",
+        "covered": false,
+        "gap": "The House Stack has no mail sender for agents yet. Connect your own Resend or Amazon SES.",
+        "swap": [
+          "Resend",
+          "Amazon SES"
+        ]
+      },
+      "meters": {
+        "unit": "messages"
+      }
+    },
+    {
+      "name": "text-reasoning",
+      "label": "Text reasoning",
+      "purpose": "The model an agent thinks with.",
+      "promises": "A model provider taking a prompt and returning text, with the model itself a setting.",
+      "state": "defined",
+      "products": [
+        "platform",
+        "anthropic",
+        "google"
+      ],
+      "house": {
+        "system": "text-reasoning",
+        "system_label": "Text reasoning",
+        "product": "platform",
+        "label": "AgentMesh's models",
+        "why": "AgentMesh chooses the model and keeps it current. Every harness AgentMesh deploys uses it unless its owner names another model, and the key sits on the machine that deploys it.",
+        "covered": true,
+        "swap": [
+          "Anthropic",
+          "Google"
+        ],
+        "access": "placed",
+        "access_words": "Reached with a key placed on the machine the agent runs on. Stopping an agent cuts it off the mesh; this key stays on its machine until it is taken away there."
+      },
+      "meters": {
+        "unit": "tokens"
+      }
+    },
+    {
+      "name": "image-reading",
+      "label": "Image reading",
+      "purpose": "Reading what is in a picture.",
+      "promises": "A model provider taking an image and returning text.",
+      "state": "defined",
+      "products": [
+        "platform",
+        "anthropic",
+        "google"
+      ],
+      "house": {
+        "system": "image-reading",
+        "system_label": "Image reading",
+        "product": "platform",
+        "label": "AgentMesh's models",
+        "why": "The same models read images, so one choice covers text and pictures.",
+        "covered": true,
+        "swap": [
+          "Anthropic",
+          "Google"
+        ],
+        "access": "placed",
+        "access_words": "Reached with a key placed on the machine the agent runs on. Stopping an agent cuts it off the mesh; this key stays on its machine until it is taken away there."
+      },
+      "meters": {
+        "unit": "tokens"
+      }
+    },
+    {
+      "name": "speech-to-text",
+      "label": "Speech to text",
+      "purpose": "Turning recorded speech into words.",
+      "promises": "A provider taking audio and returning text.",
+      "state": "defined",
+      "products": [
+        "platform",
+        "google"
+      ],
+      "house": {
+        "system": "speech-to-text",
+        "system_label": "Speech to text",
+        "product": "platform",
+        "label": "AgentMesh's speech recognition",
+        "why": "AgentMesh's own agents already use it for transcripts, so there is nothing to set up.",
+        "covered": true,
+        "swap": [
+          "Google"
+        ],
+        "access": "placed",
+        "access_words": "Reached with a key placed on the machine the agent runs on. Stopping an agent cuts it off the mesh; this key stays on its machine until it is taken away there."
+      },
+      "meters": {
+        "unit": "audio-minutes"
+      }
+    },
+    {
+      "name": "text-to-speech",
+      "label": "Text to speech",
+      "purpose": "Turning words into a voice.",
+      "promises": "A provider taking text and a voice name and returning audio.",
+      "state": "defined",
+      "products": [
+        "platform",
+        "google",
+        "elevenlabs"
+      ],
+      "house": {
+        "system": "text-to-speech",
+        "system_label": "Text to speech",
+        "product": "platform",
+        "label": "AgentMesh's voices",
+        "why": "AgentMesh's narration uses the same voices, so recordings sound the same across agents.",
+        "covered": true,
+        "swap": [
+          "Google",
+          "ElevenLabs"
+        ],
+        "access": "placed",
+        "access_words": "Reached with a key placed on the machine the agent runs on. Stopping an agent cuts it off the mesh; this key stays on its machine until it is taken away there."
+      },
+      "meters": {
+        "unit": "characters"
+      }
+    },
+    {
+      "name": "api-gateway",
+      "label": "API gateway",
+      "purpose": "The door an agent goes through to reach your own services.",
+      "promises": "One HTTPS base address that fronts a customer's own APIs, with a key in a header. A package calls paths under it and never a service's own address, so the gateway is where the account decides what its agents may reach.",
+      "state": "defined",
+      "products": [
+        "own-gateway"
+      ],
+      "meters": null
+    },
+    {
+      "name": "mcp-gateway",
+      "label": "MCP gateway",
+      "purpose": "Where the MCP servers an agent may use are reached.",
+      "promises": "One address that fronts an account's MCP servers, with a key. An agent's harness is handed that address for the servers its package declares, instead of each one being typed into every deploy.",
+      "state": "defined",
+      "products": [
+        "platform",
+        "own-gateway"
+      ],
+      "platform_gap": "The House Stack has no MCP gateway for your own servers yet. Connect your own gateway.",
+      "house": {
+        "system": "mcp-gateway",
+        "system_label": "MCP gateway",
+        "product": "none",
+        "label": "Not covered yet",
+        "why": "AgentMesh runs an MCP connector for its own tools, and does not offer it as a gateway in front of your MCP servers.",
+        "covered": false,
+        "gap": "The House Stack has no MCP gateway for your own servers yet. Connect your own gateway.",
+        "swap": [
+          "Your own gateway"
+        ]
+      },
+      "meters": null
+    },
+    {
+      "name": "draft-host",
+      "label": "Draft host",
+      "purpose": "Where a draft is staged for a person to look at before it is published.",
+      "promises": "A write of one file to an address a person can open, and a read back of what is served.",
+      "state": "defined",
+      "products": [
+        "platform",
+        "google-cloud-storage",
+        "s3"
+      ],
+      "house": {
+        "system": "draft-host",
+        "system_label": "Draft host",
+        "product": "google-cloud-storage",
+        "label": "Google Cloud Storage",
+        "why": "Each agent writes its drafts into its own private folder in AgentMesh's storage, through a fresh link the mesh issues for each write. An agent that is paused or terminated is refused a new link. The person reviewing a draft opens it with a link the mesh signs, which needs no sign-in and expires after 30 days. Drafts are kept for 90 days.",
+        "covered": true,
+        "swap": [
+          "Google Cloud Storage",
+          "Amazon S3"
+        ],
+        "access": "brokered",
+        "access_words": "Reached through a short-lived credential the mesh issues. When an agent is stopped, its access ends within ten minutes, because nothing renews it."
+      },
+      "meters": null
+    },
+    {
+      "name": "activity-record",
+      "label": "Activity record",
+      "purpose": "The platform's own record of what an agent did.",
+      "promises": "An append of one line, by an agent, about its own work. One product, ours.",
+      "state": "defined",
+      "products": [
+        "platform"
+      ],
+      "house": {
+        "system": "activity-record",
+        "system_label": "Activity record",
+        "product": "nats-jetstream",
+        "label": "NATS JetStream",
+        "why": "The record of what agents did is kept in the same JetStream that carries their messages, so nothing is recorded twice.",
+        "covered": true,
+        "swap": [],
+        "swap_note": "This one is AgentMesh's own record of the network and cannot be swapped.",
+        "fixed": true,
+        "access": "mesh",
+        "access_words": "Carried by the mesh itself, so stopping an agent ends its access at once."
+      },
+      "meters": null
+    },
+    {
+      "name": "calendar",
+      "label": "Calendar",
+      "purpose": "Reading and writing a person's appointments.",
+      "promises": "Not settled. The shape is named when the first package needs it.",
+      "state": "reserved",
+      "products": [],
+      "meters": null
+    },
+    {
+      "name": "chat",
+      "label": "Chat",
+      "purpose": "Posting into a team's chat, and reading what was said.",
+      "promises": "Not settled. The shape is named when the first package needs it.",
+      "state": "reserved",
+      "products": [],
+      "meters": null
+    },
+    {
+      "name": "payments",
+      "label": "Payments",
+      "purpose": "Taking money from a person or an account.",
+      "promises": "Not settled, and deliberately so. What an agent may charge and who is the merchant is a money decision, not a plumbing one.",
+      "state": "reserved",
+      "products": [],
+      "meters": null
+    }
+  ]
+}

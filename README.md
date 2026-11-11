@@ -256,7 +256,11 @@ revises the spec. Once you approve it, the builder goes on in the same folder.
 
 Product Factory judges nothing about the agent itself. Your approval of the spec
 is pressed in the console and run in the folder (`node .adlc/approve.mjs`), so it
-is binding there; the plugin's hook stops the assistant from running it. Each
+is binding there; the plugin's hook stops the assistant from running it. What you
+approve is the spec on the branch as it stands: if the builder pushed a new spec
+after the one you read, nothing is approved, and the new spec is handed to you to
+approve. After you send a spec back or ask for changes, the same spec is not handed
+to you again; Requirements waits for the builder's revision. Each
 stage is done when the folder's own check (`node .adlc/check.mjs --json`) has
 passed it: Architecture and Design when the architecture record and the agent's
 own files pass, Test when the suite does, Code when the scripts do. What only you

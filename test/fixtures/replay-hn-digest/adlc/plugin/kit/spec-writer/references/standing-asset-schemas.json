@@ -1,0 +1,137 @@
+{
+  "standing_asset_schemas": "v1",
+  "about": "The kinds of standing asset a Builder accepts in a can_use entry, each named by its schema URL with the version in the URL, and the house rule for which kinds apply to which outputs. The package maker refuses (or, for an agent released before the rule, warns about) a can_use entry whose schema is not listed here. The solution architect reads 'outputs' to decide, for each kind of output a person reads, which standing assets apply and why; the spec writer reads the same entries for the reads, does and without it declares when its own draft leaves one out. 'published' says where a kind's shape is written down today; where it is null, the field names in 'outputs' are the ones the Builders use until the shape is published. A change here is a new version, and every Builder that reads it re-pins its digest.",
+  "schemas": [
+    {
+      "schema": "https://schemas.agentmesh.ai/brand/v1",
+      "kind": "brand profile",
+      "for": "visual output (pages, images, video, slides), and how written copy names the organization",
+      "published": "AgentMesh schemas/brand/v1/schema.json"
+    },
+    {
+      "schema": "https://schemas.agentmesh.ai/style-guide/v1",
+      "kind": "style guide",
+      "for": "written copy: voice, tone, spelling and the words to use and avoid",
+      "published": null
+    },
+    {
+      "schema": "https://schemas.agentmesh.ai/glossary/v1",
+      "kind": "glossary",
+      "for": "written copy: the organization's own terms and what each means",
+      "published": null
+    },
+    {
+      "schema": "https://schemas.agentmesh.ai/media-templates/v1",
+      "kind": "media templates",
+      "for": "media: title and end cards, slide masters, page and document templates",
+      "published": null
+    },
+    {
+      "schema": "https://schemas.agentmesh.ai/stack/v1",
+      "kind": "the organization's stack",
+      "for": "build: the product the organization binds to each system, per environment",
+      "published": "adlc agents/solution-architect/references/house-stack.json (house_stack v1)"
+    },
+    {
+      "schema": "https://schemas.agentmesh.ai/architecture-standard/v1",
+      "kind": "architecture standard",
+      "for": "build: the rules the Architecture and Design stage holds an agent to",
+      "published": "adlc standards/architecture-standard.md"
+    },
+    {
+      "schema": "https://schemas.agentmesh.ai/audit-checklist/v1",
+      "kind": "audit checklist",
+      "for": "build: the checks the auditor runs over an agent version",
+      "published": "adlc standards/audit-checklist.md"
+    }
+  ],
+  "person_facing_kinds": [
+    "text/markdown",
+    "text/html",
+    "image/*",
+    "video/*",
+    "audio/*"
+  ],
+  "outputs": [
+    {
+      "class": "written copy",
+      "kinds": [
+        "text/markdown",
+        "text/html"
+      ],
+      "assets": [
+        {
+          "schema": "https://schemas.agentmesh.ai/style-guide/v1",
+          "why": "written copy a person reads speaks for the organization, and the style guide says its voice, its spelling and the words it uses and avoids",
+          "reads": [
+            "voice",
+            "tone",
+            "spelling",
+            "words.prefer",
+            "words.avoid"
+          ],
+          "does": "writes in the organization's voice, tone and spelling, and uses the words it prefers in place of the ones it avoids",
+          "without": "writes in a plain, neutral voice in the spelling of the words it was given, and says that no style guide was given"
+        },
+        {
+          "schema": "https://schemas.agentmesh.ai/brand/v1",
+          "why": "written copy that speaks for the organization names it, and the brand profile says how its name is written, how it is first mentioned and the words it never says",
+          "reads": [
+            "name",
+            "legal.first_mention",
+            "words.instead_of",
+            "words.never_say"
+          ],
+          "does": "writes the organization's name as the brand writes it, uses its first-mention form the first time, and keeps out the words the brand never says",
+          "without": "writes the organization's name as the person gave it, and says that no brand profile was given"
+        }
+      ]
+    },
+    {
+      "class": "visual",
+      "kinds": [
+        "text/html",
+        "image/*",
+        "video/*"
+      ],
+      "assets": [
+        {
+          "schema": "https://schemas.agentmesh.ai/brand/v1",
+          "why": "a page, a picture or a film a person sees carries the organization's look, and the brand profile says its colors, its faces and its mark",
+          "reads": [
+            "palette.ink",
+            "palette.ground",
+            "palette.heading",
+            "palette.accent",
+            "type.heading.family",
+            "type.body.family",
+            "logo.mark.href"
+          ],
+          "does": "draws in the brand's colors and faces and places its mark",
+          "without": "draws in this agent's own plain house style, and says that no brand profile was given"
+        }
+      ]
+    },
+    {
+      "class": "media",
+      "kinds": [
+        "video/*",
+        "audio/*"
+      ],
+      "assets": [
+        {
+          "schema": "https://schemas.agentmesh.ai/media-templates/v1",
+          "why": "a film or a recording opens and closes the way the organization's other media do, and its media templates say how",
+          "reads": [
+            "title_card",
+            "end_card",
+            "intro",
+            "outro"
+          ],
+          "does": "opens and closes with the organization's title and end cards, intro and outro",
+          "without": "opens and closes with plain cards carrying the title alone, and says that no media templates were given"
+        }
+      ]
+    }
+  ]
+}

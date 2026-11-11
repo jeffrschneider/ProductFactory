@@ -1,0 +1,4 @@
+{
+  "about": "The $schema value every plugin.json this agent writes carries: the version of the Agent Plugins schema the manifest is written against. It names a format and is never fetched (Common Agent 12.6 rule 3). It is kept here rather than in a script because a script carries no address literal (12.6 rule 2, the address check of 12.10).",
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+}

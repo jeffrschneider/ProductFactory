@@ -1,7 +1,7 @@
 {
   "adlc_pin": "v1",
   "repository": "CommonAgent/adlc",
-  "commit": "0f7cc4676d24d19f14c8523923fe9136f7421a21",
+  "commit": "3071e629428d913b3a296e4527a33ecc86398aba",
   "stages": "1.7.0",
   "lifecycle_api": "0.5.0",
   "about": "The one ADLC this Product Factory is built against: the standards in this folder are copies from this commit, and the adlc checkout it runs (product-factory.json, adlc) must be at it, for the reference agents and the ADLC plugin kit every build folder carries."

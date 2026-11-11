@@ -1,0 +1,1037 @@
+{
+  "version": "1.7.0",
+  "about": "The stages of the reference Agent Development Lifecycle, in order, in seven phases, as written on https://agenticdevelopment.ai/stages.html (the assets each stage makes are from https://agenticdevelopment.ai/assets.html). The site, the auditor and the console read this file; the site's tools/check-stages.mjs fails when the page and this file differ. Each stage: its role, the reference agent that holds it (null where none does; reference_holders lists every reference agent on its card), what it is given, what it hands back, when it is done, the asset it makes (assets lists every one), and person_gate, true where a person approves or decides at that stage. A list in a field is written as lines starting with \"- \". aliases are older names for a stage that still point at it. roles lists the lifecycle roles of https://agentroles.ai: each role's id, its name, its contract (the role's page), the offering an agent holding it answers (role-<id>), the stages it holds, and the agent in this repository that holds it for reference (null where none does). Each stage's role_ids names the roles that hold it. An organization may bind each role to the reference agent, its own agent, a contracted supplier, a person or an outside tool; the requester is always the person who asked. evidence_formats lists the open formats a holder outside the service may hand its evidence back in, and what each is read for. Each stage also has a cadence (added in 1.3.0), one of the ids in cadences: every_build, a stage that runs on every build of a product (the routine); setup, a stage set up once per product, whose holder and settings are carried forward to each later version until someone changes them; or when_needed, an action on the product run when something happens, not as part of a build. A change here is a new version. From 1.4.0 the file adds Reverse engineering, numbered 0 so that the 24 stages after it keep their numbers: a when_needed stage before Requirements that runs on adoption (an existing codebase is taken on) or on drift (the code changed outside the lifecycle, seen when its commit differs from the last one any build knew), and hands back the as-built record, on drift covering only what changed since the last record. A codebase that lives fully inside the lifecycle does not need it again. It also lists starting_points: each names what someone brings (brings), the stage it enters at (enters), the stages it goes to next where it skips ahead (then; the rest follow in the lifecycle's order), and why it starts there. starting_point_rules holds the rules every starting point keeps. From 1.5.0 the starting point as-built-record lets someone bring the as-built record of code kept elsewhere, to build it again without taking that code on (a rewrite, a port or a clean-room rebuild): it enters at Requirements, and the givens of Requirements and Test say they are given that record too. From 1.6.0 Requirements hands back the spec (standards/spec.schema.json, spec-v1): the analysis of the product's functional requirements and capabilities, each feature with its requirements, its inputs and outputs, and acceptance criteria a test can check. It is not the agent's descriptor or any other file a package is built from: the Design part of Architecture and Design makes those from the spec, and Test and Code work from the spec. From 1.7.0 one holder may hold several stages: what must be separate is each stage's check, not its author. A writing stage names in checked_by the check that decides it, which its holder does not control: one command, node .adlc/check.mjs in the build folder (the ADLC plugin), answering for the stage the folder is at; a stage the person approves still waits on the person once its check passes.",
+  "phases": [
+    {
+      "id": "define",
+      "name": "Define"
+    },
+    {
+      "id": "make",
+      "name": "Make"
+    },
+    {
+      "id": "ship",
+      "name": "Ship"
+    },
+    {
+      "id": "prove",
+      "name": "Prove"
+    },
+    {
+      "id": "use",
+      "name": "Use"
+    },
+    {
+      "id": "run",
+      "name": "Run"
+    },
+    {
+      "id": "change",
+      "name": "Change"
+    }
+  ],
+  "cadences": [
+    {
+      "id": "every_build",
+      "name": "Every build",
+      "about": "The routine: the stage runs on every build of the product, for each new version."
+    },
+    {
+      "id": "setup",
+      "name": "Set up once",
+      "about": "Set up once per product: who holds the stage and with what settings is chosen once and carried forward to each later version until someone changes it."
+    },
+    {
+      "id": "when_needed",
+      "name": "When needed",
+      "about": "An action on the product, run when something happens, not as part of a build."
+    }
+  ],
+  "roles": [
+    {
+      "id": "reverse-engineer",
+      "name": "Reverse engineer",
+      "contract": "https://agentroles.ai/reverse-engineer.html",
+      "offering": "role-reverse-engineer",
+      "stages": [
+        "reverse-engineering"
+      ],
+      "reference_agent": "reverse-engineer"
+    },
+    {
+      "id": "spec-writer",
+      "name": "Spec writer",
+      "contract": "https://agentroles.ai/spec-writer.html",
+      "offering": "role-spec-writer",
+      "stages": [
+        "requirements",
+        "architecture"
+      ],
+      "reference_agent": "spec-writer"
+    },
+    {
+      "id": "solution-planner",
+      "name": "Solution planner",
+      "contract": "https://agentroles.ai/solution-planner.html",
+      "offering": "role-solution-planner",
+      "stages": [
+        "requirements",
+        "architecture"
+      ],
+      "reference_agent": "solution-planner"
+    },
+    {
+      "id": "solution-architect",
+      "name": "Solution architect",
+      "contract": "https://agentroles.ai/solution-architect.html",
+      "offering": "role-solution-architect",
+      "stages": [
+        "architecture"
+      ],
+      "reference_agent": "solution-architect"
+    },
+    {
+      "id": "impact-analyst",
+      "name": "Impact analyst",
+      "contract": "https://agentroles.ai/impact-analyst.html",
+      "offering": "role-impact-analyst",
+      "stages": [
+        "impact"
+      ],
+      "reference_agent": "impact-analyst"
+    },
+    {
+      "id": "catalog",
+      "name": "Catalog",
+      "contract": "https://agentroles.ai/catalog.html",
+      "offering": "role-catalog",
+      "stages": [
+        "source"
+      ],
+      "reference_agent": "catalog"
+    },
+    {
+      "id": "test-writer",
+      "name": "Test writer",
+      "contract": "https://agentroles.ai/test-writer.html",
+      "offering": "role-test-writer",
+      "stages": [
+        "test"
+      ],
+      "reference_agent": "test-writer"
+    },
+    {
+      "id": "code-writer",
+      "name": "Code writer",
+      "contract": "https://agentroles.ai/code-writer.html",
+      "offering": "role-code-writer",
+      "stages": [
+        "code"
+      ],
+      "reference_agent": "code-writer"
+    },
+    {
+      "id": "code-critic",
+      "name": "Code critic",
+      "contract": "https://agentroles.ai/code-critic.html",
+      "offering": "role-code-critic",
+      "stages": [
+        "review"
+      ],
+      "reference_agent": "code-critic"
+    },
+    {
+      "id": "security-reviewer",
+      "name": "Security reviewer",
+      "contract": "https://agentroles.ai/security-reviewer.html",
+      "offering": "role-security-reviewer",
+      "stages": [
+        "security"
+      ],
+      "reference_agent": "security-reviewer"
+    },
+    {
+      "id": "package-maker",
+      "name": "Package maker",
+      "contract": "https://agentroles.ai/package-maker.html",
+      "offering": "role-package-maker",
+      "stages": [
+        "package",
+        "release"
+      ],
+      "reference_agent": "package-maker"
+    },
+    {
+      "id": "deployment-manager",
+      "name": "Deployment manager",
+      "contract": "https://agentroles.ai/deployment-manager.html",
+      "offering": "role-deployment-manager",
+      "stages": [
+        "deploy",
+        "update",
+        "reconfigure",
+        "rollback",
+        "decommission"
+      ],
+      "reference_agent": "deployment-manager"
+    },
+    {
+      "id": "conformance-checker",
+      "name": "Conformance checker",
+      "contract": "https://agentroles.ai/conformance-checker.html",
+      "offering": "role-conformance-checker",
+      "stages": [
+        "conformance"
+      ],
+      "reference_agent": "conformance-checker"
+    },
+    {
+      "id": "requester",
+      "name": "Requester",
+      "contract": "https://agentroles.ai/requester.html",
+      "offering": "role-requester",
+      "stages": [
+        "acceptance"
+      ],
+      "reference_agent": null
+    },
+    {
+      "id": "documenter",
+      "name": "Documenter",
+      "contract": "https://agentroles.ai/documenter.html",
+      "offering": "role-documenter",
+      "stages": [
+        "docs"
+      ],
+      "reference_agent": "documenter"
+    },
+    {
+      "id": "doc-writer",
+      "name": "Doc writer",
+      "contract": "https://agentroles.ai/doc-writer.html",
+      "offering": "role-doc-writer",
+      "stages": [
+        "docs"
+      ],
+      "reference_agent": "doc-writer"
+    },
+    {
+      "id": "publisher",
+      "name": "Publisher",
+      "contract": "https://agentroles.ai/publisher.html",
+      "offering": "role-publisher",
+      "stages": [
+        "publish",
+        "retract"
+      ],
+      "reference_agent": "publisher"
+    },
+    {
+      "id": "watcher",
+      "name": "Watcher",
+      "contract": "https://agentroles.ai/watcher.html",
+      "offering": "role-watcher",
+      "stages": [
+        "monitor",
+        "cost"
+      ],
+      "reference_agent": "watcher"
+    },
+    {
+      "id": "agent-critic",
+      "name": "Agent critic",
+      "contract": "https://agentroles.ai/agent-critic.html",
+      "offering": "role-agent-critic",
+      "stages": [
+        "eval"
+      ],
+      "reference_agent": null
+    },
+    {
+      "id": "incident-recorder",
+      "name": "Incident recorder",
+      "contract": "https://agentroles.ai/incident-recorder.html",
+      "offering": "role-incident-recorder",
+      "stages": [
+        "incident"
+      ],
+      "reference_agent": "incident-recorder"
+    }
+  ],
+  "evidence_formats": [
+    {
+      "id": "sarif",
+      "name": "SARIF 2.1.0",
+      "read_for": "security and review findings: the count by level, the rule ids, and each finding's file and line"
+    },
+    {
+      "id": "cyclonedx",
+      "name": "CycloneDX 1.4 or later, JSON",
+      "read_for": "a bill of materials: the components, with their versions"
+    },
+    {
+      "id": "spdx",
+      "name": "SPDX 2.3, JSON",
+      "read_for": "a bill of materials: the packages, with their versions"
+    },
+    {
+      "id": "slsa",
+      "name": "SLSA provenance (an in-toto statement whose predicateType is slsa.dev/provenance)",
+      "read_for": "build provenance: the subject digests and the builder id"
+    },
+    {
+      "id": "in-toto",
+      "name": "in-toto Statement v1",
+      "read_for": "the subject digests and the predicateType"
+    },
+    {
+      "id": "otel-genai",
+      "name": "OpenTelemetry trace JSON (OTLP/JSON) with gen_ai.* attributes",
+      "read_for": "the spans, the model calls, the tokens and the errors"
+    },
+    {
+      "id": "pact",
+      "name": "Pact verification result, JSON",
+      "read_for": "contract checks: the interactions that passed and failed"
+    }
+  ],
+  "stages": [
+    {
+      "id": "reverse-engineering",
+      "number": 0,
+      "phase": "define",
+      "name": "Reverse engineering",
+      "role": "reverse engineer",
+      "role_ids": [
+        "reverse-engineer"
+      ],
+      "reference_holder": null,
+      "given": "an existing codebase at a named commit, and its running form if there is one, on either of two triggers: adoption, when the codebase is taken on; or drift, when the code changed outside the lifecycle (hand edits, another team, a vendor drop), seen when its commit differs from the last one any build knew, and then also the last as-built record",
+      "hands_back": "the as-built record, tied to its source (the repository, the commit digest, and whether the code was only read or also run), in five parts, and on drift only what changed since the last record:\n- behaviors: each thing the code does (its inputs, outputs, refusals and the error handling actually present), each evidenced by a file and line or an observed run, drafted in the feature list's shape (id, name, does, offering) and marked as built\n- architecture as built: the parts, entry points, data stores, systems and networks reached, settings and credentials read, and how it starts and runs, in the architecture standard's record shape, marked as built\n- interfaces: the APIs, commands, messages and file formats, with schemas where they can be derived, in existing formats (OpenAPI, JSON Schema)\n- dependencies: a software bill of materials (SBOM) in CycloneDX or SPDX\n- existing tests and gaps: the tests it already has, what they cover, one baseline run's results, and what couldn't be determined (unreachable code, behavior seen only at run time, anything unclear), each marked",
+      "done_when": "every claim names its evidence, every gap is marked, and nothing is inferred beyond the evidence",
+      "asset": "As-built record",
+      "person_gate": false,
+      "cadence": "when_needed",
+      "why": "Nobody can decide what to keep until somebody says what's there. It describes what the code is, never whether it's right, and writes no tests; the person decides at Requirements, and on drift each changed behavior goes there to be approved, flagged as a bug for the backlog, or dropped. A codebase that lives fully inside the lifecycle never needs it again, because its forward artifacts are already the truth, so it never runs by routine.",
+      "reference_holders": [],
+      "assets": [
+        "As-built record"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "requirements",
+      "number": 1,
+      "phase": "define",
+      "name": "Requirements",
+      "role": "spec writer for an agent; solution planner for a solution",
+      "role_ids": [
+        "spec-writer",
+        "solution-planner"
+      ],
+      "reference_holder": "spec-writer",
+      "given": "somebody's account of what they want, with whatever they have; where code already exists, or where a build starts from the as-built record of code kept elsewhere, the as-built record, each behavior in which the person approves, flags as a bug for the backlog, or drops",
+      "hands_back": "the spec (spec-v1): the analysis of the product's functional requirements and capabilities:\n- each feature, with its requirements (each a statement with shall, its kind, the exact words, patterns and numbers it fixes, its source and how it is verified), its inputs and outputs with their schemas, and acceptance criteria as Gherkin scenarios\n- the interfaces it presents, and which must be kept exactly\n- constraints on the whole product: time, size, cost, runtime, security and data\n- the systems it reaches or names, and its settings\n- the open questions only the person can settle",
+      "done_when": "every feature has requirements and at least one acceptance scenario a test can check; every requirement comes from what the person said, or from a behavior the as-built record found, and nothing still open was made up; every requirement is covered by a scenario; the spec says what the agent refuses, what it does when it has nothing to work on, and what it does when a system it uses fails; and the person has approved the spec",
+      "asset": "Spec",
+      "person_gate": true,
+      "cadence": "every_build",
+      "why": "Whoever builds and tests from it can't ask what you meant, so it says what the product must do and how anyone can tell that it does, and never invents a name, a price or a permission.",
+      "reference_holders": [
+        "spec-writer",
+        "solution-planner"
+      ],
+      "assets": [
+        "Spec"
+      ],
+      "aliases": [],
+      "checked_by": [
+        {
+          "check": "node .adlc/check.mjs",
+          "stage": "requirements",
+          "asks": "The spec is valid spec-v1, every feature has requirements and Gherkin scenarios that check them, no value nobody gave is fixed, the name and the price are the person's, every requirement is checked by a scenario, and the refusals, the empty case and the failure case are each stated. Then the person approves it, and it is pinned."
+        }
+      ]
+    },
+    {
+      "id": "architecture",
+      "number": 2,
+      "phase": "define",
+      "name": "Architecture and Design",
+      "role": "solution architect, or a person",
+      "role_ids": [
+        "spec-writer",
+        "solution-planner",
+        "solution-architect"
+      ],
+      "reference_holder": "spec-writer",
+      "given": "the spec, and the organization's stack; where code already exists, the architecture as built (part 2 of the as-built record)",
+      "hands_back": "an architecture record:\n- the systems the agent reaches, in plain words (database, files, text reasoning, mail sender)\n- the product bound to each in dev, test and production: the organization's stack first, a platform default for the rest\n- dependencies on other agents and services\n- the agent's kind: a harness reading skills, code that speaks the network itself, or a container\n- limits on cost, speed, data and trust\n- each decision, with its reason",
+      "done_when": "every system is named, with the product behind it chosen for each environment the agent will run in; every decision has a reason; every design step uses only the systems the architecture named; the architecture record is the one the architect's own code writes from the facts and the person's answers, and the spec and the record use the same name for each system; and the agent's own files are the ones the generators write from the spec, the record and their wording, and the Common Agent packer accepts them",
+      "asset": "Architecture record",
+      "person_gate": false,
+      "cadence": "setup",
+      "why": "The systems named here become the package's runtime requirements, and the bindings are what Deploy places.",
+      "reference_holders": [
+        "spec-writer",
+        "solution-planner"
+      ],
+      "assets": [
+        "Architecture record",
+        "Design"
+      ],
+      "aliases": [
+        "design"
+      ],
+      "parts": [
+        {
+          "name": "Architecture",
+          "role": "solution architect, or a person",
+          "given": "the spec, and the organization's stack; where code already exists, the architecture as built (part 2 of the as-built record)",
+          "hands_back": "an architecture record:\n- the systems the agent reaches, in plain words (database, files, text reasoning, mail sender)\n- the product bound to each in dev, test and production: the organization's stack first, a platform default for the rest\n- dependencies on other agents and services\n- the agent's kind: a harness reading skills, code that speaks the network itself, or a container\n- limits on cost, speed, data and trust\n- each decision, with its reason"
+        },
+        {
+          "name": "Design",
+          "role": "spec writer for an agent; solution planner for a solution",
+          "given": "the spec, and the architecture record",
+          "hands_back": "the steps, what each is given and hands back, and whether each is a program or a judgment; for an agent, the agent's own files a package is built from (its descriptor, runtime requirements, plugin manifest and a SKILL.md per skill), made from the spec and the architecture record"
+        }
+      ],
+      "checked_by": [
+        {
+          "check": "node .adlc/check.mjs",
+          "stage": "architecture",
+          "asks": "The record is finished and is what the generator writes from architecture.json and the person's answers, so every system went through the architect's naming and binding; and every system of the spec is a system of the record, under the same name. Then the record is pinned."
+        },
+        {
+          "check": "node .adlc/check.mjs",
+          "stage": "files",
+          "asks": "The agent's own files are each what the generators write from the spec, the record and prose.json; every word is written; the spec writer's rules for good files, declarations and addresses hold; and the Common Agent packer accepts the folder. Then they are pinned."
+        }
+      ]
+    },
+    {
+      "id": "impact",
+      "number": 3,
+      "phase": "define",
+      "name": "Impact",
+      "role": "impact analyst",
+      "role_ids": [
+        "impact-analyst"
+      ],
+      "reference_holder": null,
+      "given": "the change, the running version, and what depends on it; where code already exists, the architecture as built and the dependencies (parts 2 and 4 of the as-built record)",
+      "hands_back": "the impact report: each dependent marked compatible, breaking or a change of behavior",
+      "done_when": "every dependent is named and answered, and the person approves before anything is built",
+      "asset": "Impact report",
+      "person_gate": true,
+      "cadence": "when_needed",
+      "why": "A change that's safe for its owner can break everyone who depends on it.",
+      "reference_holders": [],
+      "assets": [
+        "Impact report"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "source",
+      "number": 4,
+      "phase": "define",
+      "name": "Source",
+      "role": "catalog",
+      "role_ids": [
+        "catalog"
+      ],
+      "reference_holder": "catalog",
+      "given": "the steps, each with what it takes and hands back",
+      "hands_back": "for each step, an agent or solution that fits, or \"build one\" with the reason",
+      "done_when": "every step has an answer, and every \"build one\" says why",
+      "asset": "Catalog answers",
+      "person_gate": false,
+      "cadence": "setup",
+      "why": "The cheapest step is one somebody already built and checked.",
+      "reference_holders": [
+        "catalog"
+      ],
+      "assets": [
+        "Catalog answers"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "test",
+      "number": 5,
+      "phase": "make",
+      "name": "Test",
+      "role": "test writer",
+      "role_ids": [
+        "test-writer"
+      ],
+      "reference_holder": "test-writer",
+      "given": "the spec, and the agent's own files from Design; where code already exists, the behaviors and the existing tests and gaps (parts 1 and 5 of the as-built record), from which it writes characterization tests that pin today's behavior until Requirements says otherwise; where a build starts from the as-built record of code kept elsewhere, the same parts and the interfaces (part 3), from which it writes tests that pin each behavior the person approved, for code written fresh",
+      "hands_back": "the suite, with at least one test for each acceptance scenario of the spec, named by its id, and what no test could be written for",
+      "done_when": "every acceptance scenario has a test; every exact word, pattern and number that a test-verified requirement sets is checked by a test; the tests fail while the programs are still empty, and fail when any one program is removed; every test is named for an approved scenario, requirement or constraint; and no test fails because of a mistake in the test itself",
+      "asset": "Test suite",
+      "person_gate": false,
+      "cadence": "every_build",
+      "why": "Tests come before the program, from the spec, so a test can't pass by agreeing with a mistake. (Yes, people argue about this.)",
+      "reference_holders": [
+        "test-writer"
+      ],
+      "assets": [
+        "Test suite"
+      ],
+      "aliases": [],
+      "checked_by": [
+        {
+          "check": "node .adlc/check.mjs",
+          "stage": "test",
+          "asks": "The test writer's standard checks are its own bytes; every approved scenario has a test named for it, and every test is named for an approved scenario, requirement or constraint; exact values and kept interfaces are tested; the builder's own tests fail against empty stand-ins; and no test fails on a mistake of its own or against the agent's own files. Then the suite is pinned."
+        }
+      ]
+    },
+    {
+      "id": "code",
+      "number": 6,
+      "phase": "make",
+      "name": "Code",
+      "role": "code writer: the reference agent, your own coding agent, or a person",
+      "role_ids": [
+        "code-writer"
+      ],
+      "reference_holder": "code-writer",
+      "given": "the spec, the agent's own files, the suite, and a prototype if there is one, as a build folder on a branch with a \"Write the scripts\" pull request",
+      "hands_back": "the programs, an account of what was written, and a record of every round",
+      "done_when": "all the tests pass, removing any one program makes a test fail, and the tests, the spec and the agent's own files have not changed; every script the agent's files name is written, the scripts read only the settings the agent's files declare, and the Common Agent packer accepts the folder with its scripts",
+      "asset": "Code",
+      "person_gate": true,
+      "cadence": "every_build",
+      "why": "Any code writer can hold it; your prototype is read as the spec and written again against the suite.",
+      "reference_holders": [
+        "code-writer"
+      ],
+      "assets": [
+        "Code"
+      ],
+      "aliases": [],
+      "checked_by": [
+        {
+          "check": "node .adlc/check.mjs",
+          "stage": "code",
+          "asks": "Nothing pinned changed; every script is written; the scripts read from the environment only what the runtime requirements declare; the whole suite passes; each script blanked in turn is noticed; and the Common Agent packer accepts the folder with its scripts. Then the pull request opens."
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "number": 7,
+      "phase": "make",
+      "name": "Review",
+      "role": "code critic",
+      "role_ids": [
+        "code-critic"
+      ],
+      "reference_holder": null,
+      "given": "the programs, the tests, and the Code stage's account",
+      "hands_back": "findings, each naming a place, a claim and a consequence",
+      "done_when": "every finding is answered, by a change or a reason",
+      "asset": "Review findings",
+      "person_gate": false,
+      "cadence": "every_build",
+      "why": "A review is already an artifact everywhere else: findings you can answer.",
+      "reference_holders": [],
+      "assets": [
+        "Review findings"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "security",
+      "number": 8,
+      "phase": "make",
+      "name": "Security review",
+      "role": "security reviewer",
+      "role_ids": [
+        "security-reviewer"
+      ],
+      "reference_holder": null,
+      "given": "the architecture record and the design, the programs, and everything the package will ask for; where code already exists, the architecture as built and the dependencies (parts 2 and 4 of the as-built record)",
+      "hands_back": "what it may reach, what it may spend, what it must never do, and the reason for each",
+      "done_when": "every permission asked for has a recorded reason",
+      "asset": "Security statement",
+      "person_gate": false,
+      "cadence": "every_build",
+      "why": "The blast radius is set before the credentials are given, not after.",
+      "reference_holders": [],
+      "assets": [
+        "Security statement"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "package",
+      "number": 9,
+      "phase": "ship",
+      "name": "Package",
+      "role": "package maker",
+      "role_ids": [
+        "package-maker"
+      ],
+      "reference_holder": "package-maker",
+      "given": "the architecture record, the design and the programs",
+      "hands_back": "the package: the declaration (agent-descriptor.json and agent-runtime-requirements.json), the parts, a manifest and a digest",
+      "done_when": "the declaration validates and matches the runtime requirements, and every program in the package is listed in its manifest",
+      "asset": "The package",
+      "person_gate": false,
+      "cadence": "every_build",
+      "why": "Your work becomes an Agent Package, the easy way onto the mesh. Any tool works if the package is valid.",
+      "reference_holders": [
+        "package-maker"
+      ],
+      "assets": [
+        "The package"
+      ],
+      "aliases": [
+        "build"
+      ]
+    },
+    {
+      "id": "release",
+      "number": 10,
+      "phase": "ship",
+      "name": "Release",
+      "role": "package maker",
+      "role_ids": [
+        "package-maker"
+      ],
+      "reference_holder": "package-maker",
+      "given": "the package",
+      "hands_back": "a signed build record, and the package at an address",
+      "done_when": "the digest at the address matches the record, and the record verifies",
+      "asset": "Signed build record",
+      "person_gate": false,
+      "cadence": "every_build",
+      "why": "The signed record is why anyone downstream can trust the bytes.",
+      "reference_holders": [
+        "package-maker"
+      ],
+      "assets": [
+        "Signed build record"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "deploy",
+      "number": 11,
+      "phase": "ship",
+      "name": "Deploy",
+      "role": "deployment manager",
+      "role_ids": [
+        "deployment-manager"
+      ],
+      "reference_holder": "deployment-manager",
+      "given": "the package, where it goes, and the owner's answers as names and numbers",
+      "hands_back": "a running agent with an identity, an address and an inbox; its Descriptor signed and registered; settings, credentials (placed by name) and ceilings in place before it starts; a signed deployment record",
+      "done_when": "nothing asked for is missing, no secret appeared, a message gets an answer, and the record is signed",
+      "asset": "Signed Descriptor and registration",
+      "person_gate": true,
+      "cadence": "every_build",
+      "why": "There's never a moment when the agent is live without its credentials and limits; secrets are named, never carried.",
+      "reference_holders": [
+        "deployment-manager"
+      ],
+      "assets": [
+        "Signed Descriptor and registration",
+        "Signed deployment record"
+      ],
+      "aliases": [
+        "configure"
+      ]
+    },
+    {
+      "id": "conformance",
+      "number": 12,
+      "phase": "prove",
+      "name": "Conformance",
+      "role": "conformance checker",
+      "role_ids": [
+        "conformance-checker"
+      ],
+      "reference_holder": "conformance-checker",
+      "given": "the package, the agent's address, and its records",
+      "hands_back": "a signed verdict, case by case, and an attestation: one signed statement, for this version, of which checks on a published check list it passed",
+      "done_when": "every case from the declaration ran, the verdict is signed, and the attestation names the version, the check list and who attested",
+      "asset": "Conformance verdict",
+      "person_gate": false,
+      "cadence": "every_build",
+      "why": "It checks the agent keeps its promises, not that the promises were right; that's Eval.",
+      "reference_holders": [
+        "conformance-checker"
+      ],
+      "assets": [
+        "Conformance verdict",
+        "Attestations"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "acceptance",
+      "number": 13,
+      "phase": "prove",
+      "name": "Acceptance",
+      "role": "the requester, the person who asked",
+      "role_ids": [
+        "requester"
+      ],
+      "reference_holder": null,
+      "given": "what was delivered, and \"done\" as written at Requirements",
+      "hands_back": "a recorded yes against \"done\", or a no that says what's missing",
+      "done_when": "the answer is recorded with who and when, and the request closes",
+      "asset": "Acceptance",
+      "person_gate": true,
+      "cadence": "every_build",
+      "why": "Only the person who asked can say it's what they wanted.",
+      "reference_holders": [],
+      "assets": [
+        "Acceptance"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "docs",
+      "number": 14,
+      "phase": "use",
+      "name": "Docs",
+      "role": "documenter for the AgentDoc; doc writer for the documentation",
+      "role_ids": [
+        "documenter",
+        "doc-writer"
+      ],
+      "reference_holder": "documenter",
+      "given": "the declaration, the identity, and any records, verdicts and attestations",
+      "hands_back": "the AgentDoc a stranger reads, each claim traced to its source, with the attestations others signed shown as checked by others, and documentation for people",
+      "done_when": "nothing in the AgentDoc was authored, and every silence shows",
+      "asset": "AgentDoc",
+      "person_gate": false,
+      "cadence": "every_build",
+      "why": "The AgentDoc is gathered from what the agent declares, not written, so it can only say what its sources say.",
+      "reference_holders": [
+        "documenter"
+      ],
+      "assets": [
+        "AgentDoc"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "publish",
+      "number": 15,
+      "phase": "use",
+      "name": "Publish",
+      "role": "publisher",
+      "role_ids": [
+        "publisher"
+      ],
+      "reference_holder": "publisher",
+      "given": "the deliverable, and where it may be written",
+      "hands_back": "an address a person can open, and the digest of what's there",
+      "done_when": "the address resolves and serves what the digest says",
+      "asset": "Published address",
+      "person_gate": true,
+      "cadence": "setup",
+      "why": "The stage where a deliverable becomes public.",
+      "reference_holders": [
+        "publisher"
+      ],
+      "assets": [
+        "Published address"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "retract",
+      "number": 16,
+      "phase": "use",
+      "name": "Retract",
+      "role": "publisher",
+      "role_ids": [
+        "publisher"
+      ],
+      "reference_holder": null,
+      "given": "the address, or the name it went out under",
+      "hands_back": "a record of what was taken down, by whom, and when",
+      "done_when": "the address reads back empty, and the record says why",
+      "asset": "Retraction record",
+      "person_gate": true,
+      "cadence": "when_needed",
+      "why": "Only whoever published something may take it down.",
+      "reference_holders": [],
+      "assets": [
+        "Retraction record"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "monitor",
+      "number": 17,
+      "phase": "run",
+      "name": "Monitor",
+      "role": "watcher",
+      "role_ids": [
+        "watcher"
+      ],
+      "reference_holder": null,
+      "given": "the fleet, and what each agent declared",
+      "hands_back": "whether each agent is alive, answering, and inside its limits",
+      "done_when": "each agent has a current answer or an open alert",
+      "asset": null,
+      "person_gate": false,
+      "cadence": "setup",
+      "why": "A process being up says almost nothing; liveness is measured by an answer.",
+      "reference_holders": [],
+      "assets": [],
+      "aliases": []
+    },
+    {
+      "id": "eval",
+      "number": 18,
+      "phase": "run",
+      "name": "Eval",
+      "role": "agent critic",
+      "role_ids": [
+        "agent-critic"
+      ],
+      "reference_holder": null,
+      "given": "the work, and a standard set beforehand",
+      "hands_back": "a graded judgment, with a reason on each grade",
+      "done_when": "every piece is graded, and the standard predates the work",
+      "asset": "Graded judgments",
+      "person_gate": false,
+      "cadence": "setup",
+      "why": "Conformance says it answers; eval says whether the answer was any good.",
+      "reference_holders": [],
+      "assets": [
+        "Graded judgments"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "incident",
+      "number": 19,
+      "phase": "run",
+      "name": "Incident response",
+      "role": "incident recorder",
+      "role_ids": [
+        "incident-recorder"
+      ],
+      "reference_holder": "incident-recorder",
+      "given": "what monitoring saw, and the agent's records",
+      "hands_back": "a timeline of what's known, with every gap marked",
+      "done_when": "every fact names its source, and every gap is marked",
+      "asset": "Incident records",
+      "person_gate": true,
+      "cadence": "setup",
+      "why": "Record what happened, guess nothing, fix nothing; deciding stays with a person.",
+      "reference_holders": [
+        "incident-recorder"
+      ],
+      "assets": [
+        "Incident records"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "cost",
+      "number": 20,
+      "phase": "run",
+      "name": "Cost",
+      "role": "watcher",
+      "role_ids": [
+        "watcher"
+      ],
+      "reference_holder": null,
+      "given": "the ceilings, and what each job spent",
+      "hands_back": "what was spent, by whom, against what was allowed",
+      "done_when": "every spend traces to a job, and the total reconciles",
+      "asset": "Receipts, usage and cost",
+      "person_gate": false,
+      "cadence": "setup",
+      "why": "Ceilings are the easy half; the view across everything is the hard one.",
+      "reference_holders": [],
+      "assets": [
+        "Receipts, usage and cost"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "update",
+      "number": 21,
+      "phase": "change",
+      "name": "Update",
+      "role": "deployment manager",
+      "role_ids": [
+        "deployment-manager"
+      ],
+      "reference_holder": "deployment-manager",
+      "given": "a new package, and the agent it replaces",
+      "hands_back": "the same agent on the new version, with what changed recorded",
+      "done_when": "the candidate passed before the promote, the identity and address are unchanged, and the old version's attestations are marked stale until the new version is attested",
+      "asset": "Change records",
+      "person_gate": false,
+      "cadence": "setup",
+      "why": "New version, same identity: candidate first, then prove, then promote.",
+      "reference_holders": [
+        "deployment-manager"
+      ],
+      "assets": [
+        "Change records"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "reconfigure",
+      "number": 22,
+      "phase": "change",
+      "name": "Reconfigure",
+      "role": "deployment manager",
+      "role_ids": [
+        "deployment-manager"
+      ],
+      "reference_holder": "deployment-manager",
+      "given": "the running agent, and the change as names and numbers",
+      "hands_back": "the same agent on the same version, and a signed record of what changed",
+      "done_when": "the change is in place, no secret appeared, and the agent still answers",
+      "asset": "Change records",
+      "person_gate": false,
+      "cadence": "when_needed",
+      "why": "New settings, credentials or ceilings, same version.",
+      "reference_holders": [
+        "deployment-manager"
+      ],
+      "assets": [
+        "Change records"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "rollback",
+      "number": 23,
+      "phase": "change",
+      "name": "Rollback",
+      "role": "deployment manager",
+      "role_ids": [
+        "deployment-manager"
+      ],
+      "reference_holder": null,
+      "given": "the agent, and the version before",
+      "hands_back": "the agent back on that version, why, and what can't be undone",
+      "done_when": "it answers on the old version, and the side effects are named",
+      "asset": "Change records",
+      "person_gate": false,
+      "cadence": "when_needed",
+      "why": "Moving the code back is easy; undoing what the bad version did is not.",
+      "reference_holders": [],
+      "assets": [
+        "Change records"
+      ],
+      "aliases": []
+    },
+    {
+      "id": "decommission",
+      "number": 24,
+      "phase": "change",
+      "name": "Decommission",
+      "role": "deployment manager",
+      "role_ids": [
+        "deployment-manager"
+      ],
+      "reference_holder": "deployment-manager",
+      "given": "the instruction, and the agent",
+      "hands_back": "nothing running, the records kept, and the address retired",
+      "done_when": "no work is stranded, the records are kept, and the address is never reused",
+      "asset": "Decommission record",
+      "person_gate": true,
+      "cadence": "when_needed",
+      "why": "This is retiring an agent: the address stops answering rather than answering wrongly.",
+      "reference_holders": [
+        "deployment-manager"
+      ],
+      "assets": [
+        "Decommission record"
+      ],
+      "aliases": []
+    }
+  ],
+  "starting_points": [
+    {
+      "id": "idea",
+      "brings": "an idea: somebody's account of what they want",
+      "enters": "requirements",
+      "then": [],
+      "why": "Requirements turns an account of what someone wants into a spec a product could be built and tested from."
+    },
+    {
+      "id": "prototype",
+      "brings": "a prototype",
+      "enters": "test",
+      "then": [
+        "code"
+      ],
+      "why": "Code reads the prototype as the spec and writes it again against the suite, so the suite comes first."
+    },
+    {
+      "id": "existing-code",
+      "brings": "an existing codebase being adopted, at a named commit, and its running form if there is one",
+      "enters": "reverse-engineering",
+      "then": [],
+      "why": "Nobody can decide what to keep until somebody says what the code does. Reverse engineering writes that down in the as-built record, and Requirements is where the person decides what in it to keep."
+    },
+    {
+      "id": "as-built-record",
+      "brings": "the as-built record of code kept elsewhere, to build it again without taking that code on: a rewrite, a port, or a clean-room rebuild",
+      "enters": "requirements",
+      "then": [],
+      "why": "The record already says what the code does, so there is nothing for Reverse engineering to do, and Requirements is where the person decides what in it to keep. The code it describes stays where it is: nothing is adopted, so Code writes the code fresh against a suite written from the approved spec."
+    },
+    {
+      "id": "skill",
+      "brings": "a skill people run in their own assistant",
+      "enters": "security",
+      "then": [
+        "package"
+      ],
+      "why": "The person who ran it was the approval. Security review writes that down: what it may reach, what it may spend, and who says yes."
+    },
+    {
+      "id": "business-process",
+      "brings": "a written business process",
+      "enters": "source",
+      "then": [],
+      "why": "Its steps are what Source takes in."
+    },
+    {
+      "id": "working-code",
+      "brings": "working code, to be shipped as it is",
+      "enters": "security",
+      "then": [
+        "package"
+      ],
+      "why": "The code already does the job, so the lifecycle starts by setting what it may reach before it gets credentials. Code that will be developed further through the lifecycle is existing code, and enters at Reverse engineering."
+    },
+    {
+      "id": "package",
+      "brings": "a package or an image",
+      "enters": "security",
+      "then": [
+        "release",
+        "deploy"
+      ],
+      "why": "It is already built, so Security review sets its limits, Release signs the bytes, and Deploy places it."
+    }
+  ],
+  "starting_point_rules": [
+    "Every starting point that gets credentials passes Security review first, because the blast radius is set before the credentials are given, and Deploy is where they are given.",
+    "However it starts, a build ends in a valid package. That is the one requirement every starting point shares, because the package is what a platform checks before it installs anything."
+  ]
+}
