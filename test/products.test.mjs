@@ -62,7 +62,8 @@ test("products, a product's builds and activity, and each stage's workspace, fro
   assert.deepEqual(req.gate, { actions: ["approve", "changes", "stop"], state: "open", who_may: "Anyone may answer this gate: the lifecycle names no approvers for it." });
   assert.deepEqual(req.given, []);
   assert.deepEqual(req.outputs.map((a) => [a.id, a.state]), [["spec", "made"]]);
-  assert.equal(req.done_when, "every feature has requirements and at least one acceptance scenario a test can check, every requirement comes from what the person said or from a behavior of the as-built record, and nothing unsettled was invented; every requirement is checked by a scenario, and what the agent refuses, what it does when it finds nothing to work on, and what it does when a system it reaches fails are each stated; and the person has approved it");
+  // The words are stages.json's, as pinned (standards/ADLC.json), never a copy here.
+  assert.equal(req.done_when, STAGES_DOC.stages.find((s) => s.id === "requirements").done_when);
   // Test has not run: nothing given yet but the statement, its suite comes after the architecture record, and it has no gate.
   const tst = (await ws(f, id, "test")).json;
   assert.deepEqual(tst.given, ["spec", "statement"]);
