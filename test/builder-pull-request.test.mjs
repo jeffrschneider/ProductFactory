@@ -88,39 +88,43 @@ test("one builder on a pull request: the folder goes to a branch, your own assis
   const id = (await f.post("/builds", { does: "Count the words in a passage.", refuses: "Changing the passage.", name: "word-counter" })).json.build.id;
   let b = await f.settled(id);
   ok(b);
-  for (const s of ["architecture", "test", "code"]) assert.match(stageOf(b, s).holder.name, /^one builder: your own coding assistant with the ADLC plugin, on a pull request \(acme\/agents\)$/);
-
-  // Your approval in the console: the folder is laid out and your approval pinned there, then it goes to a branch and a pull request.
-  assert.equal((await f.post(`/builds/${id}/actions/approve`)).status, 200);
-  b = await f.settled(id);
-  ok(b);
+  // One author: the builder holds Requirements too, and no reference spec writer runs.
+  for (const s of ["requirements", "architecture", "test", "code"]) assert.match(stageOf(b, s).holder.name, /^one builder: your own coding assistant with the ADLC plugin, on a pull request \(acme\/agents\)$/, s);
+  assert.equal(stageOf(b, "requirements").state, "working");
+  // The pull request opens at once, with the folder and your words in request.md and no spec yet.
   assert.equal(gh.pulls.size, 1);
   const pr = [...gh.pulls.values()][0];
   assert.match(pr.title, /^Build the agent: word-counter /);
   assert.match(pr.body, /\/plugin install adlc --marketplace CommonAgent\/adlc/);
   const branch = pr.head;
-  const onBranch = gh.filesAt(branch);
+  let onBranch = gh.filesAt(branch);
   assert.ok(onBranch["agents/word-counter/.adlc/check.mjs"], "the ADLC kit is on the branch");
-  assert.ok(onBranch["agents/word-counter/spec.json"], "the spec you approved is on the branch");
-  assert.equal(JSON.parse(onBranch["agents/word-counter/build.lock.json"]).gates.requirements.by, "the person");
-  // This machine ran no coding agent: the harness was never called.
-  assert.deepEqual(harnessCalls(f), []);
-  assert.equal(stageOf(b, "architecture").state, "working");
+  assert.match(onBranch["agents/word-counter/request.md"], /Count the words in a passage\./);
+  assert.equal(onBranch["agents/word-counter/spec.json"], undefined, "the builder writes the spec, not this machine");
+  assert.deepEqual(harnessCalls(f), [], "this machine runs no coding agent");
   assert.equal(b.work?.builder, undefined, "the build's work is not in the API");
-
   // A push with nothing new is not checked again.
   assert.equal((await f.runner.poll(id)).judged, false);
 
-  // Your own assistant pushes the architecture, the files, a test and a script: the check asks what only you can answer.
+  // Your own assistant writes the spec (and, being a stand-in, everything after it) and pushes: the check says the spec is ready for you.
   const pushed = await personPushes(gh, branch, "agents/word-counter");
-  assert.ok(pushed.includes("agents/word-counter/scripts/count.mjs"));
-  const judged = await f.runner.poll(id);
-  assert.equal(judged.judged, true);
+  assert.ok(pushed.includes("agents/word-counter/spec.json"));
+  assert.equal((await f.runner.poll(id)).judged, true);
   b = await f.settled(id);
   ok(b);
+  assert.equal(stageOf(b, "requirements").state, "waiting_on_you");
+  assert.match(stageOf(b, "requirements").handed_back.words[0], /^The builder's spec is ready for your approval/);
+
+  // Your approval in the console: pinned in the folder here and pushed to the branch; then the check asks what only you can answer.
+  assert.equal((await f.post(`/builds/${id}/actions/approve`)).status, 200);
+  b = await f.settled(id);
+  ok(b);
+  onBranch = gh.filesAt(branch);
+  assert.equal(JSON.parse(onBranch["agents/word-counter/build.lock.json"]).gates.requirements.by, "the person");
+  assert.equal(stageOf(b, "requirements").state, "done");
   assert.equal(stageOf(b, "architecture").state, "waiting_on_you");
   assert.match(stageOf(b, "architecture").handed_back.words[0], /^Only you can answer: egress-1: /);
-  assert.ok(gh.comments.some((c) => /is not passed yet/.test(c.body ?? c)), "the check's word is said on the pull request");
+  assert.deepEqual(harnessCalls(f), [], "still no coding agent on this machine");
 
   // Your answer goes on the branch as Product Factory's commit, and the check passes every stage on it.
   assert.equal((await f.post(`/builds/${id}/actions/changes`, { changes: "egress-1: yes" })).status, 200);
@@ -141,14 +145,14 @@ test("a send back from the console goes on the pull request: approve.mjs --send-
   const folder = "agents/word-counter";
   const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "word-counter" })).json.build.id;
   await f.settled(id);
-  await f.post(`/builds/${id}/actions/approve`);
-  await f.settled(id);
   const branch = [...gh.pulls.values()][0].head;
 
-  // Your assistant pushes everything but the script, you answer, and the build waits at Code.
+  // Your assistant writes the spec and everything but the script; you approve the spec and answer, and the build waits at Code.
   await personPushes(gh, branch, folder);
   gh.push(branch, { [`${folder}/scripts/count.mjs`]: null });
   await f.runner.poll(id);
+  await f.settled(id);
+  assert.equal((await f.post(`/builds/${id}/actions/approve`)).status, 200);
   await f.settled(id);
   await f.post(`/builds/${id}/actions/changes`, { changes: "egress-1: yes" });
   await f.settled(id);

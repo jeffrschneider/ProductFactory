@@ -1,10 +1,26 @@
 // A stand-in for one builder: each round it writes what the folder's check
 // asks for next, and it logs the prompt it was given (PF_STUB_LOG).
-import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 const dir = process.cwd();
 if (process.env.PF_STUB_LOG) appendFileSync(process.env.PF_STUB_LOG, JSON.stringify({ builder: true, cwd: dir, prompt: process.argv[2], plugin: process.argv[3] ?? null }) + "\n");
 const put = (p, text) => { mkdirSync(join(dir, p, ".."), { recursive: true }); if (!existsSync(join(dir, p))) writeFileSync(join(dir, p), text); };
+// The builder writes the spec too: from request.md, revised when the person's changes are added at its end.
+const request = existsSync(join(dir, "request.md")) ? readFileSync(join(dir, "request.md"), "utf8") : "";
+const revised = request.includes("## The person asked for changes");
+const spec = {
+  format: "spec-v1",
+  product: { name: "word-counter", version: "0.1.0", kind: "agent" },
+  purpose: revised ? "Counts the words in a passage, revised as asked." : "Counts the words in a passage, for anyone who sends one.",
+  source: { kind: "account" },
+  features: [{ id: "F1", name: "Count", does: "Counts the words in a passage.", offering: "Count",
+    requirements: [{ id: "F1.R1", shall: "The agent shall count the words in a passage.", kind: "behavior", verify: "test" }],
+    acceptance: [{ id: "F1.A1", gherkin: "Scenario: count\n  Given the passage \"one two\"\n  When it is counted\n  Then the count is 2", checks: ["F1.R1"] }] }],
+  interfaces: [], constraints: [], systems: [], settings: [], open: [],
+};
+const was = (() => { try { return JSON.parse(readFileSync(join(dir, "spec.json"), "utf8")); } catch { return null; } })();
+const approved = (() => { try { return Boolean(JSON.parse(readFileSync(join(dir, "build.lock.json"), "utf8")).gates?.requirements); } catch { return false; } })();
+if (!was || (revised && !approved && was.purpose !== spec.purpose)) writeFileSync(join(dir, "spec.json"), `${JSON.stringify(spec, null, 2)}\n`);
 put("architecture-record.md", "---\nrecord: architecture-record-v1\n---\n# Architecture record\n");
 put("agent-descriptor.json", JSON.stringify({ format: "agent-descriptor-v1" }) + "\n");
 put("plugin.json", JSON.stringify({ name: "word-counter", version: "0.1.0", extensions: { "net.agentdoc.package": { build: { skills: { count: { scripts: ["scripts/count.mjs"] } } } } } }) + "\n");

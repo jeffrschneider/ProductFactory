@@ -119,7 +119,7 @@ test("the first run, with no settings file, writes the starter and still starts;
   assert.equal(stages.status, 200);
   assert.ok(Array.isArray(stages.json.stages) && stages.json.stages.length > 0);
   assert.equal((await viaConsole(url, "/api/v1/lifecycle/roles")).status, 200);
-  // A build stops at Requirements and says, in words, which model settings are missing.
+  // A build stops at Requirements and says, in words, what is missing: with the starter, one builder writes the spec, so the ADLC kit it is laid out with.
   const id = (await viaConsole(url, "/api/v1/lifecycle/builds", { does: "Count the words." })).json.build.id;
   let b;
   for (let i = 0; i < 100; i++) {
@@ -128,7 +128,7 @@ test("the first run, with no settings file, writes the starter and still starts;
     await new Promise((ok) => setTimeout(ok, 50));
   }
   assert.equal(stageOf(b, "requirements").state, "refused");
-  assert.match(stageOf(b, "requirements").handed_back.words[0], /MODEL_NAME, MODEL_ENDPOINT, MODEL_PROTOCOL are not set/);
+  assert.match(stageOf(b, "requirements").handed_back.words[0], /has no plugin\/kit\/start\.mjs, so the build folder cannot be laid out/);
   // It is still running.
   assert.equal(run.child.exitCode, null);
   assert.equal((await viaConsole(url, "/local/status")).status, 200);
