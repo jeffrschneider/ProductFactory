@@ -40,6 +40,6 @@
   "private": true,
   "dependencies": {
     "@common-agent/agentdoc": "0.1.0",
-    "adlc-console": "github:CommonAgent/adlc-console#b8774fa982ca070c06f3fed214aeeae61fc347ab"
+    "adlc-console": "github:CommonAgent/adlc-console#645d502d2c68d24a5fac6b7382a54f339a46e1b1"
   }
 }

@@ -25,7 +25,7 @@ test("every artifact of a finished build, in stage order, for the stages its lif
   // This build is from before stages.json 1.6.0: its spec writer handed back the agent's own files and no spec.
   assert.deepEqual(list.map((a) => a.id), ["spec", "statement", "architecture", "suite", "programs", "findings", "security", "package", "build_record", "run_plan", "attestation", "agentdoc"]);
   assert.deepEqual(list.map((a) => a.state), ["not_made", "made", "not_run", "made", "made", "made", "made", "made", "not_made", "made", "not_run", "not_run"]);
-  assert.match(list[0].summary.words, /no spec \(spec\.json, format spec-v1\), as a spec writer from before stages\.json 1\.6\.0 does/);
+  assert.match(list[0].summary.words, /^This version was built before the spec writer wrote specs, so it has none\./);
   // The agent's own files are made at Design (lifecycle API 0.4.8).
   assert.equal(list[1].stage, "architecture");
   assert.equal(list[1].name, "The agent's own files");
