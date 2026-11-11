@@ -519,11 +519,13 @@ export function checkArtifacts(list, ids, at = "body.artifacts") {
     if (seen.has(a.id)) p.push(`${here}.id: "${a.id}" is used twice`);
     seen.add(a.id);
     if (isObj(a.summary)) {
-      const def = a.state === "made" ? SUMMARY_OF[a.kind] ?? "WordsSummary" : "WordsSummary";
+      // An architecture record gives its parts from 0.4.12; one in words alone, as before, is still read as words.
+      const parts = a.kind !== "architecture" || Array.isArray(a.summary.systems);
+      const def = a.state === "made" && parts ? SUMMARY_OF[a.kind] ?? "WordsSummary" : "WordsSummary";
       if (a.state === "made" || a.state === "not_made" || a.state === "not_run") p.push(...validate(def, a.summary, `${here}.summary`));
       if (a.state === "made" && a.kind === "as_built") p.push(...asBuiltRules(a.summary, `${here}.summary`));
       if (a.state === "made" && a.kind === "security") p.push(...securityRules(a.summary, `${here}.summary`));
-      if (a.state === "made" && a.kind === "architecture") p.push(...architectureRules(a.summary, `${here}.summary`));
+      if (a.state === "made" && a.kind === "architecture" && parts) p.push(...architectureRules(a.summary, `${here}.summary`));
     } else if (a.state === "not_made" || a.state === "not_run") p.push(`${here}: is ${a.state}, so its summary says why in words`);
   });
   return p;

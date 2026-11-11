@@ -622,7 +622,7 @@
         "at": { "$ref": "#/$defs/Time", "description": "When it was made." },
         "summary": {
           "type": "object",
-          "description": "What it says, readable, never raw file content. The shape is the kind's: spec SpecSummary (added in 0.4.8), statement StatementSummary, suite SuiteSummary, programs ProgramsSummary, findings FindingsSummary, security SecuritySummary, package PackageSummary, run_plan RunPlanSummary, as_built AsBuiltSummary (added in 0.4.6), architecture ArchitectureSummary (added in 0.4.12), any other kind or any artifact not made WordsSummary."
+          "description": "What it says, readable, never raw file content. The shape is the kind's: spec SpecSummary (added in 0.4.8), statement StatementSummary, suite SuiteSummary, programs ProgramsSummary, findings FindingsSummary, security SecuritySummary, package PackageSummary, run_plan RunPlanSummary, as_built AsBuiltSummary (added in 0.4.6), architecture ArchitectureSummary when it gives its parts (added in 0.4.12; one in words alone is a WordsSummary, as before), any other kind or any artifact not made WordsSummary."
         },
         "files": { "type": "array", "items": { "$ref": "#/$defs/File" }, "description": "The files it is, at links the service answers with the same key." }
       }
