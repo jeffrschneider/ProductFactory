@@ -1,0 +1,161 @@
+PROCESS: make a new agent             id: product-factory/make-a-new-agent   v2
+from: ref/dev/make-a-new-agent v2
+owner: <who>                          effective: <date>
+trigger: a person asks for an agent in words, through
+         the Product Factory console, with a prototype attached when one
+         exists; or asks for a released agent to differ, with the
+         version that runs today attached as the prototype
+concurrency: runs may overlap - one run per agent at a time
+goal: a running agent whose package was made from a spec the owner
+      approved, whose scripts pass a suite fixed before them, each stage
+      of the build passed by a check its holder does not control, and
+      whose conformance was checked by an agent that did not build it,
+      with every step on the record
+phases:
+  write-the-spec     - harness: the four answers settled and the request
+                       turned into a spec, with every blank the request
+                       left named. The four are which kind of agent,
+                       one agent or several, whether the organization
+                       can stand a product behind every system the
+                       design names, and whether the thing already
+                       exists; each is the person's from a short list,
+                       and two of them can end the run
+                       owner: spec-writer          after: trigger
+                       automation: assisted
+  approve-the-spec   - human: the owner reads the spec, answers what it
+                       left open, and changes it or says yes
+                       owner: <the agent's owner>
+                       after: write-the-spec
+                       automation: never
+  build-the-agent    - harness: from the approved spec, in this order,
+                       each stage passing its own check before the next
+                       begins and then fixed: the architecture record;
+                       the agent's own files, accepted by the packer;
+                       the suite, a test for every acceptance scenario,
+                       shown to fail against an empty stand-in for every
+                       script; and the scripts, in node 22,
+                       passing the suite, with the prototype read when
+                       there is one
+                       owner: builder
+                       after: approve-the-spec
+                       automation: autonomous
+  make-the-package   - harness: the signed Agent Package made from the
+                       spec and the delivered scripts and nothing else,
+                       carrying the draft Descriptor in
+                       agent-descriptor.json and the runtime
+                       requirements in agent-runtime-requirements.json
+                       owner: package-maker        after: build-the-agent
+                       automation: autonomous
+  approve-the-deploy - human: the owner reads the package's build record
+                       and says whether it goes on the host you bring
+                       owner: <the agent's owner>
+                       after: make-the-package
+                       automation: never
+  deploy-the-agent   - harness: the package installed on the host you bring,
+                       or the running agent updated when the name
+                       already runs; the deployment manager answers with
+                       the agent's name and the signed deployment record
+                       owner: deployment-manager   after: approve-the-deploy
+                       automation: autonomous
+  check-conformance  - harness: the test derived from the package's own
+                       declarations, run against the installed agent,
+                       with each case confirmed, failed or flagged
+                       owner: conformance-checker  after: deploy-the-agent
+                       automation: autonomous
+  publish-the-agent  - human: the owner reads the agent's AgentDoc,
+                       assembled from the deployed agent's descriptor
+                       and the records of the run, and says it may be
+                       listed; the listing is made by the platform that
+                       hosts your catalog, from the descriptor
+                       owner: <the agent's owner>
+                       after: check-conformance
+                       automation: never
+handoffs:
+  write-the-spec -> approve-the-spec [spec-drafted]: the spec, the four answers
+    as the person settled them, and the list of what the request left
+    open
+  approve-the-spec -> build-the-agent [approved-spec]: the spec as the
+    owner left it, with who approved it and when, and the prototype when
+    one came with the request
+  approve-the-spec -> make-the-package [approved-spec]: the spec as the
+    owner left it, which names the scripts the package must ship
+  build-the-agent -> make-the-package [scripts]: the architecture record,
+    the agent's own files, the suite, every script the agent's files
+    name, the record of each stage's check, the builder's account, and
+    the signed job manifest that came with the delivery
+  make-the-package -> approve-the-deploy [package]: the package's
+    address, its sha256, and the build record
+  approve-the-deploy -> deploy-the-agent [approved-package]: the
+    package's address and sha256, with who approved it and when
+  deploy-the-agent -> check-conformance [agent]: the agent's name and
+    the deployment record
+  check-conformance -> publish-the-agent [eval-record]: the signed
+    evaluation record, every case confirmed, failed or flagged, and the
+    AgentDoc's address
+deviations:
+  approve-the-spec -> write-the-spec [changes]: the owner names what is
+    wrong or answers a blank; the spec is revised, not drafted again
+  build-the-agent -> approve-the-spec [conflict]: a test cannot pass
+    without breaking what the spec says; the owner decides which of the
+    two is wrong, and the suite or the spec is revised
+  make-the-package -> build-the-agent [untraced]: a script the package
+    would ship cannot be traced to the delivery of build-the-agent; it
+    goes back through that phase
+  check-conformance -> build-the-agent [failed]: a case the package's
+    own declarations promise has failed; the scripts are revised
+    against the same suite
+  approve-the-deploy -> write-the-spec [wrong-spec]: what was built is
+    not what was wanted; the request is restated and the spec redone
+bindings:
+  roster:  named for each build in the roster Product Factory sends
+           with the run: the reference spec writer of CommonAgent/adlc
+           for write-the-spec, one builder (your coding harness with
+           the ADLC plugin, holding the solution architect, test writer
+           and code writer roles) for build-the-agent, the Common Agent
+           packer for make-the-package, the runtime you bring for
+           deploy-the-agent, the Common Agent checks for
+           check-conformance, and the agent's owner (person) for the
+           three human phases
+  systems: none of the phases reaches a system of its own; each agent
+           brings what its package declares
+  data:    the request, the prototype when there is one,
+           node 22
+policy:
+  a request for an agent this process cannot make, meaning anything but
+    a package a harness reads, is said out loud at the spec and never
+    built as something else that looks close
+  a spec goes to the owner before anything else is built
+  each stage of the build passes a check its holder does not control,
+    and what it settled is fixed before the next stage begins
+  the suite is fixed before any script is written, and never changed
+    to fit one
+  no test is edited to make a script pass, and no script is delivered
+    that the suite fails
+  only scripts delivered by build-the-agent are packed; a script
+    written or changed outside that phase goes back through it
+  nothing is deployed without the owner's yes on the package
+  a prototype is read as the most exact statement of what was wanted
+    and is never shipped as it stands
+measures:
+  quality gate: no agent is deployed whose conformance check failed,
+                or whose package differs from the one the owner approved
+  cycle time: none set from the request to the deployed agent's name
+  rounds: revisions before the owner approves the spec, and before the
+          conformance check passes
+  defects: cases the conformance check failed on the first pass
+records:
+  spec              - the spec as the owner approved it, the four
+                      answers, and who approved it and when
+  build             - the architecture record, the agent's own files,
+                      the suite and its failure against empty
+                      stand-ins, and the check that passed each stage
+  delivery          - the scripts, the builder's account, the record of
+                      every round, and the signed job manifest
+  build-record      - the package's address and sha256, and the signed
+                      build record
+  deploy-decision   - the owner's yes on the package, and when it was
+                      given
+  deployment-record - the agent's name and the signed deployment record
+  evaluation-record - every case confirmed, failed or flagged, signed
+                      by the conformance checker
+  publish-decision  - the owner's yes and the AgentDoc's address

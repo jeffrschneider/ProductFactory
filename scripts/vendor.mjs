@@ -2,7 +2,10 @@
 // Refreshes the copies this repository ships, byte for byte, from local checkouts:
 //
 //   standards/stages.json, lifecycle-api.schema.json, lifecycle-document.schema.json
-//   and lifecycle-api-check.mjs          from CommonAgent/adlc, standards/
+//   and lifecycle-api-check.mjs          from CommonAgent/adlc, standards/, and
+//   standards/ADLC.json                  the one pin of the ADLC: the commit those
+//                                        copies came from, which the reference agents
+//                                        and the plugin kit are read from too
 //   vendor/process-runner/*.mjs          from AgentMesh-Community/process-runner, package/scripts/
 //                                        (the files vendor/process-runner/SOURCE.json lists; its
 //                                        commit and version are written back there)
@@ -46,6 +49,15 @@ for (const [from] of copies) {
 for (const [from, to] of copies) {
   copyFileSync(from, to);
   console.log(`copied ${from}`);
+}
+if (values.adlc) {
+  const at = resolve(values.adlc);
+  const commit = execFileSync("git", ["-C", at, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const stages = JSON.parse(readFileSync(join(at, "standards", "stages.json"), "utf8")).version;
+  const api = JSON.parse(readFileSync(join(at, "standards", "lifecycle-api.schema.json"), "utf8")).version;
+  writeFileSync(join(ROOT, "standards", "ADLC.json"), `${JSON.stringify({ adlc_pin: "v1", repository: "CommonAgent/adlc", commit, stages, lifecycle_api: api, about: "The one ADLC this Product Factory is built against: the standards in this folder are copies from this commit, and the adlc checkout it runs (product-factory.json, adlc) must be at it, for the reference agents and the ADLC plugin kit every build folder carries." }, null, 2)}
+`);
+  console.log(`the ADLC pinned at ${commit} (stages.json ${stages}, lifecycle API ${api})`);
 }
 if (runner) {
   source.commit = execFileSync("git", ["-C", runner, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();

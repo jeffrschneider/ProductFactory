@@ -32,6 +32,13 @@ const POLL_MS = 2_000;
 /** Actions that are housekeeping, not an answer at a gate. */
 const HOUSEKEEPING = new Set(["stop", "archive", "unarchive"]);
 const WHEN_NEEDED = new Set(["impact", "rollback", "reconfigure", "retract", "decommission"]);
+/**
+ * The person's approvals: pressed in the Product Factory console, where they are binding, and
+ * never taken from an assistant (the ADLC one-builder plan, step 6). The same holds in a build
+ * folder, where the ADLC plugin's hook stops the assistant from running approve.mjs.
+ */
+export const APPROVALS = new Set(["approve", "accept"]);
+const inConsole = (what) => `${what} is the person's approval. It is pressed in the Product Factory console, where it is binding, and not taken from here. Nothing was taken.`;
 
 // ---------- where the service is ----------
 
@@ -280,7 +287,7 @@ export const TOOLS = [
   },
   {
     name: "act",
-    description: "Take one action the engineer asked for in this conversation, by its id: a gate or other build action (<build>/<action>, such as b_1a2b3c4d5e6f/approve, from waiting_on_me, build_status or ask), a when-needed action on a product (<build>/rollback and the like), a boss proposal (bp_...), or a feature proposal (fp_..., with decision approve or not_now). It takes only an action the build offers the caller now, refuses anything else and says what is offered, and says what it did. Never call it on your own judgment: show the gate's words, ask the engineer, and act only on their yes, quoted in engineer_said.",
+    description: "Take one action the engineer asked for in this conversation, by its id: a gate or other build action (<build>/<action>, such as b_1a2b3c4d5e6f/approve, from waiting_on_me, build_status or ask), a when-needed action on a product (<build>/rollback and the like), a boss proposal (bp_...), or a feature proposal (fp_..., with decision approve or not_now). It takes only an action the build offers the caller now, refuses anything else and says what is offered, and says what it did. It never takes an approval (approving a spec or a feature, OK'ing code): those are pressed by the person in the Product Factory console, where they are binding. Never call it on your own judgment: show the gate's words, ask the engineer, and act only on their yes, quoted in engineer_said.",
     inputSchema: S({
       id: str("The action's id: <build>/<action>, bp_..., or fp_..."),
       decision: { type: "string", enum: ["approve", "not_now"], description: "For a feature proposal (fp_...): approve it, or leave it for later." },
@@ -498,6 +505,7 @@ export function createHandlers(api, { sleep = (ms) => new Promise((r) => setTime
   async function takeAction(buildId, name, given, via) {
     const b = await readBuild(buildId).catch((e) => { if (e.status === 404) throw new ToolProblem(`There is no build ${buildId}.`); throw e; });
     const offered = b.actions.find((a) => a.name === name);
+    if (offered && APPROVALS.has(name)) throw new ToolProblem(inConsole(`${offered.label} on ${b.name} ${b.version} (${b.id})`), { data: { taken: false, in_console: true } });
     let needsList = offered?.needs ?? [];
     let label = offered?.label ?? name;
     let path = `/builds/${enc(buildId)}/actions/${enc(name)}`;
@@ -539,7 +547,7 @@ export function createHandlers(api, { sleep = (ms) => new Promise((r) => setTime
     if (!["approve", "not_now"].includes(args.decision)) throw new ToolProblem("A feature proposal is answered with decision approve or not_now. Nothing was taken.");
     const p = await findInProducts(async (name) => (await pendingFeatures(api, name)).find((x) => x.proposal === id));
     if (!p) throw new ToolProblem(`No feature proposal ${id} waits for an answer. It may be answered already, or replaced by a newer one; waiting_on_me lists those that wait. Nothing was taken.`, { data: { taken: false } });
-    if (args.decision === "approve" && !p.you_may_approve) throw new ToolProblem(`You may not approve ${p.feature}: only ${p.approvers?.join(", ") || "an approver"} may. Nothing was taken.`, { data: { taken: false } });
+    if (args.decision === "approve") throw new ToolProblem(inConsole(`Approving feature ${p.feature} "${p.name}" of ${p.product}`), { data: { taken: false, in_console: true } });
     if (args.decision === "not_now" && p.state === "not_now") throw new ToolProblem(`${p.feature} is already left for later. Nothing was taken.`, { data: { taken: false } });
     const got = await api.post(`/builds/${enc(p.build)}/features/${enc(p.feature)}/${args.decision}`, { proposal: id });
     const words = args.decision === "approve"

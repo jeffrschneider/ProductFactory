@@ -30,6 +30,11 @@ so use them whenever they help. `ask` posts a message, and changes nothing else.
 A gate is a person's decision. Never take a gate action, a feature decision or
 a boss proposal on your own judgment, even when it looks obvious.
 
+Approvals are never taken from here. Approving a spec or a feature, and OK'ing
+the code, are pressed by the engineer in the Product Factory console, where
+they are binding; `act` refuses them and says so. When the engineer asks you to
+approve, show the gate's words and tell them to press it in the console.
+
 1. Find the action and its id with `waiting_on_me` or `build_status` (ids look
    like `b_1a2b3c4d5e6f/approve`, `bp_...` for a boss proposal, `fp_...` for a
    feature proposal).
@@ -37,14 +42,14 @@ a boss proposal on your own judgment, even when it looks obvious.
    said it handed back, what is still open, the features approving starts
    with, the pull request's check, and who may answer. For a spec, offer to
    read the spec with `stage`.
-3. Ask, naming the action: "Approve the spec for word-counter 0.1.0?"
+3. Ask, naming the action: "Ask the spec writer for that change on word-counter 0.1.0?"
 4. Only on a clear yes in this conversation, call `act` with the id and the
    engineer's own words in `engineer_said`. For Ask for changes or Send back to
    Test, put their words in `needs` (`{ "changes": "..." }`).
 5. Say what `act` answered: what it took, and where the build is now.
 
-When the engineer has already said exactly what to do ("approve the spec for
-word-counter"), that is the yes: show the gate's words in one or two lines,
+When the engineer has already said exactly what to do ("ask for changes to the
+spec for word-counter: ..."), that is the yes: show the gate's words in one or two lines,
 then act. If more than one build could be meant, ask which.
 
 `act` takes only what the build offers the engineer now. When it refuses, it
@@ -60,6 +65,18 @@ Use the engineer's words for `does`. Ask for a name if they have one in mind;
 otherwise leave it out. After `start_build`, the spec writer works for a
 while; use `build_status` with `wait_seconds` (60 to 120) to see the spec
 waiting at the Requirements gate, then show it and ask.
+
+## A build that one builder holds
+
+When Product Factory's `code.holder` is `builder`, one builder (the coding
+harness with the ADLC plugin) holds Architecture, Test and Code in one build
+folder, the same folder the ADLC plugin lays out on its own: `AGENTS.md`,
+`.adlc/check.mjs` and `build.lock.json`. Product Factory runs it and decides
+each stage by that folder's check; `build_status` shows the stage the check is
+at, and what only the engineer can answer. To work such a folder in this
+session, use the ADLC plugin (`/plugin install adlc --marketplace
+CommonAgent/adlc`) and follow `AGENTS.md`. Never run `approve.mjs`: the
+engineer's approval is pressed in the console, which runs it.
 
 ## Taking the Code hand-off on a pull request
 
@@ -92,7 +109,7 @@ in this same session:
    default). Report the check's words. When it fails, read them, fix the
    scripts, and push again.
 7. When the gate passes, the build waits for the engineer's OK on the code.
-   Show the check and ask before taking `OK the code`.
+   Show the check, and tell them to press OK the code in the console.
 
 If a test cannot pass without breaking the spec, write `records/conflict.md`
 in the build folder saying why, as AGENTS.md describes, and push; the gate
