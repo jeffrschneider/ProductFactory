@@ -188,7 +188,7 @@ test("GET /v1/lifecycle/analytics: Product Factory's own route, from real walked
   assert.equal(sum(a.builds, "finished"), 1);
   assert.equal(sum(a.builds, "stopped"), 1);
   // The walked build ran Requirements, Test, Code and Package, and the deploy gate, each now finished with a time.
-  assert.deepEqual(a.stage_times.map((x) => x.stage), ["requirements", "test", "code", "package", "deploy"]);
+  assert.deepEqual(a.stage_times.map((x) => x.stage), ["requirements", "architecture", "test", "code", "package", "deploy", "conformance"]);
   // Code's first round failed the suite and Requirements was sent back with changes.
   const backs = Object.fromEntries(a.send_backs.map((x) => [x.stage, x]));
   assert.equal(backs.code.back, 1);

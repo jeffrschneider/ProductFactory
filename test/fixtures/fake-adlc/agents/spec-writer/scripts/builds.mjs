@@ -23,7 +23,7 @@ const version = draft.version ?? "0.1.0";
 writeFileSync(join(out, "agent-descriptor.json"), JSON.stringify({ format: "agent-descriptor-v1", agent_version: version, name, does: "Counts the words in a passage.", will_not: ["It will not change the passage."], offerings: [{ id: "count", name: "Count" }] }, null, 2));
 writeFileSync(join(out, "agent-runtime-requirements.json"), JSON.stringify({ format: "agent-runtime-requirements-v1", runtimes: [{ name: "node", version: ">=22" }] }, null, 2));
 writeFileSync(join(out, "plugin.json"), JSON.stringify({ name, version, description: "Counts the words in a passage.", extensions: { "net.agentdoc.package": { build: { skills: { count: { scripts: ["scripts/count.mjs"] } } } } } }, null, 2));
-writeFileSync(join(out, "skills", "count", "SKILL.md"), `---\nname: count\ndescription: when somebody wants the words in a passage counted\n---\n\n# Count\n${draft.revision ? "\nRevised as asked.\n" : ""}`);
+writeFileSync(join(out, "skills", "count", "SKILL.md"), `---\nname: count\ndescription: when somebody wants the words in a passage counted\n---\n\n# Count\n${draft.revision ? "\nRevised as asked.\n" : ""}${draft.architecture ? `\nDesigned within the architecture record, from the spec at ${draft.architecture}.\n` : ""}`);
 
 // The spec's features, from the request.
 const features = [];

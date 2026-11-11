@@ -121,7 +121,7 @@ test("the process document's \"approve the deploy\" gate waits for the person be
   assert.equal(run.status, "open");
   assert.equal(run.phases["approve-the-deploy"].status, "gated");
 
-  // Your yes: the run ends before deploy-the-agent, and the package goes to the runtime.
+  // Your yes: the package goes to the runtime, which holds deploy-the-agent; Conformance checks the package, and the run ends before the publish gate.
   ok((await f.post(`/builds/${b.id}/actions/approve`)).json.build);
   b = await f.settled(b.id);
   ok(b);
@@ -129,7 +129,9 @@ test("the process document's \"approve the deploy\" gate waits for the person be
   assert.ok(existsSync(join(f.dir, "installed", "counter-0.1.0", "run-plan.json")));
   const after = f.store.read(b.id).run;
   assert.deepEqual([after.status, after.outcome], ["closed", "ended"]);
-  assert.deepEqual(after.open, ["deploy-the-agent", "check-conformance", "publish-the-agent"]);
+  assert.deepEqual(after.open, ["publish-the-agent"]);
+  for (const p of ["deploy-the-agent", "check-conformance"]) assert.equal(after.phases[p].status, "closed", p);
+  assert.equal(after.phases["deploy-the-agent"].holder.handle, "runtime/your-runtime");
   assert.ok(after.approvals.some((x) => x.phase === "approve-the-deploy" && x.by === "person@example.com"));
   assert.ok(b.log.some((e) => e.said === "You approved the deploy."));
 });
@@ -195,7 +197,8 @@ test("Deploy with the reference runtime: the package and the run plan are copied
   assert.ok(existsSync(join(where, archive)));
   assert.deepEqual(JSON.parse(readFileSync(join(where, "run-plan.json"), "utf8")), planOf(f, b).plan);
   assert.equal(b.handle, `folder:${where}`);
-  assert.equal(b.summary, "Handed to your runtime · counter 0.1.0");
+  assert.equal(b.summary, "Handed to your runtime · counter 0.1.0 · Passed the Common Agent checks that run here");
+  assert.equal(stageOf(b, "conformance").state, "done");
   assert.deepEqual(actionNames(b), ["archive"]);
   assert.ok(existsSync(join(f.store.folder(b.id), "stages", "deploy", "r1", "run.log")));
 });

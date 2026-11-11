@@ -1,0 +1,106 @@
+{
+  "agentdoc": "v1",
+  "package": {
+    "name": "meeting-notes",
+    "version": "2.1.0"
+  },
+  "assembled_by": "common-agent-doc, assembled from the package in this repository; the assembly is not signed",
+  "sources": [
+    {
+      "id": "descriptor",
+      "kind": "agent-descriptor",
+      "digest": "sha256:4ca144e96b5ae9cdcbff40735e89d42df8d78ea31e5b893c07772277ec5349dd",
+      "agent_version": "2.1.0",
+      "signature": "unsigned"
+    },
+    {
+      "id": "package",
+      "kind": "plugin-package",
+      "digest": "sha256:a2f7229e7c810dbcdef5e28fb0675c3ec4d51126a4ab5387c993dcdb233b4f0a",
+      "agent_version": "2.1.0",
+      "signature": "unsigned"
+    }
+  ],
+  "sections": {
+    "identity": {
+      "from": [
+        "package",
+        "descriptor"
+      ],
+      "name": "Meeting Notes",
+      "name_from": "package",
+      "does": "Turns a meeting transcript into notes, decisions and action items.",
+      "does_from": "descriptor"
+    },
+    "sells": {
+      "from": [
+        "descriptor"
+      ],
+      "scopes": [
+        "task-specific"
+      ],
+      "offerings": [
+        {
+          "id": "summarize-meeting",
+          "name": "Summarize a meeting",
+          "scope": "task-specific",
+          "does": "Reads one transcript and writes the notes, the decisions and the action items with their owners.",
+          "inputs": [
+            {
+              "name": "transcript",
+              "kind": "text/plain",
+              "required": true
+            }
+          ],
+          "outputs": [
+            {
+              "name": "notes",
+              "kind": "text/markdown",
+              "when": "per_task"
+            },
+            {
+              "name": "action-items",
+              "kind": "application/json",
+              "when": "per_task"
+            }
+          ],
+          "state": "declared"
+        }
+      ]
+    },
+    "refuses": {
+      "from": [
+        "descriptor"
+      ],
+      "statement": "It does not join live calls and does not send the notes to anyone.",
+      "kind": "prose"
+    },
+    "leaves": {
+      "from": [
+        "descriptor"
+      ],
+      "records": [
+        {
+          "name": "notes",
+          "when": "per_task",
+          "file": "notes.md"
+        }
+      ]
+    }
+  },
+  "not_stated": [
+    "subject",
+    "identity.acts_for",
+    "identity.operator",
+    "shape",
+    "asked",
+    "role",
+    "sells.offerings.price",
+    "access",
+    "reaches",
+    "configs",
+    "handling",
+    "standing"
+  ],
+  "signatures": []
+}
