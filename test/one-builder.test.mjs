@@ -47,7 +47,10 @@ test("one builder takes the approved spec through the code, each stage passed by
   assert.match(doc, /^ +owner: builder$/m);
   assert.doesNotMatch(doc, /design-the-agent|gather-the-features|write-the-architecture/);
   assert.equal(stageOf(b, "requirements").state, "waiting_on_you");
-  for (const s of ["architecture", "test", "code"]) assert.match(stageOf(b, s).holder.name, /^one builder: your coding harness \(node\) with the ADLC plugin$/);
+  // One author: the builder holds Requirements too, and wrote the spec in the folder; no reference spec writer ran.
+  for (const s of ["requirements", "architecture", "test", "code"]) assert.match(stageOf(b, s).holder.name, /^one builder: your coding harness \(node\) with the ADLC plugin$/, s);
+  assert.match(stageOf(b, "requirements").handed_back.words[0], /^The builder's spec is ready for your approval/);
+  assert.match(calls(f)[0].prompt, /from Requirements: write spec\.json from the person's words in request\.md/);
 
   // Your approval, pressed in the console: the build folder is laid out and the approval pinned there by Product Factory.
   assert.equal((await f.post(`/builds/${id}/actions/approve`)).status, 200);
@@ -80,6 +83,27 @@ test("one builder takes the approved spec through the code, each stage passed by
   assert.ok(handed.includes("scripts/count.mjs"));
   assert.ok(handed.includes("agent-descriptor.json"));
   assert.equal(stageOf(b, "package").state, "done");
+});
+
+test("changes asked for at Requirements go into request.md under a dated heading, and the builder revises the spec before you approve it", async (t) => {
+  const adlc = await adlcWithKit();
+  const f = await factory({ doc: leftOut, holder: "builder", harness: ["node", STUB_BUILDER, "{prompt}", "{plugin}"], adlc });
+  t.after(f.close);
+  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "word-counter" })).json.build.id;
+  let b = await f.settled(id);
+  assert.equal(stageOf(b, "requirements").state, "waiting_on_you");
+  const folder = join(f.store.folder(id), "build");
+  assert.match(JSON.parse(readFileSync(join(folder, "spec.json"), "utf8")).purpose, /for anyone who sends one/);
+  assert.equal((await f.post(`/builds/${id}/actions/changes`, { changes: "Say what happens when the passage is empty." })).status, 200);
+  b = await f.settled(id);
+  ok(b);
+  const request = readFileSync(join(folder, "request.md"), "utf8");
+  assert.match(request, /Count the words in a passage\./);
+  assert.match(request, /^## The person asked for changes \(\d{4}-\d{2}-\d{2}\)\n\nSay what happens when the passage is empty\.$/m);
+  assert.equal(stageOf(b, "requirements").state, "waiting_on_you");
+  assert.match(JSON.parse(readFileSync(join(folder, "spec.json"), "utf8")).purpose, /revised as asked/);
+  assert.equal(lockOf(f, id).gates.requirements, undefined, "nothing is approved until you approve it");
+  assert.equal(calls(f).length, 2);
 });
 
 test("a build one builder holds is sent back to an earlier stage of its folder with your words, and the builder goes on from there", async (t) => {

@@ -108,10 +108,10 @@ deviations:
     not what was wanted; the request is restated and the spec redone
 bindings:
   roster:  named for each build in the roster Product Factory sends
-           with the run: the reference spec writer of CommonAgent/adlc
-           for write-the-spec, one builder (your coding harness with
-           the ADLC plugin, holding the solution architect, test writer
-           and code writer roles) for build-the-agent, the Common Agent
+           with the run: one builder (your coding harness with the
+           ADLC plugin, holding the spec writer, solution architect,
+           test writer and code writer roles) for write-the-spec and
+           build-the-agent, in one build folder, the Common Agent
            packer for make-the-package, the runtime you bring for
            deploy-the-agent, the Common Agent checks for
            check-conformance, and the agent's owner (person) for the

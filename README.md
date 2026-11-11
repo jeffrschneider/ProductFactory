@@ -241,12 +241,18 @@ an environment variable, and a value there is refused.
 ## One builder
 
 With `"code": { "holder": "builder" }`, which `product-factory init` writes, one
-builder holds Architecture, Test and Code: your coding harness with the ADLC
-plugin of the `adlc` checkout (`{plugin}` in the harness command). The build
-runs the reference process "make a new agent" v2 as it is published, with only
-its blanks filled (`processes/make-a-new-agent-one-builder.txt`): the reference
-spec writer writes the spec, you approve it in the console, and then
-build-the-agent runs in one build folder laid out by the ADLC plugin's kit.
+builder writes everything, from the spec through the code: your coding harness
+with the ADLC plugin of the `adlc` checkout (`{plugin}` in the harness command).
+No reference spec writer runs, so the spec and everything built from it have one
+author and one check. The build runs the reference process "make a new agent" v2
+as it is published, with only its blanks filled
+(`processes/make-a-new-agent-one-builder.txt`). When the build starts, Product
+Factory lays out one build folder with the ADLC plugin's kit and your words in
+`request.md`. The builder writes the spec there until the folder's own
+Requirements check says it is ready for you, and you read it at Requirements in
+the console. Approve it, or ask for changes: your words are added to the end of
+`request.md` under "The person asked for changes" and the date, and the builder
+revises the spec. Once you approve it, the builder goes on in the same folder.
 
 Product Factory judges nothing about the agent itself. Your approval of the spec
 is pressed in the console and run in the folder (`node .adlc/approve.mjs`), so it
@@ -260,7 +266,7 @@ rounds are used up waits on you in the check's words, and from any of these
 stages you can send the build back to an earlier one with your words
 (`send_back`, lifecycle API 0.5.0): the folder reopens that stage and every one
 after it, and the builder goes on from there. Sending it back to Requirements
-asks the spec writer for a revised spec, and the builder goes on once you
+adds your words to request.md, the builder revises the spec, and it goes on once you
 approve it. The other holders below keep Product Factory's earlier process and
 its own Code gate.
 
@@ -268,10 +274,14 @@ its own Code gate.
 
 With `"code": { "holder": "builder", "where": "pull-request" }` and a
 `repository`, this machine runs no coding agent and holds no sign-in to one.
-Once you approve the spec in the console, Product Factory lays the build folder
-out with the ADLC plugin's kit, pins your approval in it, and puts it on a branch
-of its own in `agents/<name>/` with a "Build the agent" pull request. You build
-it with your own coding assistant wherever you are: in Claude Code, install the
+When the build starts, Product Factory lays the build folder out with the ADLC
+plugin's kit and your words in `request.md`, and puts it on a branch of its own
+in `agents/<name>/` with a "Build the agent" pull request. Your own coding
+assistant writes the spec there and pushes it. When the folder's check says the
+spec is ready, you read it and approve it in the console; Product Factory pins
+your approval in the folder and pushes it, and your changes go to `request.md`
+the same way. You build everything with your own coding assistant wherever you
+are: in Claude Code, install the
 ADLC plugin (`/plugin install adlc --marketplace CommonAgent/adlc`), check the
 branch out, open the folder and follow its `AGENTS.md`; another assistant reads
 `AGENTS.md` too. Push as you go.
