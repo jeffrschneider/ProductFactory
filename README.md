@@ -29,16 +29,18 @@ A build follows the lifecycle in effect when it started, and runs these stages:
 | Package | the Common Agent packer | The agent's files and the scripts are packed as an Agent Package and validated. |
 | | you, in the console | The run plan is written beside the package. You read it with the package's build record, and approve the deploy. |
 | Deploy | the runtime you bring | The package and the run plan are handed to your runtime's command. With no runtime set, Deploy waits for you to hand them over. |
+| Conformance | the Common Agent checkers | Once your runtime took the package, it is held to the Common Agent 0.41.0 checks that programs run with node and no network (Section 14): the package's mechanical checks of Section 12.10, by the packer's own `validate`, and, when the build carries a package AgentDoc (Section 13.4), its static checks of Section 9.10, by `@common-agent/agentdoc`. The checks that need the running agent (the Descriptor it serves, Section 4.9; the five questions, Section 4.3; trials, Section 7.7) are named as not checked, because your runtime holds the agent. The result is the build's `attestation` artifact, `attestation.md`, unsigned because Product Factory holds no key. A check that fails refuses the stage with the attestation; nothing reads as passed that did not run. The run ends before the publish gate, which Product Factory does not hold. |
 
 A stage your lifecycle leaves out reads "not used"; when that is Architecture
 and Design, neither of its phases runs and the agent's own files go on as the
 spec was approved with them. Stages milestone 1 does not run read "not
 offered", and say so in plain words: the stages between Requirements and
 Package that it does not run yet (Impact, Source, Review, Security review),
-and Release, Conformance, Acceptance and Docs after it. A build started on an
+and Release, Acceptance and Docs after it. A build started on an
 earlier version of the process (`make-a-new-agent.txt` v2, before the
 architecture phase) keeps its own copy and is not run again, so its
-Architecture reads "not offered".
+Architecture and its Conformance read "not offered", and its run ends at the
+deploy as it did.
 
 ## Run stages handed to your runtime
 
@@ -1029,7 +1031,7 @@ and look the person up in `people.json` by its email.
   field. Product Factory then checks what a schema cannot: that each person
   and team is in `people.json`, and that a named person may answer gates.
 - Agent Processes, through the process runner, for "make a new agent", "adopt existing code" and "rebuild from an as-built record".
-- The Common Agent package format, through `@common-agent/package`.
+- The Common Agent package format, through `@common-agent/package`, and the AgentDoc checks of Common Agent 9.10, through `@common-agent/agentdoc` (0.1.0, pinned).
 
 Where milestone 1 differs from one of them:
 

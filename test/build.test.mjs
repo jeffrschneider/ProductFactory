@@ -6,11 +6,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { factory, stageOf, actionNames, MODEL_VARS } from "./helpers.mjs";
 import { checkBuild, checkBuildList } from "adlc-console/lib/contract.mjs";
 import { STAGE_IDS } from "../lib/standards.mjs";
 
+const FOLDER = join(dirname(fileURLToPath(import.meta.url)), "..", "runtimes", "folder.mjs");
 const leftOut = { version: "0.1", organization: { used: { review: false, docs: false } } };
 const ok = (b) => assert.deepEqual(checkBuild({ build: b }, STAGE_IDS), []);
 const calls = (f) => (existsSync(f.stubLog) ? readFileSync(f.stubLog, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []);
@@ -126,13 +128,13 @@ test("a build runs every stage: spec, your approval, suite, a failed round, your
   assert.deepEqual(actionNames(b), ["resume", "archive"]);
   assert.ok(existsSync(join(f.store.folder(id), "stages", "package", "r1", "source", "skills", "count", "scripts", "count.mjs")), "the skill carries its script, as plugin.json's build entry names it");
 
-  // The process runner ran the build: every phase milestone 1 runs closed, the deploy was approved, and the run ended before deploy-the-agent.
+  // The process runner ran the build: every phase milestone 1 runs closed, the deploy was approved, and with no runtime
+  // set the run waits at deploy-the-agent, held by the runtime you bring, for the package to be handed over.
   const run = f.store.read(id).run;
   assert.equal(run.process.name, "make a new agent");
-  assert.equal(run.status, "closed");
-  assert.equal(run.outcome, "ended");
-  for (const p of ["write-the-spec", "approve-the-spec", "gather-the-features", "make-the-package", "approve-the-deploy"]) assert.equal(run.phases[p].status, "closed", p);
-  assert.deepEqual(run.open, ["deploy-the-agent", "check-conformance", "publish-the-agent"]);
+  assert.equal(run.status, "open");
+  for (const p of ["write-the-spec", "approve-the-spec", "write-the-architecture", "design-the-agent", "gather-the-features", "make-the-package", "approve-the-deploy"]) assert.equal(run.phases[p].status, "closed", p);
+  assert.deepEqual(["deploy-the-agent", "check-conformance", "publish-the-agent"].map((p) => run.phases[p].status), ["working", "waiting", "waiting"]);
   assert.deepEqual(run.approvals.map((a) => [a.phase, a.by]), [["write-the-spec", "person@example.com"], ["approve-the-spec", "person@example.com"], ["approve-the-deploy", "person@example.com"]]);
   assert.deepEqual(run.deviations.map((d) => d.key), ["changes"]);
   assert.ok(existsSync(join(f.store.folder(id), "run", run.run_id, "events.jsonl")), "the run is kept on disk the process runner's way too");
@@ -154,7 +156,7 @@ test("a build runs every stage: spec, your approval, suite, a failed round, your
 });
 
 test("a walked build's timeline has one bar per phase per round, each with its stage", async (t) => {
-  const f = await factory({ failRounds: 1 });
+  const f = await factory({ failRounds: 1, runtime: { command: ["node", FOLDER, "--into", "./installed"] } });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage." })).json.build.id;
   let b = await f.settled(id);
@@ -182,6 +184,10 @@ test("a walked build's timeline has one bar per phase per round, each with its s
   assert.deepEqual([...new Set(at("write-the-scripts").map((x) => x.stage))], ["code"]);
   assert.deepEqual([...new Set(at("make-the-package").map((x) => x.stage))], ["package"]);
   assert.deepEqual([...new Set(at("approve-the-deploy").map((x) => x.stage))], ["deploy"]);
+  assert.deepEqual([...new Set(at("write-the-architecture").map((x) => x.stage))], ["architecture"]);
+  assert.deepEqual([...new Set(at("design-the-agent").map((x) => x.stage))], ["architecture"]);
+  assert.deepEqual([...new Set(at("deploy-the-agent").map((x) => x.stage))], ["deploy"]);
+  assert.deepEqual([...new Set(at("check-conformance").map((x) => x.stage))], ["conformance"]);
   // Done: every bar closed, ordered by start, each with its duration.
   for (const x of bars) assert.equal(x.duration_ms, Date.parse(x.end) - Date.parse(x.start), x.phase);
   const starts = bars.map((x) => Date.parse(x.start));
@@ -274,7 +280,7 @@ test("asking for changes needs words, and a refused spec runs again with them", 
   assert.equal(stageOf(done, "package").state, "done");
   await f.post(`/builds/${id}/actions/approve`);
   await f.settled(id);
-  assert.equal(f.store.read(id).run.outcome, "ended");
+  assert.equal(f.store.read(id).run.phases["deploy-the-agent"].status, "working", "with no runtime set, the package waits to be handed over");
 });
 
 test("the reference code writer holds Code with its own workspace, check and delivery check", async (t) => {

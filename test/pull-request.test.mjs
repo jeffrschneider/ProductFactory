@@ -141,7 +141,7 @@ test("Code opens a Write the scripts pull request; a failing push, then a passin
   const run = codeRun(f, id).run;
   assert.ok(run.approvals.some((a) => a.phase === "write-the-scripts" && a.text === `OK'd in the console at ${good.slice(0, 7)}`));
   assert.equal(run.outcome, "completed", "the feature's run closed with your OK");
-  assert.equal(f.store.read(id).run.outcome, "ended", "the version's run ended before deploy-the-agent");
+  assert.equal(f.store.read(id).run.phases["deploy-the-agent"].status, "working", "the version's run waits at deploy-the-agent for the package to be handed over");
 
   // The token is read from its variable each time and never kept.
   assert.ok(!readFileSync(join(f.store.folder(id), "build.json"), "utf8").includes(gh.token));
@@ -282,7 +282,7 @@ test("Send back to Test: the test writer revises the suite, and the revised test
   assert.deepEqual(run.deviations.map((d) => [d.key, d.from, d.to, d.text]), [["conflict", "write-the-scripts", "write-the-suite", "Say that an empty passage has no words."]]);
   assert.equal(f.store.read(id).run.approvals.filter((a) => a.phase === "approve-the-spec").length, 1);
   assert.equal(run.outcome, "completed");
-  assert.equal(f.store.read(id).run.outcome, "ended");
+  assert.equal(f.store.read(id).run.phases["deploy-the-agent"].status, "working");
 });
 
 test("Code on a pull request stops and says so when the token is not set, and the settings refuse a token value", async (t) => {

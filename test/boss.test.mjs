@@ -106,7 +106,7 @@ test("a request that changes the statement is planned, proposes the next version
   const { reply } = got.json;
 
   // The plan: every stage the next version runs, in order, with the gates the person meets.
-  assert.deepEqual(reply.plan.map((s) => s.stage), ["requirements", "architecture", "test", "code", "package"]);
+  assert.deepEqual(reply.plan.map((s) => s.stage), ["requirements", "architecture", "test", "code", "package", "conformance"]);
   assert.equal(reply.plan[0].words, "The spec writer revises the statement to say it.");
   assert.equal(reply.plan[3].words, "Your coding harness (node) writes the scripts until the suite passes.");
   assert.equal(reply.plan[0].gate, "You approve the spec, or ask for changes. Anyone may answer this gate: the lifecycle names no approvers for it.");

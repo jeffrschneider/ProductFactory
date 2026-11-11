@@ -86,9 +86,15 @@ phases:
                        the agent's name and the signed deployment record
                        owner: deployment-manager   after: approve-the-deploy
                        automation: autonomous
-  check-conformance  - harness: the test derived from the package's own
-                       declarations, run against the installed agent,
-                       with each case confirmed, failed or flagged
+  check-conformance  - harness: the package that was deployed held to the
+                       Common Agent checks programs run with node and
+                       no network: its mechanical checks, and its
+                       package AgentDoc's static checks when the build
+                       carries one, each passed or failed; the checks
+                       that need the running agent (the Descriptor it
+                       serves, the five questions and trials) are named
+                       as not checked, because the runtime you bring
+                       holds the agent
                        owner: conformance-checker  after: deploy-the-agent
                        automation: autonomous
   publish-the-agent  - human: the owner reads the agent's AgentDoc,
@@ -126,9 +132,9 @@ handoffs:
     package's address and sha256, with who approved it and when
   deploy-the-agent -> check-conformance [agent]: the agent's name and
     the deployment record
-  check-conformance -> publish-the-agent [eval-record]: the signed
-    evaluation record, every case confirmed, failed or flagged, and the
-    AgentDoc's address
+  check-conformance -> publish-the-agent [attestation]: the conformance
+    attestation, every check that ran passed or failed and every check
+    that needs the running agent named as not checked, unsigned
 deviations:
   approve-the-spec -> write-the-spec [changes]: the owner names what is
     wrong or answers a blank; the spec is revised, not drafted again
@@ -140,9 +146,9 @@ deviations:
   make-the-package -> gather-the-features [untraced]: a script the
     package would ship cannot be traced to a feature's run; the
     features are gathered again
-  check-conformance -> gather-the-features [failed]: a case the
-    package's own declarations promise has failed; the features are
-    gathered again, and the feature that broke it is made again
+  check-conformance -> gather-the-features [failed]: a check the
+    package must pass has failed; the features are gathered again, and
+    the feature that broke it is made again
   approve-the-deploy -> write-the-spec [wrong-spec]: what was built is
     not what was wanted; the request is restated and the spec redone
 bindings:
@@ -152,7 +158,9 @@ bindings:
            solution architect of CommonAgent/adlc for
            write-the-architecture, Product Factory itself for
            gather-the-features, the Common Agent packer for
-           make-the-package, and the agent's owner (person), who holds the
+           make-the-package, the runtime you bring for deploy-the-agent,
+           the Common Agent checkers for check-conformance, and the
+           agent's owner (person), who holds the
            three human phases; each feature's run is sent its own roster
   systems: none of the phases reaches a system of its own; each agent
            brings what its package declares
@@ -196,7 +204,7 @@ records:
   deploy-decision   - the owner's yes on the package, and when it was
                       given
   deployment-record - the agent's name and the signed deployment record
-  evaluation-record - every case confirmed, failed or flagged, signed
-                      by the conformance checker
+  attestation       - every check that ran, passed or failed, and every
+                      check left to the runtime, with why
   publish-decision  - the owner's yes and the AgentDoc's address
 
