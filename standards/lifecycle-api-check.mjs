@@ -491,7 +491,7 @@ export function checkBuild(body, ids, id, roles, cadences = CADENCES()) {
 }
 
 // The summary's shape for each kind of artifact (added in 0.4).
-const SUMMARY_OF = { spec: "SpecSummary", statement: "StatementSummary", suite: "SuiteSummary", programs: "ProgramsSummary", findings: "FindingsSummary", security: "SecuritySummary", package: "PackageSummary", run_plan: "RunPlanSummary", as_built: "AsBuiltSummary" };
+const SUMMARY_OF = { spec: "SpecSummary", statement: "StatementSummary", suite: "SuiteSummary", programs: "ProgramsSummary", findings: "FindingsSummary", security: "SecuritySummary", package: "PackageSummary", run_plan: "RunPlanSummary", as_built: "AsBuiltSummary", architecture: "ArchitectureSummary" };
 
 /** The parts of the as-built record, in order (added in 0.4.6). */
 export const AS_BUILT_PARTS = ["behaviors", "architecture", "interfaces", "dependencies", "tests_and_gaps"];
@@ -519,11 +519,40 @@ export function checkArtifacts(list, ids, at = "body.artifacts") {
     if (seen.has(a.id)) p.push(`${here}.id: "${a.id}" is used twice`);
     seen.add(a.id);
     if (isObj(a.summary)) {
-      const def = a.state === "made" ? SUMMARY_OF[a.kind] ?? "WordsSummary" : "WordsSummary";
+      // An architecture record gives its parts from 0.4.12; one in words alone, as before, is still read as words.
+      const parts = a.kind !== "architecture" || Array.isArray(a.summary.systems);
+      const def = a.state === "made" && parts ? SUMMARY_OF[a.kind] ?? "WordsSummary" : "WordsSummary";
       if (a.state === "made" || a.state === "not_made" || a.state === "not_run") p.push(...validate(def, a.summary, `${here}.summary`));
       if (a.state === "made" && a.kind === "as_built") p.push(...asBuiltRules(a.summary, `${here}.summary`));
+      if (a.state === "made" && a.kind === "security") p.push(...securityRules(a.summary, `${here}.summary`));
+      if (a.state === "made" && a.kind === "architecture" && parts) p.push(...architectureRules(a.summary, `${here}.summary`));
     } else if (a.state === "not_made" || a.state === "not_run") p.push(`${here}: is ${a.state}, so its summary says why in words`);
   });
+  return p;
+}
+
+/**
+ * The security statement's structured parts (added in 0.4.12): a reach with
+ * no reason is one of no_reason_recorded, and a statement with any permission
+ * lacking a reason has not passed (stages.json: done when every permission
+ * asked for has a recorded reason).
+ */
+function securityRules(s, at) {
+  const p = [];
+  const missing = new Set(Array.isArray(s.no_reason_recorded) ? s.no_reason_recorded : []);
+  (Array.isArray(s.reaches) ? s.reaches : []).forEach((r, i) => {
+    if (isObj(r) && typeof r.reason === "string" && !r.reason.trim() && !missing.has(r.system)) p.push(`${at}.reaches[${i}]: ${r.system} has no reason, so it is one of no_reason_recorded`);
+  });
+  if (missing.size && /^passed/i.test(String(s.verdict ?? ""))) p.push(`${at}.verdict: passed, but ${missing.size} permission${missing.size === 1 ? " has" : "s have"} no recorded reason`);
+  return p;
+}
+
+/** The architecture record's rules (added in 0.4.12): a binding is for a system the record names, and every decision carries its reason. */
+function architectureRules(s, at) {
+  const p = [];
+  const systems = new Set(Array.isArray(s.systems) ? s.systems : []);
+  for (const sys of Object.keys(isObj(s.bindings) ? s.bindings : {})) if (!systems.has(sys)) p.push(`${at}.bindings: "${sys}" is bound but is not one of the record's systems`);
+  (Array.isArray(s.decisions) ? s.decisions : []).forEach((d, i) => { if (isObj(d) && typeof d.why === "string" && !d.why.trim()) p.push(`${at}.decisions[${i}]: a decision without a reason is not delivered`); });
   return p;
 }
 
@@ -685,6 +714,50 @@ export function sliceRules(s, at = "body.features") {
       if (x.state === "done" && x.passed < x.of) p.push(`${here}: is done, but ${x.of - x.passed} of its tests failed`);
     }
     if (x.state === "findings" && !(Array.isArray(x.findings) && x.findings.some((f) => isObj(f) && f.open))) p.push(`${here}: has findings open, and names none`);
+  });
+  return p;
+}
+
+/** Each stage's asset as stages.json names it, for the stages that name one, in stages.json's order: { id: name }. */
+export function stageAssets(path = join(HERE, "stages.json")) {
+  return Object.fromEntries(JSON.parse(readFileSync(path, "utf8")).stages.filter((s) => typeof s.asset === "string" && s.asset).map((s) => [s.id, s.asset]));
+}
+let assetsBeside = null;
+const ASSETS = () => (assetsBeside ??= stageAssets());
+
+/**
+ * GET /products/{name}/documents (added in 0.4.11): one document per stage
+ * that names an asset, in stages.json's order and no other; a made document
+ * has a current copy, made, at its own stage, whose version heads the
+ * history; any other has none; history is newest first.
+ */
+export function checkDocuments(body, name, assets = ASSETS(), cadences = CADENCES()) {
+  const p = validate("DocumentsAnswer", body);
+  if (!isObj(body)) return p;
+  if (name !== undefined && body.product !== name) p.push(`body.product: is ${JSON.stringify(body.product)}, not the product asked for (${name})`);
+  const docs = Array.isArray(body.documents) ? body.documents.filter(isObj) : [];
+  const want = Object.keys(assets);
+  const got = docs.map((d) => d.stage);
+  for (const id of want) if (!got.includes(id)) p.push(`body.documents: the stage "${id}" (${assets[id]}) is missing`);
+  for (const id of got) if (!want.includes(id)) p.push(`body.documents: "${id}" is not a stage that makes a document in stages.json`);
+  for (const id of new Set(got)) if (got.filter((x) => x === id).length > 1) p.push(`body.documents: the stage "${id}" is listed more than once`);
+  const order = got.filter((id) => want.includes(id));
+  if (order.join() !== want.filter((id) => order.includes(id)).join()) p.push("body.documents: not in stages.json's order");
+  docs.forEach((d, i) => {
+    const at = `body.documents[${i}]`;
+    if (assets[d.stage] && d.name !== assets[d.stage]) p.push(`${at}.name: is ${JSON.stringify(d.name)}, and stages.json names the asset "${assets[d.stage]}"`);
+    if (cadences[d.stage] && d.cadence !== cadences[d.stage]) p.push(`${at}.cadence: is ${JSON.stringify(d.cadence)}, and stages.json says ${cadences[d.stage]}`);
+    const cur = isObj(d.current) ? d.current : null;
+    if (d.state === "made" && !cur) p.push(`${at}: is made, so current says which copy stands`);
+    if (d.state !== "made" && cur) p.push(`${at}: is ${d.state}, so it has no current copy`);
+    if (cur && isObj(cur.artifact)) {
+      if (cur.artifact.stage !== d.stage) p.push(`${at}.current.artifact: is made at "${cur.artifact.stage}", not at this document's stage`);
+      if (cur.artifact.state !== "made") p.push(`${at}.current.artifact: the copy that stands is ${cur.artifact.state}, not made`);
+    }
+    const hist = Array.isArray(d.history) ? d.history.filter(isObj) : [];
+    if (cur && hist.length && (hist[0].build !== cur.build || hist[0].artifact !== cur.artifact?.id)) p.push(`${at}.history: the newest entry is not the copy that stands`);
+    if (cur && !hist.length) p.push(`${at}.history: a made document names the version that made it`);
+    hist.forEach((h, j) => { if (j > 0 && typeof h.at === "string" && typeof hist[j - 1].at === "string" && Date.parse(hist[j - 1].at) < Date.parse(h.at)) p.push(`${at}.history[${j}]: newest first, and this one is newer than the one above it`); });
   });
   return p;
 }
