@@ -19,8 +19,10 @@ A build follows the lifecycle in effect when it started, and runs these stages:
 
 | Stage | Who holds it | What happens |
 |---|---|---|
-| Requirements | the reference spec writer | It writes the spec from your words: each feature with its requirements and acceptance scenarios, the interfaces, constraints, systems and settings, and what it could not settle. Then it makes the agent's own files from the spec (the Design part of Architecture and Design). |
+| Requirements | the reference spec writer | It writes the spec from your words: each feature with its requirements and acceptance scenarios, the interfaces, constraints, systems and settings, and what it could not settle. In the same job it drafts the agent's own files from the spec. |
 | | you, in the console | You approve the spec, or ask for changes and it is revised. |
+| Architecture and Design | the reference solution architect, then the reference spec writer | The solution architect (CommonAgent/adlc `agents/solution-architect`) writes the architecture record from the spec as you approved it: the systems the agent reaches in plain system words, the product bound to each in dev, test and production, its dependencies, its kind, its limits on cost, speed, data and trust, its egress, and every decision with its reason. Product Factory holds no organization's stack, so each system is bound to the platform's default or asked. What only you can commit to (a binding nobody chose, a spending limit, a destination beyond the derived set) is asked, never filled in, and the build waits for your answers. Then the spec writer makes the agent's own files again from the spec, within the record (the Design part). The record is set up once for a product: a later version with the same holder and settings carries it forward unchanged. It is the build's `architecture` artifact, read into the lifecycle API's ArchitectureSummary, and the security reviewer is given it beside the package. |
+| | you, in the console | Only when the record asks: you answer each question, one per line as `key: answer`, and the solution architect revises the record with your answers. |
 | Test | the reference test writer | It writes the suite from the spec and the agent's own files: a test for each acceptance scenario, named by its id (`[F1.A1] ...`), and one for each interface the spec keeps (`[I1] ...`). |
 | Code | your coding harness | The build folder is laid out with the spec (`spec.json` and `spec.md`), the agent's own files, the suite and `AGENTS.md`, and your harness writes the scripts in it. The suite runs after each round; if it fails, the harness gets another round, up to the number you set. |
 | | you, in the console | You give your OK on the code. |
@@ -28,11 +30,15 @@ A build follows the lifecycle in effect when it started, and runs these stages:
 | | you, in the console | The run plan is written beside the package. You read it with the package's build record, and approve the deploy. |
 | Deploy | the runtime you bring | The package and the run plan are handed to your runtime's command. With no runtime set, Deploy waits for you to hand them over. |
 
-A stage your lifecycle leaves out reads "not used". Stages milestone 1 does
-not run read "not offered", and say so in plain words: the stages between
-Requirements and Package that it does not run yet (Architecture, Impact,
-Source, Review, Security review), and Release, Conformance, Acceptance and
-Docs after it.
+A stage your lifecycle leaves out reads "not used"; when that is Architecture
+and Design, neither of its phases runs and the agent's own files go on as the
+spec was approved with them. Stages milestone 1 does not run read "not
+offered", and say so in plain words: the stages between Requirements and
+Package that it does not run yet (Impact, Source, Review, Security review),
+and Release, Conformance, Acceptance and Docs after it. A build started on an
+earlier version of the process (`make-a-new-agent.txt` v2, before the
+architecture phase) keeps its own copy and is not run again, so its
+Architecture reads "not offered".
 
 ## Run stages handed to your runtime
 
@@ -1027,12 +1033,20 @@ and look the person up in `people.json` by its email.
 
 Where milestone 1 differs from one of them:
 
-- **The spec.** The reference spec writer makes the agent's own files in the
-  same job as the spec, at Requirements, though stages.json 1.6.0 puts them at
-  the Design part of Architecture and Design, which milestone 1 does not run.
-  Their artifact (`statement`) sits at Architecture and Design, as lifecycle
-  API 0.4.8 says, and is listed even where the lifecycle leaves that stage
-  out. The spec artifact's summary also carries the spec's systems, settings
+- **The spec.** The reference spec writer drafts the agent's own files in the
+  same job as the spec, at Requirements, and you see them with the spec. From
+  `make-a-new-agent.txt` v3 the same job runs again at the Design part of
+  Architecture and Design, where stages.json 1.6.0 puts the files, given the
+  approved spec and the architecture record, and those files are the ones the
+  features and the package are made from. Their artifact (`statement`) sits at
+  Architecture and Design, as lifecycle API 0.4.8 says, and is listed even
+  where the lifecycle leaves that stage out.
+
+- **The architect's questions.** stages.json gives Architecture and Design no
+  person's gate, so the process document has none there. When the record asks
+  what only you can answer, the solution architect's phase asks you through
+  the process runner's own question to the owner (its `block`), and goes on
+  with your answers; a record that asks nothing does not wait on you. The spec artifact's summary also carries the spec's systems, settings
   and price in words, which `SpecSummary` does not name.
 
 - **Lifecycle API.** Code's holder is `your_agent` with no handle (the API's

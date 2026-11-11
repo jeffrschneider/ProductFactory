@@ -1,4 +1,4 @@
-PROCESS: make a new agent             id: product-factory/make-a-new-agent   v2
+PROCESS: make a new agent             id: product-factory/make-a-new-agent   v3
 from: ref/dev/make-a-new-agent v1
 owner: <who>                          effective: <date>
 trigger: a person asks for an agent in words, through
@@ -9,7 +9,8 @@ concurrency: runs may overlap - one run per agent at a time; each feature
              of the version is made in a run of its own, of
              product-factory/make-a-feature v1, and those runs overlap
 goal: a running agent whose package was made from a spec the owner
-      approved, whose scripts were made one feature at a time, each
+      approved and an architecture record that named and bound every
+      system it reaches, whose scripts were made one feature at a time, each
       passing a suite written before it, and
       whose conformance was checked by an agent that did not build it,
       with every step on the record
@@ -29,6 +30,32 @@ phases:
                        owner: <the agent's owner>
                        after: write-the-spec
                        automation: never
+  write-the-architecture - harness: the architecture record written from
+                       the spec as the owner approved it and the
+                       organization's stack: the systems the agent
+                       reaches, in plain system words; the product
+                       bound to each in dev, test and production, the
+                       organization's choice first and the platform's
+                       default for the rest; its dependencies, its
+                       kind, its limits on cost, speed, data and trust,
+                       its egress, and every decision with its reason.
+                       What only a person can commit to (a binding
+                       nobody chose, a spending limit, a destination
+                       beyond the derived set) is asked of the owner,
+                       who answers it before the record goes on, and
+                       none of it is filled in. The record is set up
+                       once for a product and carried forward to its
+                       later versions unchanged until someone asks for
+                       a change
+                       owner: solution-architect   after: approve-the-spec
+                       automation: autonomous
+  design-the-agent   - harness: the agent's own files made again from the
+                       spec as the owner approved it, within the
+                       architecture record: exactly the systems the
+                       record names, its kind, its formats and its
+                       settings, and no product, address or credential
+                       owner: spec-writer          after: write-the-architecture
+                       automation: autonomous
   gather-the-features - system: every feature approved for the version
                        made in a run of its own, of
                        product-factory/make-a-feature v1, started at the
@@ -37,11 +64,12 @@ phases:
                        closed, the scripts as the last feature accepted
                        merged them on the version's base, which passed
                        the whole suite
-                       owner: product-factory      after: approve-the-spec
+                       owner: product-factory      after: design-the-agent
                        automation: autonomous
   make-the-package   - harness: the signed Agent Package made from the
                        agent's own files, which the spec writer makes
-                       from the spec, and the delivered scripts and
+                       from the spec within the architecture record,
+                       and the delivered scripts and
                        nothing else, carrying the draft Descriptor in
                        agent-descriptor.json and the runtime
                        requirements in agent-runtime-requirements.json
@@ -79,9 +107,16 @@ handoffs:
     the owner left it, with who approved it and when, which every
     feature's run carries, and the prototype when one came with the
     request
-  approve-the-spec -> make-the-package [approved-spec]: the agent's own
-    files made from the spec as the owner left it, which name the scripts
-    the package must ship
+  approve-the-spec -> write-the-architecture / design-the-agent [approved-spec]:
+    the spec as the owner left it, which the architecture is written
+    from and the agent's own files are made from
+  write-the-architecture -> design-the-agent [architecture]: the
+    architecture record, with every question it asked answered by the
+    owner
+  design-the-agent -> gather-the-features / make-the-package [designed]:
+    the agent's own files made from the spec within the architecture
+    record, which every feature's run carries and which name the
+    scripts the package must ship
   gather-the-features -> make-the-package [scripts]: every script the
     spec names, as the last feature accepted left them, with the record
     of each feature's run
@@ -113,7 +148,9 @@ deviations:
 bindings:
   roster:  named for each build in the roster Product Factory sends
            with the run: the reference spec writer of CommonAgent/adlc
-           for write-the-spec, Product Factory itself for
+           for write-the-spec and design-the-agent, the reference
+           solution architect of CommonAgent/adlc for
+           write-the-architecture, Product Factory itself for
            gather-the-features, the Common Agent packer for
            make-the-package, and the agent's owner (person), who holds the
            three human phases; each feature's run is sent its own roster
@@ -126,6 +163,9 @@ policy:
     a package a harness reads, is said out loud at the spec and never
     built as something else that looks close
   a spec goes to the owner before any suite or script is written
+  the agent's own files declare exactly the systems the architecture
+    record names; a commitment the record asked is the owner's to
+    answer, and is never filled in
   the suite is written from the spec and never from the scripts
   no test is edited to make a script pass, and no script is delivered
     that the suite fails
@@ -145,6 +185,9 @@ measures:
 records:
   spec              - the spec as the owner approved it, the four
                       answers, and who approved it and when
+  architecture      - the architecture record, the owner's answers to
+                      what it asked, and the version it was carried
+                      from when it was carried forward
   features          - each feature's run: the feature, its run, and how
                       it closed; the suite and the delivery are that
                       run's records

@@ -24,6 +24,8 @@ test("every artifact of a finished build, in stage order, for the stages its lif
   // The agent's own files are made at Design (lifecycle API 0.4.8).
   assert.equal(list[1].stage, "architecture");
   assert.equal(list[1].name, "The agent's own files");
+  // A build made before make-a-new-agent.txt v3 is not run again: its process had no architecture phase.
+  assert.match(list[2].summary.words, /^This build's process has no architecture phase, so no architecture record was made/);
   for (const a of list) {
     assert.ok(a.summary && typeof a.summary === "object", a.id);
     assert.ok(a.by, a.id);

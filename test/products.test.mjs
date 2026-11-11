@@ -63,10 +63,10 @@ test("products, a product's builds and activity, and each stage's workspace, fro
   assert.deepEqual(req.given, []);
   assert.deepEqual(req.outputs.map((a) => [a.id, a.state]), [["spec", "made"]]);
   assert.equal(req.done_when, "every feature has requirements and at least one acceptance scenario a test can check, every requirement comes from what the person said or from a behavior of the as-built record, and nothing unsettled was invented");
-  // Test has not run: nothing given yet but the statement, its suite is next, and it has no gate.
+  // Test has not run: nothing given yet but the statement, its suite comes after the architecture record, and it has no gate.
   const tst = (await ws(f, id, "test")).json;
   assert.deepEqual(tst.given, ["spec", "statement"]);
-  assert.deepEqual(tst.outputs.map((a) => [a.id, a.state]), [["suite", "next"]]);
+  assert.deepEqual(tst.outputs.map((a) => [a.id, a.state]), [["suite", "later"]]);
   assert.equal(tst.gate, undefined);
 
   // On to Code's gate: Requirements now reads answered, by the person, with the action they took.
@@ -146,7 +146,7 @@ test("the agent holding a stage answers a question from its outputs, and the cha
   assert.equal(reply.from.role, "test-writer");
   assert.equal(reply.build, id);
   // The test writer read its suite, then what it was given: the spec and the agent's own files (stages.json 1.6.0).
-  assert.match(reply.text, /^You asked: What happens with an empty message\? I read test\/count\.test\.mjs, test\/kept-interfaces\.test\.mjs, requirements\/spec\.json, requirements\/spec\.md, requirements\/agent-descriptor\.json/);
+  assert.match(reply.text, /^You asked: What happens with an empty message\? I read test\/count\.test\.mjs, test\/kept-interfaces\.test\.mjs, requirements\/spec\.json, requirements\/spec\.md, design\/agent-descriptor\.json/);
   assert.equal(reply.proposes, undefined);
 
   // The agent was told its suite, what it was given, and the build's record, and nothing changed by answering.
@@ -219,7 +219,6 @@ test("a stage nobody Product Factory can reach holds is refused in words, as is 
   };
   await refused("docs", /^This build's lifecycle leaves out Docs, so no agent holds it to answer\.$/);
   await refused("code", /^Code is held by your coding harness, on a pull request \(acme\/agents\), which Product Factory cannot send messages to\. Talk to it where it runs\./);
-  await refused("architecture", /^Product Factory does not run Architecture and Design on this build/);
   await refused("nowhere", /^There is no stage "nowhere"/, 404);
   assert.equal((await f.call("POST", "/products/counter/stages/test/messages", { text: "" })).status, 400);
   assert.equal((await f.call("POST", "/products/counter/stages/test/messages", { text: "x", build: "b_000000000000" })).status, 400);

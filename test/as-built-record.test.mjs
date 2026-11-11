@@ -281,7 +281,8 @@ test("Send back to Requirements on a pull request: the spec is revised, then the
   // One forward commit on the same branch: the revised spec, the revised test, and the new lock; the scripts as they were.
   assert.equal(gh.pulls.size, 1);
   const files = gh.filesAt(BRANCH);
-  assert.match(files["agents/counter/skills/count/SKILL.md"], /Revised as asked\./);
+  // The agent's own files are made again from the revised spec at the Design, within the architecture record (make-a-new-agent.txt v3).
+  assert.match(files["agents/counter/skills/count/SKILL.md"], /Designed within the architecture record, from the spec at [0-9a-f]{12}\./);
   assert.match(files["agents/counter/test/count.test.mjs"], /an empty passage has no words/);
   assert.equal(files[SCRIPT], RIGHT, "the coding agent's script is as it was");
   const lock = JSON.parse(files["agents/counter/build.lock.json"]);

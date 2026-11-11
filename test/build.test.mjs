@@ -337,12 +337,13 @@ test("a build that was running when Product Factory stopped runs its stage again
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words.", name: "counter" })).json.build.id;
   await f.settled(id);
-  // Stop Product Factory while the test writer is working: the build stays working in its record.
+  // Stop Product Factory while the solution architect is working: the build stays working in its record.
   await f.post(`/builds/${id}/actions/approve`);
   await f.runner.stopAll();
   assert.equal(f.store.read(id).status, "working");
   await f.runner.resumeAll();
   const b = await f.settled(id);
+  assert.equal(stageOf(b, "architecture").state, "done");
   assert.equal(stageOf(b, "test").state, "done");
-  assert.ok(b.log.some((e) => /started again while Test was running/.test(e.said)));
+  assert.ok(b.log.some((e) => /started again while Architecture and Design was running/.test(e.said)));
 });

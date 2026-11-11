@@ -99,6 +99,8 @@ test("Review and Security review report the gate's verdict when they ran inside 
   const sw = await ws(f, b, "security");
   assert.deepEqual(sw.outputs.map((a) => [a.id, a.state]), [["security", "made"]]);
   assert.equal(sw.outputs[0].summary.verdict, "Passed.");
+  // The security reviewer read the package against the architecture record (make-a-new-agent.txt v3).
+  assert.equal(sw.outputs[0].summary.architecture_record, "present");
   rw = await ws(f, b, "review");
   assert.equal(rw.outputs[0].summary.verdict, "Nothing open.");
 

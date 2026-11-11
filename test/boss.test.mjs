@@ -51,7 +51,7 @@ test("a question is answered from the product's record, and answering changes no
   const prompt = readFileSync(join(f.store.folder(id), "thread", message.id, "prompt.txt"), "utf8");
   assert.match(prompt, /^You are the boss of the product counter/);
   assert.match(prompt, /- requirements \(Requirements\): waiting_on_you, held by the spec writer\. Its gate is open: Anyone may answer this gate/);
-  assert.match(prompt, /Stages you may post a directive to on 0\.1\.0: requirements \(the spec writer\), test \(the test writer\)\./);
+  assert.match(prompt, /Stages you may post a directive to on 0\.1\.0: requirements \(the spec writer\), architecture \(the solution architect\), test \(the test writer\)\./);
   assert.equal(frozen(f.store.read(id)), before);
 
   // Kept as the product's boss conversation, and in no stage's chat.
@@ -106,12 +106,13 @@ test("a request that changes the statement is planned, proposes the next version
   const { reply } = got.json;
 
   // The plan: every stage the next version runs, in order, with the gates the person meets.
-  assert.deepEqual(reply.plan.map((s) => s.stage), ["requirements", "test", "code", "package"]);
+  assert.deepEqual(reply.plan.map((s) => s.stage), ["requirements", "architecture", "test", "code", "package"]);
   assert.equal(reply.plan[0].words, "The spec writer revises the statement to say it.");
-  assert.equal(reply.plan[2].words, "Your coding harness (node) writes the scripts until the suite passes.");
+  assert.equal(reply.plan[3].words, "Your coding harness (node) writes the scripts until the suite passes.");
   assert.equal(reply.plan[0].gate, "You approve the spec, or ask for changes. Anyone may answer this gate: the lifecycle names no approvers for it.");
-  assert.match(reply.plan[2].gate, /^You OK the code\./);
+  assert.match(reply.plan[3].gate, /^You OK the code\./);
   assert.equal(reply.plan[1].gate, undefined);
+  assert.equal(reply.plan[2].gate, undefined);
   assert.match(reply.text, /^That changes what the agent does\. This changes the agent's statement, so it needs version 0\.2\.0: a new build, with 0\.1\.0 as its prototype\..* You will meet these gates: Requirements \(you approve the spec, or ask for changes\), Code \(you OK the code\)\. Nothing changes until you confirm\.$/);
   assert.deepEqual({ ...reply.proposes, id: "x" }, { id: "x", build: id, action: "start_version", needs: { version: "0.2.0" }, words: "Start version 0.2.0 of counter, with 0.1.0 as its prototype?" });
   assert.equal((await f.get("/products/counter")).json.builds.length, 1, "nothing started before the person confirmed");
