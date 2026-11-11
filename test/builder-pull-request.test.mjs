@@ -171,6 +171,7 @@ test("a send back from the console goes on the pull request: approve.mjs --send-
   ok(b);
   assert.match(gh.log(branch)[0].message, /^Product Factory: you sent the build back to test$/);
   assert.deepEqual(Object.keys(JSON.parse(gh.filesAt(branch)[`${folder}/build.lock.json`]).gates), ["requirements", "architecture", "files"], "Test and Code are open again on the branch");
+  assert.match(gh.filesAt(branch)[`${folder}/request.md`], /Test the empty passage too\.\n$/, "your words go with the send back, at the end of request.md");
 
   // Your assistant takes the test out to rewrite it: the next push's check finds Test open, and the build is back at it.
   gh.push(branch, { [`${folder}/test/f1.test.mjs`]: null });
