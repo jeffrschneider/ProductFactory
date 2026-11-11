@@ -14,11 +14,11 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { cpSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkBuild } from "adlc-console/lib/contract.mjs";
-import { factory, stageOf, actionNames } from "./helpers.mjs";
+import { factory, stageOf, actionNames, tempDir, FAKE_ADLC } from "./helpers.mjs";
 import { validate, checkBuild as checkBuildApi, checkStageWorkspace } from "../standards/lifecycle-api-check.mjs";
 import { STAGE_IDS } from "../lib/standards.mjs";
 import { architectureSummary, questionsOf, readRecord } from "../lib/architecture.mjs";
@@ -233,4 +233,31 @@ test("a lifecycle that leaves out Architecture and Design: neither phase runs, a
   assert.match(run.phases["write-the-architecture"].record.what, /^Not run: this build's lifecycle leaves out Architecture and Design, so no architecture record is made\./);
   assert.ok(run.phases["design-the-agent"].record.files.some((x) => x.name === "agent-descriptor.json"));
   assert.ok(!existsSync(join(f.store.folder(id), "stages", "architecture")));
+});
+
+test("a new version of the solution architect writes the record again: a record is carried forward only from the same architect", async (t) => {
+  const adlc = join(await tempDir("adlc"), "adlc");
+  cpSync(FAKE_ADLC, adlc, { recursive: true });
+  const f = await factory({ adlc });
+  t.after(f.close);
+  const start = async (version) => {
+    const r = await f.runner.start({ does: "Count the words in a passage.", name: "counter" }, undefined, version ? { version } : {});
+    await f.settled(r.id);
+    await f.post(`/builds/${r.id}/actions/approve`);
+    return f.settled(r.id);
+  };
+  const first = await start(null);
+  assert.equal(f.store.read(first.id).work.architecture.architect, "0.4.0", "the record says which architect wrote it");
+  // The architect changes between versions.
+  const plugin = join(adlc, "agents", "solution-architect", "plugin.json");
+  writeFileSync(plugin, JSON.stringify({ ...JSON.parse(readFileSync(plugin, "utf8")), version: "0.5.0" }));
+  const second = await start("0.2.0");
+  const arch = stageOf(second, "architecture");
+  assert.notEqual(arch.rounds.at(-1).verdict, "Unchanged since 0.1.0");
+  assert.ok(existsSync(join(f.store.folder(second.id), "stages", "architecture", "records")), "the solution architect ran again");
+  assert.equal(f.store.read(second.id).work.architecture.architect, "0.5.0");
+  // The same architect again: the record is carried forward from the version it wrote.
+  const third = await start("0.3.0");
+  assert.equal(stageOf(third, "architecture").rounds.at(-1).verdict, "Unchanged since 0.2.0");
+  assert.equal(f.store.read(third.id).work.architecture.architect, "0.5.0");
 });
