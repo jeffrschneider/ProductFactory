@@ -30,7 +30,7 @@ import { checkBuild, checkArtifacts, checkFeatures, checkStageWorkspace, AS_BUIL
 import { STAGE_IDS } from "../lib/standards.mjs";
 import { recordSourceOf, readRecordFolder } from "../lib/as-built-record.mjs";
 import { gapWords } from "../lib/artifacts.mjs";
-import { STARTER, CLAUDE_HARNESS } from "../lib/config.mjs";
+import { STARTER, CLAUDE_HARNESS, BUILDER_HARNESS } from "../lib/config.mjs";
 
 const ok = (b) => { assert.deepEqual(checkBuild({ build: b }, STAGE_IDS), []); assert.deepEqual(consoleCheckBuild({ build: b }, STAGE_IDS), []); };
 const asBuiltOf = (b) => b.artifacts.find((a) => a.kind === "as_built");
@@ -218,9 +218,12 @@ test("the Features words of a new build at Requirements say it has not reached f
   assert.match(m.words, /^No features yet\. This build has not reached them: each feature of the spec comes to you at Requirements as proposed/);
 });
 
-test("the harness command init writes runs Claude Code without your plugins, hooks and MCP servers, and with your normal sign-in", () => {
-  assert.deepEqual(STARTER.code.harness, CLAUDE_HARNESS);
+test("the harness command init writes runs Claude Code as the one builder, with only the ADLC plugin, without your plugins, hooks and MCP servers, and with your normal sign-in", () => {
+  assert.equal(STARTER.code.holder, "builder");
+  assert.deepEqual(STARTER.code.harness, BUILDER_HARNESS);
+  assert.deepEqual(BUILDER_HARNESS.filter((w) => !["--plugin-dir", "{plugin}"].includes(w)), CLAUDE_HARNESS);
   const h = STARTER.code.harness;
+  assert.deepEqual(h.slice(h.indexOf("--plugin-dir"), h.indexOf("--plugin-dir") + 2), ["--plugin-dir", "{plugin}"]);
   assert.deepEqual(h.slice(h.indexOf("--setting-sources"), h.indexOf("--setting-sources") + 2), ["--setting-sources", "project"]);
   assert.ok(h.includes("--strict-mcp-config"));
   assert.ok(!h.includes("--bare"), "--bare ignores the normal sign-in");

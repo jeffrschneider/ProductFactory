@@ -200,13 +200,13 @@ an environment variable, and a value there is refused.
   "port": 4510,
   "model": { "name": "MODEL_NAME", "endpoint": "MODEL_ENDPOINT", "key": "MODEL_KEY", "protocol": "MODEL_PROTOCOL" },
   "code": {
-    "holder": "harness",
-    "harness": ["claude", "-p", "{prompt}", "--permission-mode", "acceptEdits", "--allowedTools", "Bash(node:*)", "--setting-sources", "project", "--strict-mcp-config"],
+    "holder": "builder",
+    "harness": ["claude", "-p", "{prompt}", "--plugin-dir", "{plugin}", "--permission-mode", "acceptEdits", "--allowedTools", "Bash(node:*)", "--setting-sources", "project", "--strict-mcp-config"],
     "rounds": 3,
     "minutes": 30,
     "env_remove": ["ANTHROPIC_API_KEY"]
   },
-  "package": { "packer": ["npx", "--yes", "@common-agent/package@0.1.0"] },
+  "package": { "packer": ["npx", "--yes", "@common-agent/package@0.2.0"] },
   "runtime": { "command": ["node", "runtimes/folder.mjs", "--into", "./installed"] }
 }
 ```
@@ -238,6 +238,32 @@ an environment variable, and a value there is refused.
 - `runtime.command` (optional): the runtime you bring, given the package's
   path and the run plan's path. It runs in the settings file's folder.
 
+## One builder
+
+With `"code": { "holder": "builder" }`, which `product-factory init` writes, one
+builder holds Architecture, Test and Code: your coding harness with the ADLC
+plugin of the `adlc` checkout (`{plugin}` in the harness command). The build
+runs the reference process "make a new agent" v2 as it is published, with only
+its blanks filled (`processes/make-a-new-agent-one-builder.txt`): the reference
+spec writer writes the spec, you approve it in the console, and then
+build-the-agent runs in one build folder laid out by the ADLC plugin's kit.
+
+Product Factory judges nothing about the agent itself. Your approval of the spec
+is pressed in the console and run in the folder (`node .adlc/approve.mjs`), so it
+is binding there; the plugin's hook stops the assistant from running it. Each
+stage is done when the folder's own check (`node .adlc/check.mjs --json`) has
+passed it: Architecture and Design when the architecture record and the agent's
+own files pass, Test when the suite does, Code when the scripts do. What only you
+can answer (such as whether the agent may reach a public service) waits for you
+at its stage, answered as `key: answer`. A stage the check still holds when the
+rounds are used up waits on you in the check's words, and from any of these
+stages you can send the build back to an earlier one with your words
+(`send_back`, lifecycle API 0.5.0): the folder reopens that stage and every one
+after it, and the builder goes on from there. Sending it back to Requirements
+asks the spec writer for a revised spec, and the builder goes on once you
+approve it. The other holders below keep Product Factory's earlier process and
+its own Code gate.
+
 ## Point it at your coding harness
 
 Your coding harness is a command that runs in the build's folder. The folder
@@ -263,7 +289,7 @@ in `code.env_remove` (by default `ANTHROPIC_API_KEY`, so the harness signs in
 its own way and not with a key that happens to be set).
 
 ```
-"harness": ["claude", "-p", "{prompt}", "--permission-mode", "acceptEdits", "--allowedTools", "Bash(node:*)", "--setting-sources", "project", "--strict-mcp-config"]
+"harness": ["claude", "-p", "{prompt}", "--plugin-dir", "{plugin}", "--permission-mode", "acceptEdits", "--allowedTools", "Bash(node:*)", "--setting-sources", "project", "--strict-mcp-config"]
 "harness": ["codex", "exec", "--full-auto", "{prompt}"]
 ```
 
@@ -1036,7 +1062,11 @@ and look the person up in `people.json` by its email.
 
 ## Standards it uses
 
-- Lifecycle API 0.4.13 and stages.json 1.6.0 (CommonAgent/adlc, copies in `standards/`).
+- Lifecycle API 0.5.0 and stages.json 1.7.0 (CommonAgent/adlc, copies in `standards/`).
+- One pin of the ADLC: `standards/ADLC.json` names the commit of CommonAgent/adlc those
+  copies came from (`node scripts/vendor.mjs --adlc <checkout>` writes it), and the
+  start-up check says when the `adlc` checkout is at another commit, so the standards,
+  the reference agents and the ADLC plugin kit a build folder carries are one version.
 - The spec, spec-v1 (CommonAgent/adlc `standards/spec.schema.json`): what Requirements
   hands back. `lib/spec.mjs` is the one place the spec writer's `spec.json` and
   `spec.md` are found and read; it tells the spec apart from any other `spec.json` by

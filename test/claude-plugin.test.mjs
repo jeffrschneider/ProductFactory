@@ -99,7 +99,7 @@ test("start_build starts a build from words, and waiting_on_me shows its gate wi
   assert.ok(!m.seen.some((line) => line.includes(f.key.value)), "the key never leaves the server");
 });
 
-test("ask returns a stage agent's reply with the action it proposes, and a feature with its id; act approves the feature", async (t) => {
+test("ask returns a stage agent's reply with the action it proposes, and a feature with its id; approving the feature is left to the console", async (t) => {
   const { f, m } = await setUp(t);
   const id = (await m.call("start_build", { does: "Count the words in a passage.", name: "counter", wait_seconds: 30 })).json.build;
 
@@ -123,13 +123,12 @@ test("ask returns a stage agent's reply with the action it proposes, and a featu
   const no = await m.call("act", { id: p.id, engineer_said: said });
   assert.equal(no.error, true);
   assert.match(no.words, /decision approve or not_now/);
+  // Approving is the person's, pressed in the console where it is binding: the add-on takes nothing.
   const yes = await m.call("act", { id: p.id, decision: "approve", engineer_said: said });
-  assert.equal(yes.error, false, yes.words);
-  assert.equal(yes.words, `Approved feature F1 "Count lines" of counter. The spec is now v2.`);
-  assert.equal((await m.call("waiting_on_me")).json.features.length, 0);
-  const twice = await m.call("act", { id: p.id, decision: "approve", engineer_said: said });
-  assert.equal(twice.error, true);
-  assert.match(twice.words, /No feature proposal fp_\w+ waits for an answer/);
+  assert.equal(yes.error, true);
+  assert.equal(yes.words, `Approving feature F1 "Count lines" of counter is the person's approval. It is pressed in the Product Factory console, where it is binding, and not taken from here. Nothing was taken.`);
+  assert.equal(yes.json.in_console, true);
+  assert.equal((await m.call("waiting_on_me")).json.features.length, 1, "it still waits for the person");
 });
 
 test("act refuses an action the build does not offer now, says what it offers, and takes nothing", async (t) => {
@@ -156,14 +155,16 @@ test("act refuses an action the build does not offer now, says what it offers, a
   assert.equal(JSON.stringify(f.store.read(id).run.events), before, "nothing was taken");
 });
 
-test("act takes an offered gate action, says what it did, and the build moves on", async (t) => {
+test("act leaves the person's approvals to the console, takes the other gate actions, and the build moves on", async (t) => {
   const { f, m } = await setUp(t);
   const id = (await m.call("start_build", { does: "Count the words in a passage.", name: "counter", wait_seconds: 30 })).json.build;
 
   const got = await m.call("act", { id: `${id}/approve`, engineer_said: "Approve the spec." });
-  assert.equal(got.error, false, got.words);
-  assert.match(got.words, new RegExp(`^Took Approve the spec on counter 0\\.1\\.0 \\(${id}\\)\\. Now: `));
-  assert.deepEqual({ taken: got.json.taken, action: got.json.action, build: got.json.build }, { taken: true, action: "approve", build: id });
+  assert.equal(got.error, true);
+  assert.equal(got.words, `Approve the spec on counter 0.1.0 (${id}) is the person's approval. It is pressed in the Product Factory console, where it is binding, and not taken from here. Nothing was taken.`);
+  assert.equal(f.store.read(id).status, "waiting", "nothing was taken");
+  // The person presses it in the console.
+  assert.equal((await f.post(`/builds/${id}/actions/approve`)).status, 200);
 
   const b = await f.settled(id);
   assert.equal(b.summary, "Waiting on you at Code");

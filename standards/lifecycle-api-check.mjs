@@ -138,6 +138,19 @@
 //   - a run's actions each name that run, and are offered only while it is open;
 //   - an action or a timeline bar that names a run names one of the build's,
 //     and an action that does is on that run's own list too.
+// Version 0.5.0 is the one version for the one-builder lifecycle. It adds
+// the action send_back, checked by checkBuild: it acts at a stage the build
+// offers, needs to (a choice whose options are each an earlier stage the
+// build offers, and at least one) and the person's words (a need of kind
+// words that is not optional). It adds provided_by itself and a try's inputs,
+// which the schema checks. And it adds the architecture record's views to ArchitectureSummary
+// (architecture-standard.md 2.0.0), checked by checkArtifacts: each
+// component has a responsibility and sits within one the record names; each
+// connector and flow step names both ends, each a component or the caller;
+// each system has a component; a decision of kind structure cites drivers
+// the record lists, weighs an alternative and says its consequences; and no
+// decision only states a limit.
+//
 // Version 0.4.14 adds writing the spec of a version built before specs,
 // checked by checkArtifacts: backfill is only on a spec artifact that is
 // not_made, and written_after only on a made spec artifact.
@@ -491,6 +504,22 @@ export function checkBuild(body, ids, id, roles, cadences = CADENCES()) {
     if (a.stage !== "code") p.push(`body.build.actions[${i}]: back_to_requirements acts at Code, not at ${a.stage}`);
     if (!(Array.isArray(a.needs) && a.needs.some((n) => isObj(n) && n.kind === "words" && n.optional !== true))) p.push(`body.build.actions[${i}]: back_to_requirements asks for the person's words (a need of kind words that is not optional)`);
   });
+  // Sending the build back to any earlier stage (added in 0.5.0).
+  const order = stages.map((s) => s.stage);
+  (Array.isArray(b.actions) ? b.actions : []).forEach((a, i) => {
+    if (!isObj(a) || a.name !== "send_back") return;
+    const at = `body.build.actions[${i}]`;
+    const needs = Array.isArray(a.needs) ? a.needs.filter(isObj) : [];
+    if (!needs.some((n) => n.kind === "words" && n.optional !== true)) p.push(`${at}: send_back asks for the person's words (a need of kind words that is not optional)`);
+    const to = needs.find((n) => n.name === "to");
+    if (!to || to.kind !== "choice" || !Array.isArray(to.options) || !to.options.length) { p.push(`${at}: send_back needs to, a choice of the earlier stages it may reopen`); return; }
+    const here = order.indexOf(a.stage);
+    for (const o of to.options) {
+      const j = order.indexOf(o);
+      if (j < 0 || !offered.has(o)) p.push(`${at}: send_back offers ${o}, which is not a stage the build offers`);
+      else if (here >= 0 && j >= here) p.push(`${at}: send_back offers ${o}, which is not before ${a.stage}`);
+    }
+  });
   // Each stage's cadence (added in 0.4.2).
   stages.forEach((s, i) => cadenceRules(s, `body.build.stages[${i}]`, cadences, p));
   // Each stage's features (added in 0.4.5).
@@ -581,12 +610,53 @@ function securityRules(s, at) {
   return p;
 }
 
-/** The architecture record's rules (added in 0.4.12): a binding is for a system the record names, and every decision carries its reason. */
+/** A decision that only states a limit (added in 0.5.0): what the agent may
+ *  spend, how fast it must answer. A limit is a driver, never a decision. */
+const LIMIT_DECISION = /^(?:limit\b|cap\b|keep (?:the )?(?:spend|spending|cost)\b|(?:spend|cost)s? (?:at most|no more than|up to|under|below)\b|(?:answer|respond|reply|finish)(?:s|es)? (?:with)?in\b|hold (?:at most|no more than)\b)/i;
+
+/**
+ * The architecture record's rules (added in 0.4.12): a binding is for a
+ * system the record names, and every decision carries its reason. From
+ * 0.5.0, where the record gives its views: every component has a
+ * responsibility and sits within a component the record names; every
+ * connector and every flow step names both of its ends, each a component or
+ * the caller; every system has a component; a decision of kind structure
+ * cites drivers the record lists, weighs at least one alternative and says
+ * its consequences; and no decision only states a limit.
+ */
 function architectureRules(s, at) {
   const p = [];
   const systems = new Set(Array.isArray(s.systems) ? s.systems : []);
   for (const sys of Object.keys(isObj(s.bindings) ? s.bindings : {})) if (!systems.has(sys)) p.push(`${at}.bindings: "${sys}" is bound but is not one of the record's systems`);
   (Array.isArray(s.decisions) ? s.decisions : []).forEach((d, i) => { if (isObj(d) && typeof d.why === "string" && !d.why.trim()) p.push(`${at}.decisions[${i}]: a decision without a reason is not delivered`); });
+  const components = Array.isArray(s.components) ? s.components.filter(isObj) : null;
+  if (components) {
+    const ids = new Set(["caller", ...components.map((c) => c.id)]);
+    components.forEach((c, i) => {
+      if (typeof c.responsibility === "string" && !c.responsibility.trim()) p.push(`${at}.components[${i}]: ${c.id} has no responsibility`);
+      if (typeof c.within === "string" && !ids.has(c.within)) p.push(`${at}.components[${i}].within: "${c.within}" is not one of the record's components`);
+    });
+    for (const sys of systems) if (!components.some((c) => c.id === sys)) p.push(`${at}.components: the system "${sys}" has no component`);
+    const ends = (list, key) => (Array.isArray(list) ? list : []).forEach((k, i) => {
+      if (!isObj(k)) return;
+      for (const end of ["from", "to"]) if (typeof k[end] === "string" && !ids.has(k[end])) p.push(`${at}.${key}[${i}].${end}: "${k[end]}" is not one of the record's components or the caller`);
+    });
+    ends(s.connectors, "connectors");
+    ends(s.flow, "flow");
+  }
+  const drivers = Array.isArray(s.drivers) ? new Set(s.drivers.filter(isObj).map((d) => d.key)) : null;
+  // The rules on decisions hold for a record that gives its views; one from
+  // before 0.5.0 reads as it did.
+  const viewed = Boolean(components || drivers || (Array.isArray(s.decisions) && s.decisions.some((d) => isObj(d) && d.kind !== undefined)));
+  (Array.isArray(s.decisions) ? s.decisions : []).forEach((d, i) => {
+    if (!isObj(d) || !viewed) return;
+    if (typeof d.decided === "string" && LIMIT_DECISION.test(d.decided.trim())) p.push(`${at}.decisions[${i}]: "${d.decided}" only states a limit; a limit is a driver, never a decision`);
+    if (d.kind !== "structure") return;
+    if (!(Array.isArray(d.drivers) && d.drivers.length)) p.push(`${at}.decisions[${i}]: a decision about structure cites the drivers it answers`);
+    else if (drivers) for (const k of d.drivers) if (!drivers.has(k)) p.push(`${at}.decisions[${i}].drivers: "${k}" is not one of the record's drivers`);
+    if (!(Array.isArray(d.alternatives) && d.alternatives.length)) p.push(`${at}.decisions[${i}]: a decision about structure weighs at least one alternative`);
+    if (!(Array.isArray(d.consequences) && d.consequences.length)) p.push(`${at}.decisions[${i}]: a decision about structure says its consequences`);
+  });
   return p;
 }
 
