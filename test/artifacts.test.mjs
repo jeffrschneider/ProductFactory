@@ -92,6 +92,13 @@ test("the findings and the security record, from the reviewers' documents on the
   assert.equal(s.never.length, 8);
   assert.equal(s.never[4], "Reaching an address no declared system covers");
   assert.equal(s.verdict, "Passed.");
+  // 0.4.12: the same parts as the reviewer's record lists them, each with its reason.
+  assert.deepEqual(s.reaches, [{ system: "folder records", access: "write", reason: "every record the descriptor names" }, { system: "folder work", access: "write", reason: "inputs and drafts in progress" }]);
+  assert.deepEqual(s.spends, [{ limit: "10 USD per day", ceiling: "the owner's spending limit" }]);
+  assert.equal(s.never_does.length, 8);
+  assert.deepEqual(s.never_does[4], { act: "Reaching an address no declared system covers", reason: "what it may reach is what its systems name, and nothing else was agreed" });
+  assert.deepEqual(s.no_reason_recorded, []);
+  assert.equal(s.architecture_record, "absent");
   assert.equal(list.security.digest, "sha256:58775446ce7841129f101ce05abaae196b6fdb32d0525cb7ad006cf4a2d9d5f8");
   // The documents are served beside the files the stages handed back.
   assert.deepEqual(reviewFiles(record(), DIR).map((f) => f.path), ["review/findings.md", "security/security-review.md"]);
