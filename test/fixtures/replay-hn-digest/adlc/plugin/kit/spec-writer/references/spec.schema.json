@@ -1,0 +1,554 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/CommonAgent/adlc/main/standards/spec.schema.json",
+  "title": "The spec (spec-v1)",
+  "version": "1.3.0",
+  "description": "What the Requirements stage hands back (stages.json 1.6.0): the analysis of a product's functional requirements and capabilities. It says what the product must do and how anyone can tell that it does, in a form a test writer can write tests from without guessing. It is not the agent's descriptor or any other file a package is built from: those are made at Design, from this spec. Three existing standards are used as they are. Each requirement carries the attributes ISO/IEC/IEEE 29148:2018 (section 5.2) names for a requirement: an identifier, a statement written with shall, a rationale, a priority, its source for traceability, and its verification method, one of that standard's four (inspection, analysis, demonstration, test). Each acceptance criterion is a Gherkin scenario (the Cucumber Gherkin reference), kept as Gherkin text. Each input, output and interface shape is a JSON Schema (2020-12). Where the spec differs from those standards it says so here: requirements are grouped under features (29148 does not group them), the requirement's kind is a list of our own, and exact holds the words and patterns a requirement fixes so that a check can find them byte for byte. Every id is stable across versions of the spec, so tests, findings and history can name it. Version 1.1.0 (additive) adds two kinds of interface, constant (a value a module exports, kept with its value) and declaration (a name or value the agent declares to the platform, such as an offering id, a step id, an output's name, a label or a setting, kept with its value and where it is declared), the flags a command requires, and the allowed values of a field. Version 1.2.0 (additive) gives each input and output of a feature (Data) whether it is required and who gives it, so an offering's pieces are carried whole from what the person said to the Design.",
+  "type": "object",
+  "required": [
+    "format",
+    "product",
+    "purpose",
+    "features",
+    "open"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "format": {
+      "const": "spec-v1"
+    },
+    "product": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "kind"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "kind": {
+          "type": "string",
+          "description": "What kind of product: agent or process in version 1 (Product Factory SPEC section 3); general software later."
+        }
+      }
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What the product is for and who it serves, in a few sentences."
+    },
+    "users": {
+      "type": "array",
+      "description": "Who uses it and what each wants from it.",
+      "items": {
+        "type": "object",
+        "required": [
+          "who",
+          "wants"
+        ],
+        "properties": {
+          "who": {
+            "type": "string"
+          },
+          "wants": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "description": "Where the spec was drawn from: a person's account, or an as-built record (adoption, or a rebuild from a record of code kept elsewhere).",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "account",
+            "as-built-record"
+          ]
+        },
+        "repository": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string"
+        }
+      }
+    },
+    "features": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/Feature"
+      }
+    },
+    "interfaces": {
+      "type": "array",
+      "description": "The interfaces the product presents: commands and their flags, files it reads and writes, messages, functions other code calls. keep: true means the interface must stay exactly as given (a rebuild, or a dependent relies on it); keep: false means it describes today's shape and may change with the person's approval.",
+      "items": {
+        "$ref": "#/$defs/Interface"
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "description": "Requirements on the whole product rather than one feature: limits on time, size, cost, the runtime and platform, security and data. Same shape as a feature's requirements, ids C1, C2, ...",
+      "items": {
+        "$ref": "#/$defs/Requirement"
+      }
+    },
+    "systems": {
+      "type": "array",
+      "description": "Every outside system the product reaches or names: what it does with it, the address when one is fixed, and why. An address the product only writes down and never calls is listed with reach none. Name a system in plain system words, lowercase with hyphens, by what it is and not by its product (code-host, not GitHub; the product goes in why), as the architecture record names it. From 1.3.0 a system says what the scripts need to reach it (Common Agent Section 12.4, item 3): its credential, and the non-secret values the host must supply, such as its address, by the environment variable the scripts read each from. A model is not a system of the spec: the architecture record names it by capability.",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "reach",
+          "why"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "reach": {
+            "enum": [
+              "read",
+              "write",
+              "read-write",
+              "none"
+            ]
+          },
+          "address": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string"
+          },
+          "credential": {
+            "description": "What the scripts need to authenticate to the system: the credential's name and the environment variable they read it from, never its value. \"none\" says it takes none, as a keyless public service. Absent: not said. Added in 1.3.0.",
+            "oneOf": [
+              {
+                "const": "none"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "name",
+                  "env"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The credential's name, which the host resolves."
+                  },
+                  "env": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]*$",
+                    "description": "The environment variable the scripts read it from."
+                  }
+                }
+              }
+            ]
+          },
+          "settings": {
+            "type": "array",
+            "description": "The non-secret values the host must supply for the scripts to reach the system, such as its address, each by the environment variable the scripts read it from and its purpose. A value is never given here: the install supplies it (Common Agent Section 12.4, item 3; Section 12.6, rule 3). Added in 1.3.0.",
+            "items": {
+              "type": "object",
+              "required": [
+                "env",
+                "purpose"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "env": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]*$"
+                },
+                "purpose": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "settings": {
+      "type": "array",
+      "description": "What a person or an install can set: name, kind, default, range and what it changes.",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "kind",
+          "about"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "default": {},
+          "min": {
+            "type": "number"
+          },
+          "max": {
+            "type": "number"
+          },
+          "values": {
+            "type": "array"
+          },
+          "set_by": {
+            "enum": [
+              "person",
+              "install",
+              "either"
+            ]
+          },
+          "about": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "price": {
+      "type": "string",
+      "description": "The price in words, as the person set it, or absent while it is an open question."
+    },
+    "open": {
+      "type": "array",
+      "description": "What only the person can settle, each with the question. A spec with an open question is not approved until it is answered or the person says it stays open.",
+      "items": {
+        "type": "object",
+        "required": [
+          "key",
+          "question"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "Feature": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "does",
+        "requirements",
+        "acceptance"
+      ],
+      "description": "One capability of the product. The feature list of lifecycle API 0.4.3 (id, name, does, offering) is this, with the requirements and acceptance criteria that make it checkable.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^F[1-9][0-9]*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "does": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What it does, in one sentence."
+        },
+        "offering": {
+          "type": "string",
+          "description": "The offering it belongs to, by name, when the product has more than one."
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Data"
+          },
+          "description": "What the feature takes. Absent when nobody has said; an empty list when the person said the job takes nothing."
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Data"
+          },
+          "description": "What the feature hands back."
+        },
+        "requirements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Requirement"
+          }
+        },
+        "acceptance": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Acceptance"
+          }
+        },
+        "as_built": {
+          "type": "string",
+          "description": "The behavior of the as-built record this feature comes from (B1, B2, ...), when it does."
+        }
+      }
+    },
+    "Requirement": {
+      "type": "object",
+      "required": [
+        "id",
+        "shall",
+        "kind",
+        "verify"
+      ],
+      "description": "One requirement, with the attributes of ISO/IEC/IEEE 29148:2018 section 5.2.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(F[1-9][0-9]*\\.R[1-9][0-9]*|C[1-9][0-9]*)$",
+          "description": "F<n>.R<m> under a feature; C<n> for a constraint."
+        },
+        "shall": {
+          "type": "string",
+          "pattern": "\\bshall\\b",
+          "description": "The requirement as one statement with shall: 'The agent shall ...'."
+        },
+        "kind": {
+          "enum": [
+            "behavior",
+            "input",
+            "output",
+            "refusal",
+            "error",
+            "limit",
+            "order",
+            "wording",
+            "pattern",
+            "default",
+            "interface",
+            "security",
+            "performance",
+            "runtime"
+          ],
+          "description": "What sort of rule it is. refusal: what it declines and the words it says; error: what it does when something fails; limit: a number it holds to; order: an order it follows (which source first); wording: words it must say exactly; pattern: a pattern it must recognize exactly."
+        },
+        "exact": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Words, patterns, numbers or names the requirement fixes exactly, each as it must appear, so a check can find it byte for byte in the tests and the code."
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "priority": {
+          "enum": [
+            "must",
+            "should",
+            "may"
+          ]
+        },
+        "source": {
+          "type": "object",
+          "description": "Where it came from: the person's words, or a behavior of the as-built record with its evidence.",
+          "properties": {
+            "said": {
+              "type": "string"
+            },
+            "behavior": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "file",
+                  "line"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string"
+                  },
+                  "line": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "verify": {
+          "enum": [
+            "inspection",
+            "analysis",
+            "demonstration",
+            "test"
+          ],
+          "description": "The verification method, one of ISO/IEC/IEEE 29148's four. test means a test in the suite checks it."
+        }
+      }
+    },
+    "Acceptance": {
+      "type": "object",
+      "required": [
+        "id",
+        "gherkin",
+        "checks"
+      ],
+      "description": "One acceptance criterion, as a Gherkin scenario. The test that checks it carries its id in its name, [F1.A1].",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^F[1-9][0-9]*\\.A[1-9][0-9]*$"
+        },
+        "gherkin": {
+          "type": "string",
+          "pattern": "(?m)^\\s*Scenario:",
+          "description": "Gherkin text: a Scenario: line, then Given, When and Then steps (And and But allowed)."
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the requirements this scenario checks."
+        }
+      }
+    },
+    "Data": {
+      "type": "object",
+      "required": [
+        "name",
+        "about"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "description": "A media type, or text, identifier, url or document."
+        },
+        "schema": {
+          "description": "A JSON Schema (2020-12) for its shape, inline, when it is structured data."
+        },
+        "about": {
+          "type": "string",
+          "description": "Its shape in words: what it holds and how it is laid out, such as a Markdown piece's header and headings."
+        },
+        "required": {
+          "type": "boolean",
+          "description": "For an input: whether the job cannot run without it. Added in 1.2.0."
+        },
+        "given_by": {
+          "enum": [
+            "person",
+            "agent",
+            "either"
+          ],
+          "description": "For an input: who gives it. Added in 1.2.0."
+        }
+      },
+      "description": "One piece a feature takes (inputs) or hands back (outputs): its name, its kind, its shape in words (about), and for structured data its JSON Schema. The Design declares each one on the offering the feature belongs to."
+    },
+    "Interface": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "keep",
+        "about"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^I[1-9][0-9]*$"
+        },
+        "kind": {
+          "enum": [
+            "command",
+            "file",
+            "function",
+            "constant",
+            "declaration",
+            "message",
+            "http",
+            "setting"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "keep": {
+          "type": "boolean"
+        },
+        "module": {
+          "type": "string",
+          "description": "For a function or a constant: the file it is exported from."
+        },
+        "signature": {
+          "type": "string",
+          "description": "For a function: its parameters, and whether it is async."
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "For a command: every flag it accepts."
+        },
+        "schema": {
+          "description": "For a file or message: its JSON Schema."
+        },
+        "about": {
+          "type": "string"
+        },
+        "required_flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "For a command: the flags it cannot run without. A flag in flags and not here is optional. Added in 1.1.0."
+        },
+        "value": {
+          "description": "For a constant: its exported value, as JSON. For a declaration: the declared value, as JSON. Added in 1.1.0."
+        },
+        "declared_in": {
+          "type": "string",
+          "description": "For a declaration: the file and the place in it, such as agent-descriptor.json offerings[0].id. Added in 1.1.0."
+        },
+        "values": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array"
+          },
+          "description": "Allowed values: for each field (a JSON pointer into the file or message, such as /stories/*/text_from), the only values it may take. Added in 1.1.0."
+        }
+      }
+    }
+  }
+}
