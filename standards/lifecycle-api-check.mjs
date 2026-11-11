@@ -138,6 +138,11 @@
 //   - a run's actions each name that run, and are offered only while it is open;
 //   - an action or a timeline bar that names a run names one of the build's,
 //     and an action that does is on that run's own list too.
+// Version 0.4.13 adds each artifact's Common Agent checks, checked by
+// checkArtifacts. Their rules beyond the schema, for a made artifact:
+//   - each check names its section by number alone, such as 12.6;
+//   - a check that is not_checked says why in its detail;
+//   - the same section, rule and asks appear once on one artifact.
 //
 //   node standards/lifecycle-api-check.mjs <base> [--key-file <path>] [--stages <path>] [--limit <n>] [--all-files]
 //
@@ -527,6 +532,29 @@ export function checkArtifacts(list, ids, at = "body.artifacts") {
       if (a.state === "made" && a.kind === "security") p.push(...securityRules(a.summary, `${here}.summary`));
       if (a.state === "made" && a.kind === "architecture" && parts) p.push(...architectureRules(a.summary, `${here}.summary`));
     } else if (a.state === "not_made" || a.state === "not_run") p.push(`${here}: is ${a.state}, so its summary says why in words`);
+    if (a.state === "made" && Array.isArray(a.checks)) p.push(...checksRules(a.checks, `${here}.checks`));
+  });
+  return p;
+}
+
+const SECTION = /^[0-9]+(\.[0-9]+)*$/;
+
+/**
+ * A made artifact's Common Agent checks (added in 0.4.13): each names its
+ * section by number, a check not done says why, and one artifact holds the
+ * same rule, asked the same way, once.
+ */
+function checksRules(list, at) {
+  const p = [];
+  const seen = new Set();
+  list.forEach((c, i) => {
+    if (!isObj(c)) return;
+    const here = `${at}[${i}]`;
+    if (!(typeof c.section === "string" && SECTION.test(c.section))) p.push(`${here}.section: names a section by its number alone, such as 12.6`);
+    if (c.result === "not_checked" && !(typeof c.detail === "string" && c.detail.trim())) p.push(`${here}.detail: the check was not done, so its detail says why`);
+    const key = JSON.stringify([c.section, c.rule ?? null, c.asks]);
+    if (seen.has(key)) p.push(`${here}: Section ${c.section}${c.rule === undefined ? "" : `, rule ${c.rule}`}, "${c.asks}", is on this artifact twice`);
+    seen.add(key);
   });
   return p;
 }

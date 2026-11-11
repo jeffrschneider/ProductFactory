@@ -593,6 +593,22 @@ agent's own files, the suite, the programs, the review findings, the security
 record, the package and the run plan). Every summary is read from the build's own
 files; a stage Product Factory does not run says so in words.
 
+From lifecycle API 0.4.13, a made artifact also carries `checks`: the Common
+Agent 0.41.0 rules its stage applied, each with its section, its rule where
+the section numbers them, what it asks in plain words, the result (met, not
+met or not checked) and one line on what was done, so the console can show a
+table of rules per document and a tally for the version. Each check is read
+from the stage's own records, never assumed, and a rule those records do not
+speak to is left out:
+
+| Artifact | Its checks, and where each is read |
+|---|---|
+| The agent's own files | Systems named in system words (Section 12.4), from the runtime requirements' `systems[]`: each a lowercase name with no address or account, and none a product the architecture record binds. Without an architecture record nobody has said which names are products, so that part reads not checked. No credential, key, address or account in a declaration (Section 6.4, rule 3), from every value of the draft Descriptor, except a `can_use` entry's `schema` and an example's public file. An example for each offering a person starts (Section 6.13.8), from each offering's `started_by` and `example`; an offering with no `started_by` is offered to a person (Section 6.13.2). |
+| Architecture record | Systems named in system words (Section 12.4), from the record's systems, held against the products its bindings name. |
+| Security record | Every permission asked for has a reason (Section 12.4), from the reviewer's `no_reason_recorded`. No address in its scripts (Section 12.6, rule 2), from the reviewer's address `warnings` and the code critic's Warnings on the same commit. The review names the archive's digest (Section 12.6, rule 5), from the review's `digest` and the package's, once the build holds the package. |
+| The package | The package validates (Section 12.10), from the packer's validate result (`validation.json`). The packer, `@common-agent/package` 0.1.0, implements Section 12 as of Common Agent 0.30.0-draft, so the check is only as current as it, and the check says so. |
+| Conformance attestation | One per section the attestation reports: the deployed package's mechanical checks (Section 12.10) and the package AgentDoc's static checks (Section 9.10), met or not met where they ran, or not checked with why; the bound, signed Descriptor (Section 4.9), the five questions (Section 4.3) and trials (Section 7.7), not checked, because your runtime holds the agent. |
+
 The chat at a stage is kept with the product across its builds; each message
 names the build and version it was said in. The agent answers through the
 reference agents' shared model caller in your adlc checkout, with the same
@@ -1020,7 +1036,7 @@ and look the person up in `people.json` by its email.
 
 ## Standards it uses
 
-- Lifecycle API 0.4.10 and stages.json 1.6.0 (CommonAgent/adlc, copies in `standards/`).
+- Lifecycle API 0.4.13 and stages.json 1.6.0 (CommonAgent/adlc, copies in `standards/`).
 - The spec, spec-v1 (CommonAgent/adlc `standards/spec.schema.json`): what Requirements
   hands back. `lib/spec.mjs` is the one place the spec writer's `spec.json` and
   `spec.md` are found and read; it tells the spec apart from any other `spec.json` by

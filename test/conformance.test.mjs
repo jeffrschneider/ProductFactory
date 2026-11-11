@@ -13,9 +13,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkBuild } from "adlc-console/lib/contract.mjs";
 import { factory, stageOf, actionNames, tempDir, STUB_PACKER } from "./helpers.mjs";
-import { checkBuild as checkBuildApi, checkStageWorkspace } from "../standards/lifecycle-api-check.mjs";
+import { checkBuild as checkBuildApi, checkStageWorkspace, checkArtifacts } from "../standards/lifecycle-api-check.mjs";
 import { STAGE_IDS } from "../lib/standards.mjs";
 import { checkConformance } from "../lib/conformance.mjs";
+import { attestationChecks } from "../lib/rule-checks.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FOLDER = join(HERE, "..", "runtimes", "folder.mjs");
@@ -48,6 +49,12 @@ test("the checks that run here: the package's (12.10) and a package AgentDoc's (
   assert.match(text, /^---\nattestation: product-factory-conformance-v1\nstandard: "Common Agent 0\.41\.0"\nagent: "counter 0\.1\.0"\npackage: "counter-0\.1\.0\.tar\.gz"\nverdict: passed\nchecked_at: 2026-11-10T12:00:00\.000Z\nsigned: no\nchecks:\n/);
   assert.match(text, /^## Checks that ran\n\n- \*\*The package\*\* \(Section 12\.10\): passed\. counter-0\.1\.0\.tar\.gz passes the mechanical checks of Section 12\.10/m);
   assert.match(text, /^- \*\*Trials\*\* \(Section 7\.7\): not checked\./m);
+  // Read back as the attestation artifact's Common Agent checks (lifecycle API 0.4.13): a check that did not run says why.
+  const checks = attestationChecks(text, ["npx", "--yes", "@common-agent/package@0.1.0"]);
+  assert.deepEqual(checks.map((c) => [c.section, c.result]), [["12.10", "met"], ["9.10", "not_checked"], ["4.9", "not_checked"], ["4.3", "not_checked"], ["7.7", "not_checked"]]);
+  assert.match(checks[0].detail, /^counter-0\.1\.0\.tar\.gz passes the mechanical checks of Section 12\.10 .*\. The packer \(@common-agent\/package 0\.1\.0\) implements Section 12 as of Common Agent 0\.30\.0-draft, so this check is only as current as it\.$/);
+  assert.equal(checks[1].detail, "The build carries no package AgentDoc (Section 13.4), so the static AgentDoc checks of Section 9.10 had nothing to read.");
+  assert.deepEqual(checkArtifacts([{ id: "attestation", stage: "conformance", name: "Conformance attestation", by: "the Common Agent checkers", state: "made", kind: "attestation", summary: { words: got.words }, checks }], STAGE_IDS), []);
 
   // A package AgentDoc that the conformance cases accept passes; one they refuse fails, with the rule it breaks.
   got = await run({ base: join(dir, "b"), archive, agentdoc: PASS_DOC });
@@ -104,6 +111,16 @@ test("after the deploy, check-conformance holds the deployed package to the chec
   assert.deepEqual([a.state, a.stage, a.kind], ["made", "conformance", "attestation"]);
   assert.match(a.summary.words, /^The package passes every Common Agent 0\.41\.0 check that ran here: the package \(Section 12\.10\) and the package AgentDoc \(Section 9\.10\), run with node and no network as Section 14 allows\. Not checked: the bound, signed Descriptor the running agent serves.*\(Section 4\.9\).*the five questions.*\(Section 4\.3\).*trial requests.*\(Section 7\.7\)/);
   assert.deepEqual(a.summary.checks.map((x) => [x.id, x.result]), [["package", "passed"], ["package-agentdoc", "passed"], ["descriptor-floor", "not_checked"], ["five-questions", "not_checked"], ["trials", "not_checked"]]);
+  // Lifecycle API 0.4.13: one Common Agent check per section the attestation reports, the ones the running agent answers not checked.
+  assert.deepEqual(a.checks.map((x) => [x.section, x.asks, x.result]), [
+    ["12.10", "The deployed package passes the mechanical checks", "met"],
+    ["9.10", "The package AgentDoc passes the static checks", "met"],
+    ["4.9", "It serves a bound, signed Descriptor", "not_checked"],
+    ["4.3", "It answers the five questions from its signed bytes", "not_checked"],
+    ["7.7", "It admits and refuses trial requests as its offerings declare", "not_checked"],
+  ]);
+  assert.match(a.checks[1].detail, /^The package AgentDoc agentdoc\.json passes the static checks of Section 9\.10/);
+  for (const c of a.checks.slice(2)) assert.equal(c.detail, "Your runtime holds the agent, so this check is its to run.");
   const w = (await f.get(`/builds/${id}/stages/conformance`)).json;
   assert.deepEqual(checkStageWorkspace(w, STAGE_IDS, "conformance", { build: b }), []);
   assert.deepEqual(w.given, ["package"]);
@@ -130,5 +147,8 @@ test("a check that fails refuses Conformance with the attestation, and nothing r
   const a = b.artifacts.find((x) => x.id === "attestation");
   assert.equal(a.state, "made");
   assert.match(a.summary.words, /^The package fails one of the Common Agent 0\.41\.0 checks that ran here: the package AgentDoc \(Section 9\.10\)\./);
+  const doc = a.checks.find((c) => c.section === "9.10");
+  assert.equal(doc.result, "not_met");
+  assert.match(doc.detail, /not-stated-complete: standing is absent and not named in not_stated\./);
   assert.equal(f.store.read(id).run.phases["check-conformance"].status, "refused");
 });
