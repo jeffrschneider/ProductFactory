@@ -34,12 +34,12 @@ export const MODEL_VARS = { PF_T_MODEL_NAME: "stand-in-model", PF_T_MODEL_ENDPOI
  * (your own harness pushes), and a harness turns on the fix loop. fixRounds: code.fix_rounds.
  * people: a people.json to start from; with it, each person's own key works (f.people).
  */
-export async function factory({ doc = null, holder = "harness", rounds = 3, failRounds = 0, model = true, harness = undefined, fixRounds = undefined, github = null, review = undefined, history: withHistory = true, runtime = null, people = null, intake = undefined, notify = undefined, extraEnv = {}, envRemove = undefined } = {}) {
+export async function factory({ doc = null, holder = "harness", rounds = 3, failRounds = 0, model = true, harness = undefined, fixRounds = undefined, github = null, review = undefined, history: withHistory = true, runtime = null, people = null, intake = undefined, notify = undefined, extraEnv = {}, envRemove = undefined, adlc = FAKE_ADLC } = {}) {
   const dir = await tempDir("factory");
   const stubLog = join(dir, "harness-calls.jsonl");
   if (doc) await writeFile(join(dir, "lifecycle.json"), JSON.stringify(doc, null, 2));
   const config = readConfig({
-    adlc: FAKE_ADLC,
+    adlc,
     lifecycle: "./lifecycle.json",
     data: "./data",
     port: 0,

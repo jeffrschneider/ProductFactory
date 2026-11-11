@@ -1,0 +1,5 @@
+{
+  "name": "solution-architect",
+  "version": "0.4.0",
+  "description": "A stand-in for the solution architect: its version decides whether a record is carried forward."
+}
