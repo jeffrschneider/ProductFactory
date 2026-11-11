@@ -188,7 +188,7 @@ test("a spec writer from before stages.json 1.6.0 hands back no spec: the spec r
   assert.deepEqual(checkBuild({ build: b }, STAGE_IDS, id), []);
   const spec = b.artifacts.find((a) => a.id === "spec");
   assert.equal(spec.state, "not_made");
-  assert.match(spec.summary.words, /no spec \(spec\.json, format spec-v1\)/);
+  assert.match(spec.summary.words, /built before the spec writer wrote specs, so it has none/);
   assert.equal(specOfBuild(f.store.read(id), f.store.folder(id)), null);
   assert.equal(b.artifacts.find((a) => a.id === "statement").state, "made");
   await f.post(`/builds/${id}/actions/approve`);
@@ -230,4 +230,57 @@ test("on a pull request the spec is pinned like the agent's files: a change to i
   const said = revisedSpecComment([{ path: "spec.json" }, { path: "spec.md" }, { path: "plugin.json" }, { path: "test/a.test.mjs" }], [], "Keep the stop pattern.", "abcdef1234567");
   assert.match(said, /The revised spec changed `spec\.json`, `spec\.md`\. The files made from it changed: `plugin\.json`\. The test writer revised `test\/a\.test\.mjs` against it\./);
   assert.deepEqual(validate("SpecSummary", specSummary(SPEC)), []);
+});
+
+test("0.4.14: the spec of a version built before specs is written after, by the spec writer, and nothing else in the version changes", async (t) => {
+  const off = join(await tempDir("spec-after"), "no-spec");
+  writeFileSync(off, "on");
+  const f = await factory({ rounds: 1, extraEnv: { FAKE_NO_SPEC_FILE: off } });
+  t.after(f.close);
+  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
+  let b = await f.settled(id);
+  let spec = b.artifacts.find((a) => a.id === "spec");
+  assert.equal(spec.state, "not_made");
+  assert.equal(spec.summary.words, "This version was built before the spec writer wrote specs, so it has none. What it was asked to do is in the agent's own files.");
+  assert.equal(spec.backfill.offered, true);
+  assert.match(spec.backfill.words, /Nothing else in the version changes/);
+  const before = f.store.read(id);
+  const { rmSync } = await import("node:fs");
+  rmSync(off);
+  const got = await f.post(`/builds/${id}/spec/backfill`);
+  assert.equal(got.status, 200, JSON.stringify(got.json));
+  assert.deepEqual(validate("SpecBackfillAnswer", got.json), []);
+  assert.equal(got.json.artifact.state, "made");
+  assert.match(got.json.artifact.written_after.words, /^Written after version .* was built, from what it was asked/);
+  assert.deepEqual(got.json.artifact.files.map((x) => x.path), ["requirements/spec.json", "requirements/spec.md"]);
+  // The spec writer was told the version is built, and given its own files.
+  const asked = readFileSync(join(codeDir(f, id), "stages", "requirements", "written-after", "r1", "job", "message.txt"), "utf8");
+  assert.match(asked, /is already built/);
+  // Nothing else in the version changed: its stages, its rounds and what Requirements handed back.
+  const after = f.store.read(id);
+  assert.deepEqual(after.stages.requirements.handed_back, before.stages.requirements.handed_back);
+  assert.deepEqual(Object.fromEntries(Object.entries(after.stages).map(([k, s]) => [k, [s.state, s.rounds?.length]])), Object.fromEntries(Object.entries(before.stages).map(([k, s]) => [k, [s.state, s.rounds?.length]])));
+  assert.equal(after.run.events.length, before.run.events.length);
+  b = (await f.get(`/builds/${id}`)).json.build;
+  assert.deepEqual(checkBuild({ build: b }, STAGE_IDS, id), []);
+  spec = b.artifacts.find((a) => a.id === "spec");
+  assert.equal(spec.state, "made");
+  assert.ok(spec.summary.interfaces.length > 0, "the summary is the spec the spec writer wrote");
+  assert.equal((await f.get(`/builds/${id}/files?path=${encodeURIComponent("requirements/spec.json")}`)).status, 200);
+  // Once written, it is not offered again.
+  const again = await f.post(`/builds/${id}/spec/backfill`);
+  assert.equal(again.status, 409);
+  assert.match(again.json.error, /has its spec already/);
+});
+
+test("0.4.14: a version whose Requirements handed back a spec is not offered a spec written after", async (t) => {
+  const f = await factory({ rounds: 1 });
+  t.after(f.close);
+  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
+  const b = await f.settled(id);
+  const spec = b.artifacts.find((a) => a.id === "spec");
+  assert.equal(spec.state, "made");
+  assert.equal(spec.backfill, undefined);
+  assert.equal(spec.written_after, undefined);
+  assert.equal((await f.post(`/builds/${id}/spec/backfill`)).status, 409);
 });

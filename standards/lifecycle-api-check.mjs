@@ -138,6 +138,10 @@
 //   - a run's actions each name that run, and are offered only while it is open;
 //   - an action or a timeline bar that names a run names one of the build's,
 //     and an action that does is on that run's own list too.
+// Version 0.4.14 adds writing the spec of a version built before specs,
+// checked by checkArtifacts: backfill is only on a spec artifact that is
+// not_made, and written_after only on a made spec artifact.
+//
 // Version 0.4.13 adds each artifact's Common Agent checks, checked by
 // checkArtifacts. Their rules beyond the schema, for a made artifact:
 //   - each check names its section by number alone, such as 12.6;
@@ -533,6 +537,8 @@ export function checkArtifacts(list, ids, at = "body.artifacts") {
       if (a.state === "made" && a.kind === "architecture" && parts) p.push(...architectureRules(a.summary, `${here}.summary`));
     } else if (a.state === "not_made" || a.state === "not_run") p.push(`${here}: is ${a.state}, so its summary says why in words`);
     if (a.state === "made" && Array.isArray(a.checks)) p.push(...checksRules(a.checks, `${here}.checks`));
+    if (a.backfill !== undefined && !(a.kind === "spec" && a.state === "not_made")) p.push(`${here}.backfill: only a spec that was not made can be written after the fact`);
+    if (a.written_after !== undefined && !(a.kind === "spec" && a.state === "made")) p.push(`${here}.written_after: only a made spec was written after its version`);
   });
   return p;
 }
