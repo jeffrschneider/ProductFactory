@@ -34,7 +34,7 @@ export const MODEL_VARS = { PF_T_MODEL_NAME: "stand-in-model", PF_T_MODEL_ENDPOI
  * (your own harness pushes), and a harness turns on the fix loop. fixRounds: code.fix_rounds.
  * people: a people.json to start from; with it, each person's own key works (f.people).
  */
-export async function factory({ doc = null, holder = "harness", rounds = 3, failRounds = 0, model = true, harness = undefined, fixRounds = undefined, github = null, review = undefined, history: withHistory = true, runtime = null, people = null, intake = undefined, notify = undefined, extraEnv = {}, envRemove = undefined, adlc = FAKE_ADLC } = {}) {
+export async function factory({ doc = null, holder = "harness", rounds = 3, failRounds = 0, model = true, harness = undefined, fixRounds = undefined, github = null, review = undefined, history: withHistory = true, runtime = null, people = null, intake = undefined, notify = undefined, extraEnv = {}, envRemove = undefined, adlc = FAKE_ADLC, where = undefined } = {}) {
   const dir = await tempDir("factory");
   const stubLog = join(dir, "harness-calls.jsonl");
   if (doc) await writeFile(join(dir, "lifecycle.json"), JSON.stringify(doc, null, 2));
@@ -44,7 +44,7 @@ export async function factory({ doc = null, holder = "harness", rounds = 3, fail
     data: "./data",
     port: 0,
     model: { name: "PF_T_MODEL_NAME", endpoint: "PF_T_MODEL_ENDPOINT", key: "PF_T_MODEL_KEY", protocol: "PF_T_MODEL_PROTOCOL" },
-    code: { holder, harness: Array.isArray(harness) ? harness : (harness ?? holder !== "pull-request") ? ["node", STUB_HARNESS, "{prompt}"] : null, rounds, minutes: 2, ...(fixRounds !== undefined ? { fix_rounds: fixRounds } : {}), ...(envRemove !== undefined ? { env_remove: envRemove } : {}) },
+    code: { holder, harness: Array.isArray(harness) ? harness : (harness ?? holder !== "pull-request") ? ["node", STUB_HARNESS, "{prompt}"] : null, rounds, minutes: 2, ...(where !== undefined ? { where } : {}), ...(fixRounds !== undefined ? { fix_rounds: fixRounds } : {}), ...(envRemove !== undefined ? { env_remove: envRemove } : {}) },
     // A fake GitHub (fixtures/fake-github.mjs): the token is read from PF_T_GITHUB_TOKEN, and the pull request is checked only when a test says so.
     ...(github ? { repository: { host: "github", repo: github.repo, token: "PF_T_GITHUB_TOKEN", api: github.url, poll_seconds: 3600 } } : {}),
     ...(review !== undefined ? { review } : {}),

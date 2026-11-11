@@ -264,6 +264,26 @@ asks the spec writer for a revised spec, and the builder goes on once you
 approve it. The other holders below keep Product Factory's earlier process and
 its own Code gate.
 
+### One builder on a pull request
+
+With `"code": { "holder": "builder", "where": "pull-request" }` and a
+`repository`, this machine runs no coding agent and holds no sign-in to one.
+Once you approve the spec in the console, Product Factory lays the build folder
+out with the ADLC plugin's kit, pins your approval in it, and puts it on a branch
+of its own in `agents/<name>/` with a "Build the agent" pull request. You build
+it with your own coding assistant wherever you are: in Claude Code, install the
+ADLC plugin (`/plugin install adlc --marketplace CommonAgent/adlc`), check the
+branch out, open the folder and follow its `AGENTS.md`; another assistant reads
+`AGENTS.md` too. Push as you go.
+
+Product Factory checks the pull request for pushes every
+`repository.poll_seconds`, runs the folder's own check on each push, says its
+result on the pull request, and moves each stage exactly as above. What only
+you can answer, and any send back, you give in the console: Product Factory
+makes the change in the folder and pushes it to the branch as its own commit, so
+pull before you go on. When the check says every stage has passed, you give the
+OK in the console. `code.harness` is not used.
+
 ## Point it at your coding harness
 
 Your coding harness is a command that runs in the build's folder. The folder

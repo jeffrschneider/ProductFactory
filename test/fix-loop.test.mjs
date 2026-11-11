@@ -299,7 +299,7 @@ test("code.fix_rounds is a whole number from 1 to 1000, 3 when not set", () => {
   assert.equal(readConfig({ code: { fix_rounds: 5 } }, "/").code.fix_rounds, 5);
   assert.throws(() => readConfig({ code: { fix_rounds: 0 } }, "/"), /"code\.fix_rounds" is a whole number from 1 to 1000/);
   assert.throws(() => readConfig({ code: { fix_rounds: "3" } }, "/"), /whole number/);
-  assert.throws(() => readConfig({ code: { fix_round: 3 } }, "/"), /it reads holder, harness, rounds, fix_rounds, minutes and env_remove/);
+  assert.throws(() => readConfig({ code: { fix_round: 3 } }, "/"), /it reads holder, where, harness, rounds, fix_rounds, minutes and env_remove/);
 });
 
 test("a word with line breaks goes to a .cmd program on one line, so cmd.exe cannot end the command there", { skip: process.platform !== "win32" }, async () => {
