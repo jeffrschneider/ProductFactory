@@ -13,7 +13,7 @@ import { fakeGitHub } from "./fixtures/fake-github.mjs";
 import { createKeys, KEYS_FILE } from "../lib/people.mjs";
 import { checkBuild } from "adlc-console/lib/contract.mjs";
 import { validate, checkProducts, checkProduct, checkStageWorkspace, checkMessages, checkMessageReply } from "../standards/lifecycle-api-check.mjs";
-import { STAGE_IDS } from "../lib/standards.mjs";
+import { STAGE_IDS, STAGES_DOC } from "../lib/standards.mjs";
 import { holderWithSkills } from "../lib/view.mjs";
 
 const BRANCH = "adlc/counter-0.1.0";
@@ -317,4 +317,31 @@ test("0.4.9: a holder Product Factory cannot read skills for is left as it is", 
   assert.deepEqual(holderWithSkills({ kind: "outside_tool", name: "the packer" }, FAKE_ADLC), { kind: "outside_tool", name: "the packer" });
   assert.equal(holderWithSkills({ kind: "contracted", name: "A review supplier", handle: "r.s@example.com" }, FAKE_ADLC).skills_note, "Its skills are whatever that agent has installed; Product Factory cannot see them.");
   assert.equal(holderWithSkills(null, FAKE_ADLC), null);
+});
+
+test("a product's documents (0.4.11): one per stage that makes one, in stages.json's order, each with the copy that stands and the versions that made it", async (t) => {
+  const { gh, f, id } = await counter(t);
+  let r = await f.get("/products/counter/documents");
+  assert.equal(r.status, 200);
+  assert.equal(r.json.product, "counter");
+  const assets = STAGES_DOC.stages.filter((s) => typeof s.asset === "string" && s.asset);
+  assert.deepEqual(r.json.documents.map((d) => [d.stage, d.name, d.cadence]), assets.map((s) => [s.id, s.asset, s.cadence ?? "every_build"]));
+  const doc = (stage) => r.json.documents.find((d) => d.stage === stage);
+  // The spec stands as soon as Requirements made it; the suite is not made yet, and says so.
+  assert.equal(doc("requirements").state, "made");
+  assert.deepEqual([doc("requirements").current.build, doc("requirements").current.version, doc("requirements").current.artifact.id, doc("requirements").current.carried], [id, "0.1.0", "spec", false]);
+  assert.deepEqual(doc("requirements").history.map((h) => [h.build, h.version, h.artifact]), [[id, "0.1.0", "spec"]]);
+  assert.equal(doc("test").state, "not_made");
+  assert.equal(doc("test").current, null);
+  assert.deepEqual(doc("test").history, []);
+  assert.equal(doc("test").words, "Test has not made it yet.");
+  assert.ok(r.json.documents.every((d) => (d.state === "made") === (d.current !== null)));
+  // Once the build reached Code's gate, the suite and the code stand too.
+  await toCodeGate(f, gh, id);
+  r = await f.get("/products/counter/documents");
+  assert.equal(doc("test").state, "made");
+  assert.equal(doc("test").current.artifact.id, "suite");
+  assert.equal(doc("code").state, "made");
+  assert.equal((await f.get("/products/nobody/documents")).status, 404);
+  assert.equal((await f.post("/products/counter/documents", {})).status, 405);
 });
