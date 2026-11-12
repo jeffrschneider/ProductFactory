@@ -157,6 +157,26 @@ test("start from an as-built record: Requirements first, the record brought, beh
   assert.equal((await f.get("/products/word-counter")).json.source, undefined);
 });
 
+test("with one builder set, a rebuild from an as-built record runs on the reference writers, and its settings say so", async (t) => {
+  const f = await factory({ holder: "builder" });
+  t.after(f.close);
+  const rec = writeRecord(join(await tempDir("record"), "as-built"));
+  const started = await start(f, { folder: rec });
+  assert.equal(started.status, 201, JSON.stringify(started.json));
+  const id = started.json.build.id;
+  const b = await f.settled(id);
+  ok(b);
+  const kept = f.store.read(id);
+  assert.equal(kept.run.process.name, "rebuild from an as-built record");
+  assert.equal(kept.settings.code.holder, "code-writer", "one builder makes new agents only");
+  assert.equal(kept.settings.code.where, undefined);
+  assert.equal(kept.work.builder, undefined, "no build folder for one builder is laid out");
+  for (const [s, name] of [["requirements", "spec-writer"], ["test", "test-writer"], ["code", "code-writer"]]) {
+    assert.deepEqual(stageOf(b, s).holder, { kind: "reference_agent", name, role: name }, s);
+  }
+  assert.equal(stageOf(b, "requirements").state, "waiting_on_you", "the reference spec writer wrote the spec");
+});
+
 test("an as-built record may come from a repository, at a path in it", async (t) => {
   const f = await factory();
   t.after(f.close);

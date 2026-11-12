@@ -10,5 +10,5 @@ const dir = resolve(process.argv[2]);
 mkdirSync(join(dir, ".adlc"), { recursive: true });
 for (const f of ["check.mjs", "approve.mjs", "stages.mjs"]) cpSync(join(here, f), join(dir, ".adlc", f));
 writeFileSync(join(dir, "AGENTS.md"), "# Building an agent through the ADLC\n");
-writeFileSync(join(dir, "build.lock.json"), JSON.stringify({ build_lock: "v1", digests: {}, scripts: [], gates: {} }, null, 2) + "\n");
+writeFileSync(join(dir, "build.lock.json"), JSON.stringify({ build_lock: "v1", digests: {}, gates: {} }, null, 2) + "\n");
 console.log(`The build folder is ${dir}.`);

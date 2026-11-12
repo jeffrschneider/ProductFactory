@@ -1,5 +1,5 @@
-PROCESS: make a new agent             id: product-factory/make-a-new-agent   v2
-from: ref/dev/make-a-new-agent v2
+PROCESS: make a new agent             id: product-factory/make-a-new-agent   v3
+from: ref/dev/make-a-new-agent v3
 owner: <who>                          effective: <date>
 trigger: a person asks for an agent in words, through
          the Product Factory console, with a prototype attached when one
@@ -7,8 +7,9 @@ trigger: a person asks for an agent in words, through
          version that runs today attached as the prototype
 concurrency: runs may overlap - one run per agent at a time
 goal: a running agent whose package was made from a spec the owner
-      approved, whose scripts pass a suite fixed before them, each stage
-      of the build passed by a check its holder does not control, and
+      approved, whose scripts pass tests that could not change once the
+      scripts were judged against them, the build checked by something
+      the agent that did it can't change, and
       whose conformance was checked by an agent that did not build it,
       with every step on the record
 phases:
@@ -27,15 +28,16 @@ phases:
                        owner: <the agent's owner>
                        after: write-the-spec
                        automation: never
-  build-the-agent    - harness: from the approved spec, in this order,
-                       each stage passing its own check before the next
-                       begins and then fixed: the architecture record;
-                       the agent's own files, accepted by the packer;
-                       the suite, a test for every acceptance scenario,
-                       shown to fail against an empty stand-in for every
-                       script; and the scripts, in node 22,
-                       passing the suite, with the prototype read when
-                       there is one
+  build-the-agent    - harness: from the approved spec, in any order,
+                       all judged together by a check the builder can't
+                       change: the architecture record; the agent's own
+                       files, accepted by the packer; the suite, a test
+                       for every acceptance scenario, shown to fail
+                       against an empty stand-in for every script and
+                       unchanged once the scripts are first judged
+                       against it; and the scripts, in node 22,
+                       passing the suite, with the prototype read
+                       when there is one
                        owner: builder
                        after: approve-the-spec
                        automation: autonomous
@@ -81,7 +83,7 @@ handoffs:
     owner left it, which names the scripts the package must ship
   build-the-agent -> make-the-package [scripts]: the architecture record,
     the agent's own files, the suite, every script the agent's files
-    name, the record of each stage's check, the builder's account, and
+    name, the record of the check that passed the build, the builder's account, and
     the signed job manifest that came with the delivery
   make-the-package -> approve-the-deploy [package]: the package's
     address, its sha256, and the build record
@@ -125,10 +127,9 @@ policy:
     a package a harness reads, is said out loud at the spec and never
     built as something else that looks close
   a spec goes to the owner before anything else is built
-  each stage of the build passes a check its holder does not control,
-    and what it settled is fixed before the next stage begins
-  the suite is fixed before any script is written, and never changed
-    to fit one
+  the build is checked by something the agent that did it can't change
+  the tests are shown to fail before the scripts are judged against
+    them, can't change after that, and are never changed to fit a script
   no test is edited to make a script pass, and no script is delivered
     that the suite fails
   only scripts delivered by build-the-agent are packed; a script
@@ -148,7 +149,7 @@ records:
                       answers, and who approved it and when
   build             - the architecture record, the agent's own files,
                       the suite and its failure against empty
-                      stand-ins, and the check that passed each stage
+                      stand-ins, and the check that passed the build
   delivery          - the scripts, the builder's account, the record of
                       every round, and the signed job manifest
   build-record      - the package's address and sha256, and the signed

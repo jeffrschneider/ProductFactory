@@ -3,7 +3,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 const dir = process.cwd();
-if (process.env.PF_STUB_LOG) appendFileSync(process.env.PF_STUB_LOG, JSON.stringify({ builder: true, cwd: dir, prompt: process.argv[2], plugin: process.argv[3] ?? null }) + "\n");
+if (process.env.PF_STUB_LOG) appendFileSync(process.env.PF_STUB_LOG, JSON.stringify({ builder: true, cwd: dir, prompt: process.argv[2], plugin: process.argv[3] ?? null, not_the_person: process.env.ADLC_NOT_THE_PERSON ?? null }) + "\n");
 const put = (p, text) => { mkdirSync(join(dir, p, ".."), { recursive: true }); if (!existsSync(join(dir, p))) writeFileSync(join(dir, p), text); };
 // The builder writes the spec too: from request.md, revised when the person's changes are added at its end.
 const request = existsSync(join(dir, "request.md")) ? readFileSync(join(dir, "request.md"), "utf8") : "";
@@ -19,7 +19,7 @@ const spec = {
   interfaces: [], constraints: [], systems: [], settings: [], open: [],
 };
 const was = (() => { try { return JSON.parse(readFileSync(join(dir, "spec.json"), "utf8")); } catch { return null; } })();
-const approved = (() => { try { return Boolean(JSON.parse(readFileSync(join(dir, "build.lock.json"), "utf8")).gates?.requirements); } catch { return false; } })();
+const approved = (() => { try { return Boolean(JSON.parse(readFileSync(join(dir, "build.lock.json"), "utf8")).gates?.spec?.passed); } catch { return false; } })();
 if (!was || (revised && !approved && was.purpose !== spec.purpose)) writeFileSync(join(dir, "spec.json"), `${JSON.stringify(spec, null, 2)}\n`);
 put("architecture-record.md", "---\nrecord: architecture-record-v1\n---\n# Architecture record\n");
 put("agent-descriptor.json", JSON.stringify({ format: "agent-descriptor-v1" }) + "\n");

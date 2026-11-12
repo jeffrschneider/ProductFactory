@@ -1,19 +1,22 @@
-// The stand-in approval: Requirements passes on the person's word, or a stage and every one after it reopen.
+// The stand-in approval: the spec passes on the person's word, or the build is
+// sent back to the spec or to the build.
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { STAGES, lockOf, writeLock, problemsAt } from "./stages.mjs";
+import { lockOf, writeLock, specProblems } from "./stages.mjs";
 const dir = dirname(dirname(fileURLToPath(import.meta.url)));
 const lock = lockOf(dir);
 const at = process.argv.indexOf("--send-back");
 if (at > 0) {
-  const from = STAGES.indexOf(process.argv[at + 1]);
-  for (const s of STAGES.slice(from)) delete lock.gates[s];
+  const to = process.argv[at + 1];
+  if (!["spec", "build"].includes(to)) { console.log("Send back to the spec or the build."); process.exit(2); }
+  delete lock.gates.build;
+  if (to === "spec") delete lock.gates.spec;
   writeLock(dir, lock);
-  console.log(`Sent back to ${process.argv[at + 1]}.`);
+  console.log(`Sent back to the ${to}.`);
 } else {
-  const p = problemsAt(dir, "requirements");
+  const p = specProblems(dir);
   if (p.length) { console.log(`The spec is not ready to approve:\n  - ${p.join("\n  - ")}`); process.exit(1); }
-  lock.gates.requirements = { passed: true, by: "the person" };
+  lock.gates.spec = { passed: true, by: "the person" };
   writeLock(dir, lock);
-  console.log("Approved. The spec is pinned, and the build moves to Architecture.");
+  console.log("Approved. The spec can no longer change, and the build starts.");
 }

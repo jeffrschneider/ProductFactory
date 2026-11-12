@@ -244,15 +244,17 @@ With `"code": { "holder": "builder" }`, which `product-factory init` writes, one
 builder writes everything, from the spec through the code: your coding harness
 with the ADLC plugin of the `adlc` checkout (`{plugin}` in the harness command).
 No reference spec writer runs, so the spec and everything built from it have one
-author and one check. The build runs the reference process "make a new agent" v2
+author and one check. The build runs the reference process "make a new agent" v3
 as it is published, with only its blanks filled
 (`processes/make-a-new-agent-one-builder.txt`). When the build starts, Product
 Factory lays out one build folder with the ADLC plugin's kit and your words in
-`request.md`. The builder writes the spec there until the folder's own
-Requirements check says it is ready for you, and you read it at Requirements in
-the console. Approve it, or ask for changes: your words are added to the end of
+`request.md`. The build has two phases. First the builder writes the spec there
+until the folder's own check says it is ready for you, and you read it at
+Requirements in the console. Approve it, or ask for changes: your words are added to the end of
 `request.md` under "The person asked for changes" and the date, and the builder
-revises the spec. Once you approve it, the builder goes on in the same folder.
+revises the spec. Once you approve it, the builder writes everything else in the
+same folder, in whatever order works best: the architecture record, the agent's
+own files, the tests and the code. The check judges them together.
 
 Product Factory judges nothing about the agent itself. Your approval of the spec
 is pressed in the console and run in the folder (`node .adlc/approve.mjs`), so it
@@ -260,17 +262,19 @@ is binding there; the plugin's hook stops the assistant from running it. What yo
 approve is the spec on the branch as it stands: if the builder pushed a new spec
 after the one you read, nothing is approved, and the new spec is handed to you to
 approve. After you send a spec back or ask for changes, the same spec is not handed
-to you again; Requirements waits for the builder's revision. Each
-stage is done when the folder's own check (`node .adlc/check.mjs --json`) has
-passed it: Architecture and Design when the architecture record and the agent's
-own files pass, Test when the suite does, Code when the scripts do. What only you
-can answer (such as whether the agent may reach a public service) waits for you
-at its stage, answered as `key: answer`. A stage the check still holds when the
-rounds are used up waits on you in the check's words, and from any of these
-stages you can send the build back to an earlier one with your words
-(`send_back`, lifecycle API 0.5.0): the folder reopens that stage and every one
-after it, and the builder goes on from there. Sending it back to Requirements
-adds your words to request.md, the builder revises the spec, and it goes on once you
+to you again; Requirements waits for the builder's revision. The console shows
+each stage done when the folder's own check (`node .adlc/check.mjs --json`) passes
+the gates at it: Architecture and Design when the architecture record and the
+agent's own files pass, Test when the suite does, Code when the scripts do. The
+tests are fixed the first time the code is judged against them. What only you can
+answer (such as whether the agent may reach a public service) waits for you at its
+stage, answered as `key: answer`; your answer goes into `answers.json` with your
+words, and your reply into `said.md`, where the check finds them. A stage the check
+still holds when the rounds are used up waits on you in the check's words, and from
+any of these stages you can send the build back with your words (`send_back`,
+lifecycle API 0.5.0): to a stage of the build, which opens the build again,
+tests included, and the builder goes on from there; or to Requirements, which adds
+your words to request.md, the builder revises the spec, and it goes on once you
 approve it. The other holders below keep Product Factory's earlier process and
 its own Code gate.
 
@@ -292,11 +296,12 @@ branch out, open the folder and follow its `AGENTS.md`; another assistant reads
 
 Product Factory checks the pull request for pushes every
 `repository.poll_seconds`, runs the folder's own check on each push, says its
-result on the pull request, and moves each stage exactly as above. What only
+result on the pull request, and shows each stage exactly as above. What only
 you can answer, and any send back, you give in the console: Product Factory
-makes the change in the folder and pushes it to the branch as its own commit, so
-pull before you go on. When the check says every stage has passed, you give the
-OK in the console. `code.harness` is not used.
+makes the change in the folder (your words in `said.md`) and pushes it to the
+branch as its own commit, so pull before you go on. When the check says the
+build has passed, Product Factory makes the package, and you approve the deploy
+in the console. `code.harness` is not used.
 
 ## Point it at your coding harness
 
@@ -1096,7 +1101,7 @@ and look the person up in `people.json` by its email.
 
 ## Standards it uses
 
-- Lifecycle API 0.5.0 and stages.json 1.7.0 (CommonAgent/adlc, copies in `standards/`).
+- Lifecycle API 0.5.0 and stages.json 1.8.0 (CommonAgent/adlc, copies in `standards/`).
 - One pin of the ADLC: `standards/ADLC.json` names the commit of CommonAgent/adlc those
   copies came from (`node scripts/vendor.mjs --adlc <checkout>` writes it), and the
   start-up check says when the `adlc` checkout is at another commit, so the standards,

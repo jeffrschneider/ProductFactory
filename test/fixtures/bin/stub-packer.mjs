@@ -16,12 +16,13 @@ for (const f of ["agent-descriptor.json", "agent-runtime-requirements.json", "pl
   if (!existsSync(join(src, f))) { console.error(`${src} holds no ${f}`); process.exit(1); }
 }
 const plugin = JSON.parse(readFileSync(join(src, "plugin.json"), "utf8"));
-// Each script a skill's build entry names is carried in that skill, as the packer requires.
+// Each script a skill's build entry names is there, as the packer requires: at the path the
+// entry names (the packer carries it into the skill), or already carried in that skill.
 const skills = plugin.extensions?.["net.agentdoc.package"]?.build?.skills ?? { count: { scripts: ["scripts/count.mjs"] } };
 for (const [slug, s] of Object.entries(skills)) {
   for (const script of s.scripts ?? []) {
     const want = join("skills", slug, "scripts", basename(script));
-    if (!existsSync(join(src, want))) { console.error(`${want.split("\\").join("/")} is missing`); process.exit(1); }
+    if (!existsSync(join(src, script)) && !existsSync(join(src, want))) { console.error(`${want.split("\\").join("/")} is missing`); process.exit(1); }
   }
 }
 mkdirSync(out, { recursive: true });
