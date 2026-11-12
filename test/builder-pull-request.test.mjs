@@ -203,13 +203,15 @@ test("a send back from the console goes on the pull request: approve.mjs --send-
   ok(b);
   assert.equal(stageOf(b, "test").state, "done");
   assert.equal(stageOf(b, "code").state, "working");
-  assert.ok(b.actions.find((a) => a.name === "send_back").needs.find((n) => n.name === "to").options.includes("test"));
+  // Two choices: the spec, or the start of the build; a later stage of the build is never one of its own.
+  assert.deepEqual(b.actions.find((a) => a.name === "send_back").needs.find((n) => n.name === "to").options, ["requirements", "architecture"]);
+  assert.equal((await f.post(`/builds/${id}/actions/send_back`, { to: "test", changes: "x" })).status, 400);
 
-  // You send it back to Test in the console: the send back is run in a mirror of the branch and pushed as Product Factory's commit.
-  assert.equal((await f.post(`/builds/${id}/actions/send_back`, { to: "test", changes: "Test the empty passage too." })).status, 200);
+  // You send it back to the start of the build in the console: the send back is run in a mirror of the branch and pushed as Product Factory's commit.
+  assert.equal((await f.post(`/builds/${id}/actions/send_back`, { to: "architecture", changes: "Test the empty passage too." })).status, 200);
   b = await f.settled(id);
   ok(b);
-  assert.match(gh.log(branch)[0].message, /^Product Factory: you sent the build back to test$/);
+  assert.match(gh.log(branch)[0].message, /^Product Factory: you sent the build back to the start of the build$/);
   assert.deepEqual(Object.keys(JSON.parse(gh.filesAt(branch)[`${folder}/build.lock.json`]).gates), ["spec"], "the build is open again on the branch, and the spec stays approved");
   assert.match(gh.filesAt(branch)[`${folder}/request.md`], /Test the empty passage too\.\n$/, "your words go with the send back, at the end of request.md");
 
