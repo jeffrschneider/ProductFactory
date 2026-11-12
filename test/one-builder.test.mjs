@@ -64,6 +64,7 @@ test("one builder takes the approved spec through the code, each stage passed by
   const c = calls(f);
   assert.equal(c.length, 1);
   assert.equal(c[0].plugin, join(adlc, "plugin"));
+  assert.equal(c[0].not_the_person, "1", "the plugin is told the prompts are Product Factory's, not yours");
   assert.match(c[0].prompt, /Follow AGENTS\.md in this folder/);
   assert.equal(b.summary, "Waiting on you at Architecture and Design");
   assert.equal(stageOf(b, "architecture").state, "waiting_on_you");

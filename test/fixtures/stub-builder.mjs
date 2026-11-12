@@ -3,7 +3,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 const dir = process.cwd();
-if (process.env.PF_STUB_LOG) appendFileSync(process.env.PF_STUB_LOG, JSON.stringify({ builder: true, cwd: dir, prompt: process.argv[2], plugin: process.argv[3] ?? null }) + "\n");
+if (process.env.PF_STUB_LOG) appendFileSync(process.env.PF_STUB_LOG, JSON.stringify({ builder: true, cwd: dir, prompt: process.argv[2], plugin: process.argv[3] ?? null, not_the_person: process.env.ADLC_NOT_THE_PERSON ?? null }) + "\n");
 const put = (p, text) => { mkdirSync(join(dir, p, ".."), { recursive: true }); if (!existsSync(join(dir, p))) writeFileSync(join(dir, p), text); };
 // The builder writes the spec too: from request.md, revised when the person's changes are added at its end.
 const request = existsSync(join(dir, "request.md")) ? readFileSync(join(dir, "request.md"), "utf8") : "";
