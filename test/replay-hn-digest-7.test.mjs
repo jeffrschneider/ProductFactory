@@ -96,7 +96,7 @@ test("the real hn-digest build #7, replayed whole: your words, the builder's pus
     ok(b);
   }
   for (const s of ["requirements", "architecture", "test", "code"]) assert.equal(stageOf(b, s).state, "done", `${s}: ${JSON.stringify(states(b))}`);
-  assert.ok(b.log.some((l) => /Every stage of the build folder passed its own check/.test(l.said)), "the log says every stage passed");
+  assert.ok(b.log.some((l) => /The build passed the build folder's own check/.test(l.said)), "the log says the build passed");
 
   // Where the machine stopped: the build goes on past the builder, through Package, to your OK.
   assert.notEqual(stageOf(b, "package").state, "not_started", `the build went on to Package: ${JSON.stringify(states(b))} | ${actionsOf(b).join(" ")}`);

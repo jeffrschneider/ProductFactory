@@ -84,8 +84,13 @@ test("one builder takes the approved spec through the code, each stage passed by
   assert.deepEqual(Object.keys(lockOf(f, id).gates), ["spec", "build"]);
   for (const s of ["architecture", "test", "code"]) assert.equal(stageOf(b, s).state, "done", s);
   const handed = stageOf(b, "code").handed_back.files.map((x) => x.path);
-  assert.ok(handed.includes("scripts/count.mjs"));
-  assert.ok(handed.includes("agent-descriptor.json"));
+  assert.ok(handed.includes("code/scripts/count.mjs"));
+  assert.ok(handed.includes("code/agent-descriptor.json"));
+  // Each file is shown at the stage whose gates passed it, so the console's tabs find them as they find a separate holder's.
+  assert.deepEqual(stageOf(b, "architecture").handed_back.files.map((x) => x.path).sort(), ["architecture/architecture-record.md", "design/agent-descriptor.json", "design/agent-runtime-requirements.json", "design/plugin.json", "design/skills/count/SKILL.md"]);
+  assert.deepEqual(stageOf(b, "test").handed_back.files.map((x) => x.path), ["test/f1.test.mjs"]);
+  const made = Object.fromEntries(b.artifacts.map((x) => [x.id, x.state]));
+  for (const k of ["spec", "statement", "architecture", "suite", "programs", "package"]) assert.equal(made[k], "made", `the console's ${k} tab`);
   assert.equal(stageOf(b, "package").state, "done");
 });
 
