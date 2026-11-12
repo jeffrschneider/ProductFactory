@@ -145,6 +145,33 @@ test("one builder on a pull request: the folder goes to a branch, your own assis
   assert.deepEqual(harnessCalls(f), [], "still no coding agent on this machine");
 });
 
+test("while the build waits on your answer, the assistant's pushes still move it on, through every stage", async (t) => {
+  const adlc = await adlcWithKit();
+  const gh = await fakeGitHub();
+  const f = await factory({ doc: leftOut, holder: "builder", where: "pull-request", github: gh, adlc });
+  t.after(async () => { await f.close(); await gh.close(); });
+  const folder = "agents/word-counter";
+  const id = (await f.post("/builds", { does: "Count the words in a passage.", refuses: "Changing the passage.", name: "word-counter" })).json.build.id;
+  await f.settled(id);
+  const branch = [...gh.pulls.values()][0].head;
+  await personPushes(gh, branch, folder);
+  await f.runner.poll(id);
+  await f.settled(id);
+  assert.equal((await f.post(`/builds/${id}/actions/approve`)).status, 200);
+  let b = await f.settled(id);
+  assert.equal(stageOf(b, "architecture").state, "waiting_on_you", "the folder asks egress-1");
+
+  // As on the cloud machine (pf-e2e-proof #7): the assistant goes on while the console still shows the
+  // question, and pushes stage after stage. Each push is judged by the watch loop and applied.
+  gh.push(branch, { [`${folder}/answers.json`]: JSON.stringify({ ...JSON.parse(gh.filesAt(branch)[`${folder}/answers.json`] ?? "{}"), "egress-1": "yes" }, null, 2) + "\n" });
+  await personChecks(gh, branch, folder);
+  await f.runner.pollAll();
+  b = await f.settled(id);
+  ok(b);
+  for (const s of ["architecture", "test", "code"]) assert.equal(stageOf(b, s).state, "done", s);
+  assert.notEqual(stageOf(b, "architecture").state, "waiting_on_you");
+});
+
 test("a send back from the console goes on the pull request: approve.mjs --send-back run in a mirror of the branch, pushed, and the next push's check finds the stage open", async (t) => {
   const adlc = await adlcWithKit();
   const gh = await fakeGitHub();
