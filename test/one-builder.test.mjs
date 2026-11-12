@@ -1,5 +1,5 @@
 // A build that one builder holds (code.holder "builder", make-a-new-agent-one-builder.txt,
-// the reference make-a-new-agent v2 with its blanks filled): the build folder is laid out
+// the reference make-a-new-agent v3 with its blanks filled): the build folder is laid out
 // with the ADLC plugin's kit, your approval of the spec is pressed there by Product Factory,
 // each stage is decided by the folder's own check, what only you can answer waits for you,
 // and the build can be sent back to any earlier stage. Stand-ins throughout: the fake spec
@@ -41,9 +41,10 @@ test("one builder takes the approved spec through the code, each stage passed by
   const id = started.json.build.id;
   let b = await f.settled(id);
   ok(b);
-  // The reference make-a-new-agent v2 as published, its blanks filled.
+  // The reference make-a-new-agent v3 as published, its blanks filled: the build in any order, judged together.
   const doc = readFileSync(join(f.store.folder(id), "run", "document.txt"), "utf8");
-  assert.match(doc, /^PROCESS: make a new agent +id: product-factory\/make-a-new-agent +v2$/m);
+  assert.match(doc, /^PROCESS: make a new agent +id: product-factory\/make-a-new-agent +v3$/m);
+  assert.match(doc, /build-the-agent +- harness: from the approved spec, in any order,/);
   assert.match(doc, /^ +owner: builder$/m);
   assert.doesNotMatch(doc, /design-the-agent|gather-the-features|write-the-architecture/);
   assert.equal(stageOf(b, "requirements").state, "waiting_on_you");

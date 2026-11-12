@@ -34,13 +34,13 @@
     }
   },
   "make-a-new-agent-one-builder.txt": {
-    "what": "The reference process \"make a new agent\" (ref/dev/make-a-new-agent v2), as published, with its blanks filled and nothing else changed. A build runs it when code.holder is \"builder\": one builder (your coding harness with the ADLC plugin) holds build-the-agent, from the approved spec through the code, in one build folder whose own ADLC check decides each stage.",
-    "from": "CommonAgent/common-agent-standards, branch one-builder, processes/reference/make-a-new-agent.md (Make a new agent v2, published at https://agentprocesses.ai/make-a-new-agent.html once it is live)",
-    "fetched": "2026-11-11",
+    "what": "The reference process \"make a new agent\" (ref/dev/make-a-new-agent v3), as published, with its blanks filled and nothing else changed. A build runs it when code.holder is \"builder\": one builder (your coding harness with the ADLC plugin) holds build-the-agent, from the approved spec through the code, in one build folder whose own ADLC check judges the build.",
+    "from": "CommonAgent/common-agent-standards, branch processes/two-phases, processes/reference/make-a-new-agent.md (Make a new agent v3, Agent Processes 0.10.2, published at https://agentprocesses.ai/make-a-new-agent.html once it is live)",
+    "fetched": "2026-11-12",
     "filled_in_the_file": {
       "<team>": "product-factory",
       "<your request channel>": "the Product Factory console",
-      "<one builder, or solution-architect, test-writer and code-writer>": "builder",
+      "<one agent for all of it, or solution-architect, test-writer and code-writer>": "builder",
       "<level> at build-the-agent, make-the-package, deploy-the-agent, check-conformance": "autonomous",
       "<your settled stack>, <version>": "node 22",
       "<your hosts>": "the host you bring",
@@ -52,7 +52,8 @@
       "<who>": "the person who started the build",
       "<date>": "the day the build started",
       "<the agent's owner>": "the person who started the build"
-    }
+    },
+    "version_3": "v3 of the reference (2026-11-12): the builder writes the architecture record, the agent's own files, the suite and the scripts in any order, and a check it cannot change judges them together. The suite is shown to fail against an empty stand-in for every script, and once the scripts are first judged against it, it cannot change. The goal, build-the-agent, one handoff, the policy and one record say so. A build started on v2 keeps its own copy and finishes on it."
   },
   "rebuild-from-as-built-record.txt": {
     "what": "Product Factory's own process for a build started from an as-built record (stages.json 1.5.0, the starting point as-built-record): make-a-new-agent.txt with its trigger, goal, three writing phases, one handoff, data and its last policy reworded for an as-built record of code kept elsewhere, built again without taking that code on. Its phases, handoffs and deviations are the same as make-a-new-agent.txt's.",
