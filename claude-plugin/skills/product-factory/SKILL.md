@@ -6,8 +6,8 @@ description: Start and drive Product Factory builds from Claude Code with the pr
 # Driving Product Factory from Claude Code
 
 Product Factory runs builds of agents on the agentic development lifecycle.
-Each build goes stage by stage (Requirements, Test, Code, Package, Deploy),
-and waits at gates for a person. The product-factory MCP tools are a thin
+Each build moves through the lifecycle's stages (Requirements through Code,
+then Package and Deploy), and waits at gates for a person. The product-factory MCP tools are a thin
 client over the lifecycle API of the Product Factory running on this
 computer; the console shows the same builds.
 
@@ -68,17 +68,40 @@ waiting at the Requirements gate, then show it and ask.
 
 ## A build that one builder holds
 
-When Product Factory's `code.holder` is `builder`, one builder (the coding
-harness with the ADLC plugin) holds Architecture, Test and Code in one build
-folder, the same folder the ADLC plugin lays out on its own: `AGENTS.md`,
-`.adlc/check.mjs` and `build.lock.json`. Product Factory runs it and decides
-each stage by that folder's check; `build_status` shows the stage the check is
-at, and what only the engineer can answer. To work such a folder in this
-session, use the ADLC plugin (`/plugin install adlc --marketplace
-CommonAgent/adlc`) and follow `AGENTS.md`. Never run `approve.mjs`: the
-engineer's approval is pressed in the console, which runs it.
+When Product Factory's `code.holder` is `builder`, one builder (a coding
+assistant with the ADLC plugin) writes the whole agent in one build folder,
+the same folder the ADLC plugin lays out on its own: `AGENTS.md`,
+`.adlc/check.mjs` and `build.lock.json`. The build has two phases. First the
+builder writes the spec, and the engineer approves it in the console. Then the
+builder writes everything else (the architecture record, the agent's own
+files, the tests and the code) in whatever order works best, and the folder's
+check judges every gate together. Product Factory decides nothing itself:
+`build_status` shows where the folder's check says the build is, and what only
+the engineer can answer.
 
-## Taking the Code hand-off on a pull request
+With `code.where` set to `pull-request`, the folder is on a "Build the agent"
+pull request and the engineer's own coding assistant works it. To work it in
+this session: check the branch out, install the ADLC plugin (`/plugin install
+adlc --marketplace CommonAgent/adlc`), open `agents/<name>/`, follow its
+`AGENTS.md`, and push as you go. Product Factory judges each push with the same
+check. Pull before you go on: the engineer's answers (with their words in
+`said.md`), their approval and any send back arrive as commits Product Factory
+makes.
+
+Never run `approve.mjs`, and never write `said.md`: the engineer's approval is
+pressed in the console, which runs it, and their words are kept by the plugin
+and by Product Factory. An answer only the engineer can give is theirs, typed
+in the console as `key: answer`. A send back goes to the spec (Requirements) or
+to the start of the build (Architecture and Design, which opens the whole build
+again, tests included), with the engineer's words. When the check says the
+build has passed, Product Factory makes the package, and the engineer approves
+the deploy in the console.
+
+## Taking the Code hand-off on a pull request (separate writers)
+
+This section is for builds whose `code.holder` is `pull-request`: separate
+writers, with the scripts written on a "Write the scripts" pull request. A
+build that one builder holds never has this hand-off.
 
 When the build is at Code and `build_status` shows a pull request, the
 engineer's coding harness writes the scripts on it.

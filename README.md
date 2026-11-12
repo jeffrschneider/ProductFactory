@@ -296,11 +296,12 @@ branch out, open the folder and follow its `AGENTS.md`; another assistant reads
 
 Product Factory checks the pull request for pushes every
 `repository.poll_seconds`, runs the folder's own check on each push, says its
-result on the pull request, and moves each stage exactly as above. What only
+result on the pull request, and shows each stage exactly as above. What only
 you can answer, and any send back, you give in the console: Product Factory
-makes the change in the folder and pushes it to the branch as its own commit, so
-pull before you go on. When the check says every stage has passed, you give the
-OK in the console. `code.harness` is not used.
+makes the change in the folder (your words in `said.md`) and pushes it to the
+branch as its own commit, so pull before you go on. When the check says the
+build has passed, Product Factory makes the package, and you approve the deploy
+in the console. `code.harness` is not used.
 
 ## Point it at your coding harness
 
