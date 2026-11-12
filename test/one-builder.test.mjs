@@ -7,7 +7,8 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cpSync, existsSync, readFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { checkBuild as readTheCheck } from "../lib/builder.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { factory, stageOf, actionNames, FAKE_ADLC, tempDir } from "./helpers.mjs";
@@ -145,4 +146,16 @@ test("a build one builder holds is sent back to an earlier stage of its folder w
   assert.deepEqual(Object.keys(lockOf(f, id).gates), ["spec"], "the build is open again, and the spec stays approved");
   assert.equal(stageOf(b, "architecture").state, "done");
   assert.ok(f.store.read(id).stages.test.log.some((l) => /^You sent the build back to Architecture and Design: “Name the counting rule in the record\.”$/.test(l.said)), "the send back is on the record with your words");
+});
+
+test("a build folder still on the kit from before the two phases is never read as passed", async () => {
+  const folder = join(await tempDir("old-kit"), "build");
+  mkdirSync(join(folder, ".adlc"), { recursive: true });
+  // The old check's answer when one stage passed: code 0 and passed, with the stage it was at.
+  writeFileSync(join(folder, ".adlc", "check.mjs"), "console.log(JSON.stringify({ stages: [\"requirements\", \"architecture\", \"files\", \"test\", \"code\"], code: 0, stage: \"architecture\", passed: true, problems: [], next: \"files\" }));\n");
+  const c = await readTheCheck(folder);
+  assert.equal(c.done, false);
+  assert.equal(c.old_kit, true);
+  assert.equal(c.stage, null);
+  assert.match(c.problems[0], /^This build folder carries the ADLC plugin's kit from before its two phases/);
 });
