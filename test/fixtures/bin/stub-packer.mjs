@@ -15,8 +15,15 @@ const out = a[a.indexOf("--out") + 1];
 for (const f of ["agent-descriptor.json", "agent-runtime-requirements.json", "plugin.json"]) {
   if (!existsSync(join(src, f))) { console.error(`${src} holds no ${f}`); process.exit(1); }
 }
-if (!existsSync(join(src, "skills", "count", "scripts", "count.mjs"))) { console.error("skills/count/scripts/count.mjs is missing"); process.exit(1); }
 const plugin = JSON.parse(readFileSync(join(src, "plugin.json"), "utf8"));
+// Each script a skill's build entry names is carried in that skill, as the packer requires.
+const skills = plugin.extensions?.["net.agentdoc.package"]?.build?.skills ?? { count: { scripts: ["scripts/count.mjs"] } };
+for (const [slug, s] of Object.entries(skills)) {
+  for (const script of s.scripts ?? []) {
+    const want = join("skills", slug, "scripts", basename(script));
+    if (!existsSync(join(src, want))) { console.error(`${want.split("\\").join("/")} is missing`); process.exit(1); }
+  }
+}
 mkdirSync(out, { recursive: true });
 writeFileSync(join(out, `${plugin.name}-${plugin.version}.tar.gz`), `stand-in package of ${basename(src)}\n`);
 writeFileSync(join(out, `${plugin.name}-build.json`), JSON.stringify({ name: plugin.name, version: plugin.version, signed: false }));
