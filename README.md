@@ -1101,7 +1101,7 @@ and look the person up in `people.json` by its email.
 
 ## Standards it uses
 
-- Lifecycle API 0.5.0 and stages.json 1.7.0 (CommonAgent/adlc, copies in `standards/`).
+- Lifecycle API 0.5.0 and stages.json 1.8.0 (CommonAgent/adlc, copies in `standards/`).
 - One pin of the ADLC: `standards/ADLC.json` names the commit of CommonAgent/adlc those
   copies came from (`node scripts/vendor.mjs --adlc <checkout>` writes it), and the
   start-up check says when the `adlc` checkout is at another commit, so the standards,

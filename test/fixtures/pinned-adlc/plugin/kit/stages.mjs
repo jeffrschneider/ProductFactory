@@ -160,15 +160,32 @@ export function fixTests(dir, lock, { at = new Date().toISOString() } = {}) {
 }
 
 /** The lock sent back to a phase: that phase, and the build after it, open
- *  again, the tests no longer fixed, and their files free to change. */
-export function sendBack(dir, lock, phase) {
+ *  again, the tests no longer fixed, and their files free to change. A build
+ *  sent back keeps a fingerprint of its files as they were (`sent_back`), so
+ *  the check neither passes it nor fixes the tests again until something in
+ *  it has changed: a send back is never undone by the next run of the check. */
+export function sendBack(dir, lock, phase, { at = new Date().toISOString() } = {}) {
   const i = PHASES.indexOf(phase);
   if (i < 0) throw new Error(`${phase} is not a phase; the phases are ${PHASES.join(" and ")}`);
   const reopened = new Set(PHASES.slice(i));
   const digests = Object.fromEntries(Object.entries(lock.digests ?? {}).filter(([p]) => !reopened.has(ownerOf(p))));
   const gates = Object.fromEntries(Object.entries(lock.gates ?? {}).filter(([s]) => !reopened.has(s)));
-  const { tests_fixed: _dropped, ...rest } = lock;
-  return { ...rest, digests, gates };
+  const { tests_fixed: _dropped, sent_back: _was, ...rest } = lock;
+  return { ...rest, digests, gates, ...(phase === "build" ? { sent_back: { at, files: buildFingerprint(dir) } } : {}) };
+}
+
+/** Every file of the build, by path, and its digest. */
+export function buildFingerprint(dir) {
+  return Object.fromEntries(walk(dir).filter((p) => ownerOf(p) === "build").sort().map((p) => [p, digestOf(readFileSync(join(dir, p)))]));
+}
+
+/** Whether a build sent back is just as it was when it was sent back. */
+export function unchangedSinceSentBack(dir, lock) {
+  const was = lock.sent_back?.files;
+  if (!was) return false;
+  const now = buildFingerprint(dir);
+  const keys = new Set([...Object.keys(was), ...Object.keys(now)]);
+  return [...keys].every((p) => was[p] === now[p]);
 }
 
 const matches = (pattern, p) => (pattern.endsWith("/") ? p.startsWith(pattern)
@@ -488,6 +505,13 @@ function blankEach(dir, scripts, paths, spawn) {
  *  every gate's, each named with its gate, and `lock` is the lock as it now
  *  stands. */
 export async function buildGates(dir, lock, opts = {}) {
+  // Sent back by the person and nothing changed yet: nothing is judged, and the tests stay free.
+  if (unchangedSinceSentBack(dir, lock)) {
+    const why = "the person sent the build back, and nothing in it has changed since; make the change they asked for (their words are in said.md or at the end of request.md), then run the check again";
+    const gates = Object.fromEntries(GATES.map((g) => [g, g === "architecture" ? [why] : ["waits until the build sent back has changed"]]));
+    return { gates, problems: [`${GATE_TITLES.architecture}: ${why}`], lock };
+  }
+  if (lock.sent_back) { const { sent_back: _changed, ...rest } = lock; lock = rest; }
   const gates = {};
   gates.architecture = await architectureProblems(dir);
   gates.files = existsSync(join(dir, "architecture-record.md"))

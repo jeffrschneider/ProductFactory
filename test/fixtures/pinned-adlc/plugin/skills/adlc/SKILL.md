@@ -45,7 +45,7 @@ The check's gates, in the build:
 | Test | Every scenario has a test, every test belongs to the spec, the suite fails against empty scripts, and no test fails on a mistake of its own. |
 | Code | The suite passes, every script is needed by some test, the scripts read only what the agent's files declare, and the packer accepts the folder with its scripts. |
 
-The code is judged only once the tests pass their gate, and from then on the tests are fixed. If a test then turns out to be wrong, say which test and which requirement, and ask the person to send the build back (`node .adlc/approve.mjs --send-back build`, which is theirs to run). If the spec turns out to be wrong, ask them to send it back to the spec (`--send-back spec`).
+The code is judged only once the tests pass their gate, and from then on the tests are fixed. If a test then turns out to be wrong, say which test and which requirement, and ask the person to send the build back (`node .adlc/approve.mjs --send-back build`, which is theirs to run). If the spec turns out to be wrong, ask them to send it back to the spec (`--send-back spec`). When the build has been sent back, the check holds it until something in it has changed, so make the change the person asked for; it never passes the build or fixes the tests again on the files as they were.
 
 When the check says the build has passed, commit the folder and open the pull request.
 
