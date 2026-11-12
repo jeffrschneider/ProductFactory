@@ -120,7 +120,7 @@ test("one builder on a pull request: the folder goes to a branch, your own assis
   b = await f.settled(id);
   ok(b);
   onBranch = gh.filesAt(branch);
-  assert.equal(JSON.parse(onBranch["agents/word-counter/build.lock.json"]).gates.requirements.by, "the person");
+  assert.equal(JSON.parse(onBranch["agents/word-counter/build.lock.json"]).gates.spec.by, "the person");
   assert.equal(stageOf(b, "requirements").state, "done");
   assert.equal(stageOf(b, "architecture").state, "waiting_on_you");
   assert.match(stageOf(b, "architecture").handed_back.words[0], /^Only you can answer: egress-1: /);
@@ -138,7 +138,8 @@ test("one builder on a pull request: the folder goes to a branch, your own assis
   assert.equal((await f.post(`/builds/${id}/actions/changes`, { changes: "egress-1: yes" })).status, 200);
   b = await f.settled(id);
   ok(b);
-  assert.equal(JSON.parse(gh.filesAt(branch)["agents/word-counter/answers.json"])["egress-1"], "yes");
+  assert.deepEqual(JSON.parse(gh.filesAt(branch)["agents/word-counter/answers.json"])["egress-1"], { answer: "yes", said: "yes" });
+  assert.match(gh.filesAt(branch)["agents/word-counter/said.md"], /\n\negress-1: yes\n/, "your reply goes on the branch too");
   assert.match(gh.log(branch)[0].message, /^Product Factory: your answers to what the build folder asked$/);
   for (const s of ["architecture", "test", "code"]) assert.equal(stageOf(b, s).state, "done", s);
   assert.equal(stageOf(b, "package").state, "done");
@@ -163,7 +164,11 @@ test("while the build waits on your answer, the assistant's pushes still move it
 
   // As on the cloud machine (pf-e2e-proof #7): the assistant goes on while the console still shows the
   // question, and pushes stage after stage. Each push is judged by the watch loop and applied.
-  gh.push(branch, { [`${folder}/answers.json`]: JSON.stringify({ ...JSON.parse(gh.filesAt(branch)[`${folder}/answers.json`] ?? "{}"), "egress-1": "yes" }, null, 2) + "\n" });
+  // You answered in your assistant: the plugin kept your reply in said.md, and the assistant quoted it.
+  gh.push(branch, {
+    [`${folder}/answers.json`]: JSON.stringify({ ...JSON.parse(gh.filesAt(branch)[`${folder}/answers.json`] ?? "{}"), "egress-1": { answer: "yes", said: "yes, it may" } }, null, 2) + "\n",
+    [`${folder}/said.md`]: "# What the person said\n\n## 2026-11-12T19:00:00Z\n\nyes, it may reach the API\n\n",
+  });
   await personChecks(gh, branch, folder);
   await f.runner.pollAll();
   b = await f.settled(id);
@@ -192,7 +197,7 @@ test("a send back from the console goes on the pull request: approve.mjs --send-
   await f.post(`/builds/${id}/actions/changes`, { changes: "egress-1: yes" });
   await f.settled(id);
   // Your assistant pulls your answer, runs the check, and pushes the lock it pinned: up to Test, with Code still to write.
-  assert.deepEqual(Object.keys(await personChecks(gh, branch, folder)), ["requirements", "architecture", "files", "test"]);
+  assert.deepEqual(Object.keys(await personChecks(gh, branch, folder)), ["spec"], "the build has not passed: Code is still to write");
   await f.runner.poll(id);
   let b = await f.settled(id);
   ok(b);
@@ -205,7 +210,7 @@ test("a send back from the console goes on the pull request: approve.mjs --send-
   b = await f.settled(id);
   ok(b);
   assert.match(gh.log(branch)[0].message, /^Product Factory: you sent the build back to test$/);
-  assert.deepEqual(Object.keys(JSON.parse(gh.filesAt(branch)[`${folder}/build.lock.json`]).gates), ["requirements", "architecture", "files"], "Test and Code are open again on the branch");
+  assert.deepEqual(Object.keys(JSON.parse(gh.filesAt(branch)[`${folder}/build.lock.json`]).gates), ["spec"], "the build is open again on the branch, and the spec stays approved");
   assert.match(gh.filesAt(branch)[`${folder}/request.md`], /Test the empty passage too\.\n$/, "your words go with the send back, at the end of request.md");
 
   // Your assistant takes the test out to rewrite it: the next push's check finds Test open, and the build is back at it.

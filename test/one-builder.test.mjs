@@ -50,7 +50,7 @@ test("one builder takes the approved spec through the code, each stage passed by
   // One author: the builder holds Requirements too, and wrote the spec in the folder; no reference spec writer ran.
   for (const s of ["requirements", "architecture", "test", "code"]) assert.match(stageOf(b, s).holder.name, /^one builder: your coding harness \(node\) with the ADLC plugin$/, s);
   assert.match(stageOf(b, "requirements").handed_back.words[0], /^The builder's spec is ready for your approval/);
-  assert.match(calls(f)[0].prompt, /from Requirements: write spec\.json from the person's words in request\.md/);
+  assert.match(calls(f)[0].prompt, /from its first phase, the spec: write spec\.json from the person's words in request\.md/);
 
   // Your approval, pressed in the console: the build folder is laid out and the approval pinned there by Product Factory.
   assert.equal((await f.post(`/builds/${id}/actions/approve`)).status, 200);
@@ -58,7 +58,7 @@ test("one builder takes the approved spec through the code, each stage passed by
   ok(b);
   const folder = join(f.store.folder(id), "build");
   assert.ok(existsSync(join(folder, ".adlc", "check.mjs")));
-  assert.equal(lockOf(f, id).gates.requirements.by, "the person");
+  assert.equal(lockOf(f, id).gates.spec.by, "the person");
   assert.ok(JSON.parse(readFileSync(join(folder, "spec.json"), "utf8")).format, "the spec you approved is in the folder");
   // The builder ran in the folder with the plugin of the pinned checkout, and the check asked what only you can answer.
   const c = calls(f);
@@ -76,8 +76,10 @@ test("one builder takes the approved spec through the code, each stage passed by
   assert.equal((await f.post(`/builds/${id}/actions/changes`, { changes: "egress-1: yes" })).status, 200);
   b = await f.settled(id);
   ok(b);
-  assert.equal(JSON.parse(readFileSync(join(folder, "answers.json"), "utf8"))["egress-1"], "yes");
-  assert.deepEqual(Object.keys(lockOf(f, id).gates), ["requirements", "architecture", "files", "test", "code"]);
+  // Your answer goes in with your words, and your reply into said.md, where the folder's check finds them.
+  assert.deepEqual(JSON.parse(readFileSync(join(folder, "answers.json"), "utf8"))["egress-1"], { answer: "yes", said: "yes" });
+  assert.match(readFileSync(join(folder, "said.md"), "utf8"), /^## \d{4}-\d{2}-\d{2}T[\d:.]+Z\n\negress-1: yes\n/m);
+  assert.deepEqual(Object.keys(lockOf(f, id).gates), ["spec", "build"]);
   for (const s of ["architecture", "test", "code"]) assert.equal(stageOf(b, s).state, "done", s);
   const handed = stageOf(b, "code").handed_back.files.map((x) => x.path);
   assert.ok(handed.includes("scripts/count.mjs"));
@@ -102,7 +104,7 @@ test("changes asked for at Requirements go into request.md under a dated heading
   assert.match(request, /^## The person asked for changes \(\d{4}-\d{2}-\d{2}\)\n\nSay what happens when the passage is empty\.$/m);
   assert.equal(stageOf(b, "requirements").state, "waiting_on_you");
   assert.match(JSON.parse(readFileSync(join(folder, "spec.json"), "utf8")).purpose, /revised as asked/);
-  assert.equal(lockOf(f, id).gates.requirements, undefined, "nothing is approved until you approve it");
+  assert.equal(lockOf(f, id).gates.spec, undefined, "nothing is approved until you approve it");
   assert.equal(calls(f).length, 2);
 });
 
@@ -133,7 +135,7 @@ test("a build one builder holds is sent back to an earlier stage of its folder w
   ok(b);
   // The folder reopened Architecture and every stage after it, and the builder passed them again up to Test.
   assert.equal(calls(f).length, 3, "one more round after the send back");
-  assert.deepEqual(Object.keys(lockOf(f, id).gates), ["requirements", "architecture", "files"]);
+  assert.deepEqual(Object.keys(lockOf(f, id).gates), ["spec"], "the build is open again, and the spec stays approved");
   assert.equal(stageOf(b, "architecture").state, "done");
   assert.ok(f.store.read(id).stages.test.log.some((l) => /^You sent the build back to Architecture and Design: “Name the counting rule in the record\.”$/.test(l.said)), "the send back is on the record with your words");
 });

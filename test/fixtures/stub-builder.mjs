@@ -19,7 +19,7 @@ const spec = {
   interfaces: [], constraints: [], systems: [], settings: [], open: [],
 };
 const was = (() => { try { return JSON.parse(readFileSync(join(dir, "spec.json"), "utf8")); } catch { return null; } })();
-const approved = (() => { try { return Boolean(JSON.parse(readFileSync(join(dir, "build.lock.json"), "utf8")).gates?.requirements); } catch { return false; } })();
+const approved = (() => { try { return Boolean(JSON.parse(readFileSync(join(dir, "build.lock.json"), "utf8")).gates?.spec?.passed); } catch { return false; } })();
 if (!was || (revised && !approved && was.purpose !== spec.purpose)) writeFileSync(join(dir, "spec.json"), `${JSON.stringify(spec, null, 2)}\n`);
 put("architecture-record.md", "---\nrecord: architecture-record-v1\n---\n# Architecture record\n");
 put("agent-descriptor.json", JSON.stringify({ format: "agent-descriptor-v1" }) + "\n");

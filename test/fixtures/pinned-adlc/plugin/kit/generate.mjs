@@ -34,6 +34,7 @@ import { agentFilesOf } from "./spec-writer/scripts/files.mjs";
 import { fitNeeds } from "./spec-writer/scripts/design.mjs";
 import { fitCanUse, loadSchemas } from "./spec-writer/scripts/can-use.mjs";
 import { keptInterfacesTest } from "./test-writer/scripts/kept-interfaces.mjs";
+import { answerValues } from "./answers.mjs";
 
 const KIT = dirname(fileURLToPath(import.meta.url));
 const trim = (s) => String(s ?? "").trim();
@@ -165,7 +166,7 @@ async function main(cmd, dir) {
   if (cmd === "record") {
     const named = readJson(dir, FILES.architecture);
     if (!named) { console.error(`${FILES.architecture} is not in ${dir}: run \`node .adlc/generate.mjs brief\` for what it holds`); return 2; }
-    const r = await recordFrom({ spec, named, answers: readJson(dir, FILES.answers) ?? {}, request: readText(dir, FILES.request), stack: readJson(dir, FILES.stack) });
+    const r = await recordFrom({ spec, named, answers: answerValues(readJson(dir, FILES.answers) ?? {}), request: readText(dir, FILES.request), stack: readJson(dir, FILES.stack) });
     if (r.forbidden.length) {
       console.log(JSON.stringify({ ok: false, wrote: [], refused: r.forbidden.map((f) => `the record would carry ${f}; a record names no model, model provider, address or credential`) }, null, 2));
       return 1;

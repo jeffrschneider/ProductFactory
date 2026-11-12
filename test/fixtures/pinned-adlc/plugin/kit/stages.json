@@ -1,6 +1,6 @@
 {
-  "version": "1.7.0",
-  "about": "The stages of the reference Agent Development Lifecycle, in order, in seven phases, as written on https://agenticdevelopment.ai/stages.html (the assets each stage makes are from https://agenticdevelopment.ai/assets.html). The site, the auditor and the console read this file; the site's tools/check-stages.mjs fails when the page and this file differ. Each stage: its role, the reference agent that holds it (null where none does; reference_holders lists every reference agent on its card), what it is given, what it hands back, when it is done, the asset it makes (assets lists every one), and person_gate, true where a person approves or decides at that stage. A list in a field is written as lines starting with \"- \". aliases are older names for a stage that still point at it. roles lists the lifecycle roles of https://agentroles.ai: each role's id, its name, its contract (the role's page), the offering an agent holding it answers (role-<id>), the stages it holds, and the agent in this repository that holds it for reference (null where none does). Each stage's role_ids names the roles that hold it. An organization may bind each role to the reference agent, its own agent, a contracted supplier, a person or an outside tool; the requester is always the person who asked. evidence_formats lists the open formats a holder outside the service may hand its evidence back in, and what each is read for. Each stage also has a cadence (added in 1.3.0), one of the ids in cadences: every_build, a stage that runs on every build of a product (the routine); setup, a stage set up once per product, whose holder and settings are carried forward to each later version until someone changes them; or when_needed, an action on the product run when something happens, not as part of a build. A change here is a new version. From 1.4.0 the file adds Reverse engineering, numbered 0 so that the 24 stages after it keep their numbers: a when_needed stage before Requirements that runs on adoption (an existing codebase is taken on) or on drift (the code changed outside the lifecycle, seen when its commit differs from the last one any build knew), and hands back the as-built record, on drift covering only what changed since the last record. A codebase that lives fully inside the lifecycle does not need it again. It also lists starting_points: each names what someone brings (brings), the stage it enters at (enters), the stages it goes to next where it skips ahead (then; the rest follow in the lifecycle's order), and why it starts there. starting_point_rules holds the rules every starting point keeps. From 1.5.0 the starting point as-built-record lets someone bring the as-built record of code kept elsewhere, to build it again without taking that code on (a rewrite, a port or a clean-room rebuild): it enters at Requirements, and the givens of Requirements and Test say they are given that record too. From 1.6.0 Requirements hands back the spec (standards/spec.schema.json, spec-v1): the analysis of the product's functional requirements and capabilities, each feature with its requirements, its inputs and outputs, and acceptance criteria a test can check. It is not the agent's descriptor or any other file a package is built from: the Design part of Architecture and Design makes those from the spec, and Test and Code work from the spec. From 1.7.0 one holder may hold several stages: what must be separate is each stage's check, not its author. A writing stage names in checked_by the check that decides it, which its holder does not control: one command, node .adlc/check.mjs in the build folder (the ADLC plugin), answering for the stage the folder is at; a stage the person approves still waits on the person once its check passes.",
+  "version": "1.8.0",
+  "about": "The stages of the reference Agent Development Lifecycle, in order, in seven phases, as written on https://agenticdevelopment.ai/stages.html (the assets each stage makes are from https://agenticdevelopment.ai/assets.html). The site, the auditor and the console read this file; the site's tools/check-stages.mjs fails when the page and this file differ. Each stage: its role, the reference agent that holds it (null where none does; reference_holders lists every reference agent on its card), what it is given, what it hands back, when it is done, the asset it makes (assets lists every one), and person_gate, true where a person approves or decides at that stage. A list in a field is written as lines starting with \"- \". aliases are older names for a stage that still point at it. roles lists the lifecycle roles of https://agentroles.ai: each role's id, its name, its contract (the role's page), the offering an agent holding it answers (role-<id>), the stages it holds, and the agent in this repository that holds it for reference (null where none does). Each stage's role_ids names the roles that hold it. An organization may bind each role to the reference agent, its own agent, a contracted supplier, a person or an outside tool; the requester is always the person who asked. evidence_formats lists the open formats a holder outside the service may hand its evidence back in, and what each is read for. Each stage also has a cadence (added in 1.3.0), one of the ids in cadences: every_build, a stage that runs on every build of a product (the routine); setup, a stage set up once per product, whose holder and settings are carried forward to each later version until someone changes them; or when_needed, an action on the product run when something happens, not as part of a build. A change here is a new version. From 1.4.0 the file adds Reverse engineering, numbered 0 so that the 24 stages after it keep their numbers: a when_needed stage before Requirements that runs on adoption (an existing codebase is taken on) or on drift (the code changed outside the lifecycle, seen when its commit differs from the last one any build knew), and hands back the as-built record, on drift covering only what changed since the last record. A codebase that lives fully inside the lifecycle does not need it again. It also lists starting_points: each names what someone brings (brings), the stage it enters at (enters), the stages it goes to next where it skips ahead (then; the rest follow in the lifecycle's order), and why it starts there. starting_point_rules holds the rules every starting point keeps. From 1.5.0 the starting point as-built-record lets someone bring the as-built record of code kept elsewhere, to build it again without taking that code on (a rewrite, a port or a clean-room rebuild): it enters at Requirements, and the givens of Requirements and Test say they are given that record too. From 1.6.0 Requirements hands back the spec (standards/spec.schema.json, spec-v1): the analysis of the product's functional requirements and capabilities, each feature with its requirements, its inputs and outputs, and acceptance criteria a test can check. It is not the agent's descriptor or any other file a package is built from: the Design part of Architecture and Design makes those from the spec, and Test and Code work from the spec. From 1.7.0 one holder may hold several stages: what must be separate is each stage's check, not its author. The writing stages are written in two phases by one builder: the spec (Requirements), which the person approves before anything is built on it; and the build (Architecture and Design, Test and Code), whose gates the check runs together over the result, in whatever order the builder writes it. The tests are fixed the first time the code is judged, so they cannot be changed to fit the code. A writing stage names in checked_by the check that decides it, which its holder does not control: one command, node .adlc/check.mjs in the build folder (the ADLC plugin), answering for the stage the folder is at; a stage the person approves still waits on the person once its check passes.",
   "phases": [
     {
       "id": "define",
@@ -349,8 +349,9 @@
       "checked_by": [
         {
           "check": "node .adlc/check.mjs",
-          "stage": "requirements",
-          "asks": "The spec is valid spec-v1, every feature has requirements and Gherkin scenarios that check them, no value nobody gave is fixed, the name and the price are the person's, every requirement is checked by a scenario, and the refusals, the empty case and the failure case are each stated. Then the person approves it, and it is pinned."
+          "phase": "spec",
+          "gate": "spec",
+          "asks": "The spec is valid spec-v1, every feature has requirements and Gherkin scenarios that check them, no value nobody gave is fixed, the name and the price are the person's, every requirement is checked by a scenario, and the refusals, the empty case and the failure case are each stated. The person approves it before anything is built on it."
         }
       ]
     },
@@ -401,13 +402,15 @@
       "checked_by": [
         {
           "check": "node .adlc/check.mjs",
-          "stage": "architecture",
-          "asks": "The record is finished and is what the generator writes from architecture.json and the person's answers, so every system went through the architect's naming and binding; and every system of the spec is a system of the record, under the same name. Then the record is pinned."
+          "phase": "build",
+          "gate": "architecture",
+          "asks": "The record is finished and is what the generator writes from architecture.json and the person's answers, so every system went through the architect's naming and binding; and every system of the spec is a system of the record, under the same name."
         },
         {
           "check": "node .adlc/check.mjs",
-          "stage": "files",
-          "asks": "The agent's own files are each what the generators write from the spec, the record and prose.json; every word is written; the spec writer's rules for good files, declarations and addresses hold; and the Common Agent packer accepts the folder. Then they are pinned."
+          "phase": "build",
+          "gate": "files",
+          "asks": "The agent's own files are each what the generators write from the spec, the record and prose.json; every word is written; the spec writer's rules for good files, declarations and addresses hold; and the Common Agent packer accepts the folder."
         }
       ]
     },
@@ -486,8 +489,9 @@
       "checked_by": [
         {
           "check": "node .adlc/check.mjs",
-          "stage": "test",
-          "asks": "The test writer's standard checks are its own bytes; every approved scenario has a test named for it, and every test is named for an approved scenario, requirement or constraint; exact values and kept interfaces are tested; the builder's own tests fail against empty stand-ins; and no test fails on a mistake of its own or against the agent's own files. Then the suite is pinned."
+          "phase": "build",
+          "gate": "test",
+          "asks": "The test writer's standard checks are its own bytes; every approved scenario has a test named for it, and every test is named for an approved scenario, requirement or constraint; exact values and kept interfaces are tested; the builder's own tests fail against empty stand-ins; and no test fails on a mistake of its own or against the agent's own files."
         }
       ]
     },
@@ -503,7 +507,7 @@
       "reference_holder": "code-writer",
       "given": "the spec, the agent's own files, the suite, and a prototype if there is one, as a build folder on a branch with a \"Write the scripts\" pull request",
       "hands_back": "the programs, an account of what was written, and a record of every round",
-      "done_when": "all the tests pass, removing any one program makes a test fail, and the tests, the spec and the agent's own files have not changed; every script the agent's files name is written, the scripts read only the settings the agent's files declare, and the Common Agent packer accepts the folder with its scripts",
+      "done_when": "all the tests pass, removing any one program makes a test fail, and the approved spec and the tests, once fixed, have not changed; every script the agent's files name is written, the scripts read only the settings the agent's files declare, and the Common Agent packer accepts the folder with its scripts",
       "asset": "Code",
       "person_gate": true,
       "cadence": "every_build",
@@ -518,8 +522,9 @@
       "checked_by": [
         {
           "check": "node .adlc/check.mjs",
-          "stage": "code",
-          "asks": "Nothing pinned changed; every script is written; the scripts read from the environment only what the runtime requirements declare; the whole suite passes; each script blanked in turn is noticed; and the Common Agent packer accepts the folder with its scripts. Then the pull request opens."
+          "phase": "build",
+          "gate": "code",
+          "asks": "Judged once the tests pass their gate, and from then on the tests are fixed: every script is written; the scripts read from the environment only what the runtime requirements declare; the whole suite passes; each script blanked in turn is noticed; and the Common Agent packer accepts the folder with its scripts."
         }
       ]
     },

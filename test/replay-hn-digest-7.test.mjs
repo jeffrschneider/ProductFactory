@@ -1,12 +1,14 @@
 // A replay of a real build, the whole flow: hn-digest 0.1.0 on the cloud machine (build
 // b_85f8645c822b, AgentMesh-Dev-Test/pf-e2e-proof pull request #7, 2026-11-12), one builder
-// on a pull request, from the person's words to a closed build. The ADLC plugin is the one
-// that machine ran (CommonAgent/adlc 3071e62: the kit of replay-hn-digest, 0f7cc46, with the
-// one file that changed between them, kept in replay-hn-digest-7/plugin-overlay), and each
-// push is the builder's own commit from that run (replay-hn-digest-7/builder-pushes.json), in
-// the order it came, between the person's console actions in the order they were taken. The
-// watch loop (pollAll, what the timer runs) sees each push. A fake GitHub stands in for
-// GitHub and a stand-in packer for npm; nothing reaches the network and no model runs.
+// on a pull request, from the person's words to a closed build. Each push is the builder's
+// own commit from that run (replay-hn-digest-7/builder-pushes.json), in the order it came,
+// between the person's console actions in the order they were taken. The watch loop
+// (pollAll, what the timer runs) sees each push. A fake GitHub stands in for GitHub and a
+// stand-in packer for npm; nothing reaches the network and no model runs.
+//
+// The ADLC plugin is the one this Product Factory pins, in two phases (fixtures/pinned-adlc),
+// not the five-stage plugin that machine ran. So each push is replayed without the lock file
+// the old check wrote into it: the folder's own check writes the lock, as it would have.
 //
 // On the cloud machine the run stopped after the builder's last push: the folder's check
 // passed every stage, and the build never went on to Package.
@@ -42,8 +44,7 @@ const STARTED = {
 async function replayFactory(t) {
   const adlc = await tempDir("adlc");
   cpSync(FAKE_ADLC, adlc, { recursive: true });
-  cpSync(join(HERE, "fixtures", "replay-hn-digest", "adlc", "plugin"), join(adlc, "plugin"), { recursive: true });
-  cpSync(join(FIX, "plugin-overlay"), join(adlc, "plugin"), { recursive: true });
+  cpSync(join(HERE, "fixtures", "pinned-adlc", "plugin"), join(adlc, "plugin"), { recursive: true });
   const gh = await fakeGitHub();
   const f = await factory({ doc: leftOut, holder: "builder", where: "pull-request", github: gh, adlc, extraEnv: { ADLC_PACK: `node ${JSON.stringify(join(HERE, "fixtures", "bin", "stub-packer.mjs"))}` } });
   t.after(async () => { await f.close(); await gh.close(); });
@@ -52,7 +53,7 @@ async function replayFactory(t) {
 
 function builderPushes(gh, branch, sha) {
   const c = pushOf(sha);
-  return gh.push(branch, Object.fromEntries(Object.entries(c.changes).map(([p, text]) => [`${FOLDER}/${p}`, text])), c.message);
+  return gh.push(branch, Object.fromEntries(Object.entries(c.changes).filter(([p]) => p !== "build.lock.json").map(([p, text]) => [`${FOLDER}/${p}`, text])), c.message);
 }
 
 /** A push is seen as on the machine: by the watch loop the timer runs. */
@@ -74,7 +75,7 @@ test("the real hn-digest build #7, replayed whole: your words, the builder's pus
   assert.equal((await f.post(`/builds/${id}/actions/approve`)).status, 200);
   b = await f.settled(id);
   ok(b);
-  assert.equal(JSON.parse(gh.filesAt(branch)[`${FOLDER}/build.lock.json`]).gates.requirements.by, "the person");
+  assert.equal(JSON.parse(gh.filesAt(branch)[`${FOLDER}/build.lock.json`]).gates.spec.by, "the person");
 
   // The builder writes the architecture, with egress-1 for you; you answer it in the console.
   builderPushes(gh, branch, "c0db1fb");
@@ -85,7 +86,8 @@ test("the real hn-digest build #7, replayed whole: your words, the builder's pus
   assert.equal((await f.post(`/builds/${id}/actions/changes`, { changes: "egress-1: yes" })).status, 200);
   b = await f.settled(id);
   ok(b);
-  assert.equal(JSON.parse(gh.filesAt(branch)[`${FOLDER}/answers.json`])["egress-1"], "yes");
+  assert.deepEqual(JSON.parse(gh.filesAt(branch)[`${FOLDER}/answers.json`])["egress-1"], { answer: "yes", said: "yes" }, "your answer goes in with your words");
+  assert.match(gh.filesAt(branch)[`${FOLDER}/said.md`], /\n\negress-1: yes\n/);
 
   // The builder pushes stage after stage, each seen by the watch loop, as on the machine.
   for (const sha of ["038fba0", "a2e38c4", "7597fa6", "36e7045"]) {
