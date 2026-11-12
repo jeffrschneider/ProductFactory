@@ -126,6 +126,14 @@ test("one builder on a pull request: the folder goes to a branch, your own assis
   assert.match(stageOf(b, "architecture").handed_back.words[0], /^Only you can answer: egress-1: /);
   assert.deepEqual(harnessCalls(f), [], "still no coding agent on this machine");
 
+  // While the build waits on you, your assistant still pushes, and the watch loop (pollAll, what the timer
+  // runs) still judges each push: on the cloud machine it stopped following the branch here.
+  const judgedBefore = gh.comments.length;
+  gh.push(branch, { "agents/word-counter/notes.md": "the assistant pushed while the question was open\n" });
+  await f.runner.pollAll();
+  await f.settled(id);
+  assert.ok(gh.comments.length > judgedBefore, "the push made while waiting on you was checked");
+
   // Your answer goes on the branch as Product Factory's commit, and the check passes every stage on it.
   assert.equal((await f.post(`/builds/${id}/actions/changes`, { changes: "egress-1: yes" })).status, 200);
   b = await f.settled(id);
