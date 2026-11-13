@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { join, resolve } from "node:path";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { readConfig, loadConfig, writeStarter, modelEnv, STARTER } from "../lib/config.mjs";
-import { fill, harnessPrompt } from "../lib/adapters.mjs";
+import { fill, codeWriterPrompt } from "../lib/adapters.mjs";
 import { resolveCommand } from "../lib/exec.mjs";
 import { tempDir } from "./helpers.mjs";
 
@@ -35,11 +35,11 @@ test("the harness is a command as a list of words, with known placeholders fille
   assert.throws(() => readConfig({ code: { rounds: 0 } }, "/"), /whole number/);
   assert.throws(() => readConfig({ colour: "red" }, "/"), /does not read/);
   const c = readConfig({ code: { harness: ["codex", "exec", "{prompt}"], rounds: 5 } }, "/");
-  const prompt = harnessPrompt({ feedbackFile: null });
+  const prompt = codeWriterPrompt({ adlc: "/adlc", feedbackFile: null });
   assert.deepEqual(fill(c.code.harness, { prompt }), ["codex", "exec", prompt]);
-  assert.match(prompt, /AGENTS\.md/);
+  assert.match(prompt, /reference code writer/);
   assert.doesNotMatch(prompt, /\n/);
-  assert.match(harnessPrompt({ feedbackFile: "/x/check.txt" }), /First read \/x\/check\.txt/);
+  assert.match(codeWriterPrompt({ adlc: "/adlc", feedbackFile: "/x/check.txt" }), /First read \/x\/check\.txt/);
 });
 
 test("init writes a starter file once, and it reads back", async () => {

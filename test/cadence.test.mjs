@@ -50,7 +50,7 @@ test("a reviewer one builder's build did not ask says why, and a build on the re
   const lb = await local.settled(lid);
   for (const s of ["review", "security"]) {
     assert.equal(stageOf(lb, s).state, "not_offered");
-    assert.match(stageOf(lb, s).given, /This build's Code is held on this computer, so the suite is the gate/);
+    assert.match(stageOf(lb, s).given, /This build runs on the reference writers, so the suite is the gate/);
   }
 });
 
