@@ -68,7 +68,7 @@ function commitAll(dir) {
 const start = (f, source, extra = {}) => f.post("/builds", { name: "word-counter", starting_point: "as-built-record", source, ...extra });
 
 test("start from an as-built record: Requirements first, the record brought, behaviors proposed as built, the parts given whole, and Code writing fresh code", async (t) => {
-  const f = await factory();
+  const f = await factory({ holder: "harness" });
   t.after(f.close);
   const rec = writeRecord(join(await tempDir("record"), "as-built"));
 
@@ -178,7 +178,7 @@ test("with one builder set, a rebuild from an as-built record runs on the refere
 });
 
 test("an as-built record may come from a repository, at a path in it", async (t) => {
-  const f = await factory();
+  const f = await factory({ holder: "harness" });
   t.after(f.close);
   const repo = join(await tempDir("records"), "records");
   writeRecord(join(repo, "word-counter", "as-built"));
@@ -195,7 +195,7 @@ test("an as-built record may come from a repository, at a path in it", async (t)
 });
 
 test("a record that is not whole, and a source that is wrong, are refused in words", async (t) => {
-  const f = await factory();
+  const f = await factory({ holder: "harness" });
   t.after(f.close);
   const base = await tempDir("record");
   const whole = writeRecord(join(base, "whole"));
@@ -227,7 +227,7 @@ test("as-built gaps are read as the reverse engineer writes them, with what and 
 });
 
 test("the Features words of a new build at Requirements say it has not reached features, not that it was made before them", async (t) => {
-  const f = await factory();
+  const f = await factory({ holder: "harness" });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
   await f.settled(id);
@@ -371,7 +371,7 @@ test("Send back to Requirements when Code was refused before any pull request: t
 });
 
 test("Send back to Requirements when Code was refused on this computer: the spec and suite are revised, and the scripts written so far carry over", async (t) => {
-  const f = await factory({ failRounds: 2, rounds: 2 });
+  const f = await factory({ holder: "harness", failRounds: 2, rounds: 2 });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words.", name: "counter" })).json.build.id;
   await f.settled(id);

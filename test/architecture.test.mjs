@@ -75,7 +75,7 @@ test("make-a-new-agent v3: the architecture is written after the spec's approval
 });
 
 test("a build runs the solution architect after the spec is approved, then the spec writer's Design within its record", async (t) => {
-  const f = await factory();
+  const f = await factory({ holder: "harness" });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
   let b = await f.settled(id);
@@ -145,7 +145,7 @@ test("a build runs the solution architect after the spec is approved, then the s
 });
 
 test("a record that asks what only a person can answer waits for the owner's answers, and the architect revises it with them", async (t) => {
-  const f = await factory();
+  const f = await factory({ holder: "harness" });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage. ASK-LIMIT", name: "counter" })).json.build.id;
   await f.settled(id);
@@ -193,7 +193,7 @@ test("a record that asks what only a person can answer waits for the owner's ans
 });
 
 test("a later version carries the architecture record forward unchanged, and the solution architect is not asked again", async (t) => {
-  const f = await factory();
+  const f = await factory({ holder: "harness" });
   t.after(f.close);
   const start = async (version) => {
     const r = await f.runner.start({ does: "Count the words in a passage.", name: "counter" }, undefined, version ? { version } : {});
@@ -217,7 +217,7 @@ test("a later version carries the architecture record forward unchanged, and the
 });
 
 test("a lifecycle that leaves out Architecture and Design: neither phase runs, and the build goes on with the agent's files as approved", async (t) => {
-  const f = await factory({ doc: { version: "0.1", organization: { used: { architecture: false } } } });
+  const f = await factory({ holder: "harness", doc: { version: "0.1", organization: { used: { architecture: false } } } });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
   await f.settled(id);
@@ -238,7 +238,7 @@ test("a lifecycle that leaves out Architecture and Design: neither phase runs, a
 test("a new version of the solution architect writes the record again: a record is carried forward only from the same architect", async (t) => {
   const adlc = join(await tempDir("adlc"), "adlc");
   cpSync(FAKE_ADLC, adlc, { recursive: true });
-  const f = await factory({ adlc });
+  const f = await factory({ holder: "harness", adlc });
   t.after(f.close);
   const start = async (version) => {
     const r = await f.runner.start({ does: "Count the words in a passage.", name: "counter" }, undefined, version ? { version } : {});

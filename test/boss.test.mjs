@@ -16,7 +16,7 @@ import { nextVersion } from "../lib/boss.mjs";
 
 /** A product "counter", its first build waiting at the spec's gate. */
 async function counter(t, opts = {}) {
-  const f = await factory(opts);
+  const f = await factory({ holder: "harness", ...opts });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
   await f.settled(id);

@@ -42,7 +42,7 @@ async function toCode(f) {
 }
 
 test("by default the harness runs without ANTHROPIC_API_KEY, and the model settings still reach it", async (t) => {
-  const f = await factory({ doc: leftOut, extraEnv: { ANTHROPIC_API_KEY: "stand-in-key-with-no-credit" } });
+  const f = await factory({ holder: "harness", doc: leftOut, extraEnv: { ANTHROPIC_API_KEY: "stand-in-key-with-no-credit" } });
   t.after(f.close);
   const h = await toCode(f);
   assert.ok(h.length >= 1);
@@ -52,7 +52,7 @@ test("by default the harness runs without ANTHROPIC_API_KEY, and the model setti
 });
 
 test("code.env_remove [] keeps ANTHROPIC_API_KEY for the harness", async (t) => {
-  const f = await factory({ doc: leftOut, envRemove: [], extraEnv: { ANTHROPIC_API_KEY: "stand-in-key" } });
+  const f = await factory({ holder: "harness", doc: leftOut, envRemove: [], extraEnv: { ANTHROPIC_API_KEY: "stand-in-key" } });
   t.after(f.close);
   const h = await toCode(f);
   assert.ok(h.length >= 1);

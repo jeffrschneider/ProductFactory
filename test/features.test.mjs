@@ -20,7 +20,7 @@ const SINK = join(import.meta.dirname, "fixtures", "bin", "notice-sink.mjs");
 
 /** A product "counter", its first build waiting for the spec's approval. */
 async function counter(t, opts = {}) {
-  const f = await factory({ rounds: 1, ...opts });
+  const f = await factory({ holder: "harness", rounds: 1, ...opts });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
   await f.settled(id);

@@ -119,7 +119,7 @@ test("a reviewer the gate did not ask says why, and a build whose Code is held h
   assert.match(stageOf(b, "review").given, /did not ask the code critic: the lifecycle has Our review team hold the Code critic role/);
   assert.equal(stageOf(b, "security").state, "done");
 
-  const local = await factory();
+  const local = await factory({ holder: "harness" });
   t.after(local.close);
   const lid = (await local.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
   const lb = await local.settled(lid);

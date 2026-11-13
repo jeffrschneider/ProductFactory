@@ -44,7 +44,7 @@ function mcp(t, f, env = {}) {
 
 /** A Product Factory and the plugin's server on it. */
 async function setUp(t, opts = {}) {
-  const f = await factory({ rounds: 1, ...opts });
+  const f = await factory({ holder: "harness", rounds: 1, ...opts });
   t.after(f.close);
   const m = mcp(t, f);
   const init = await m.rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "0" } });
@@ -201,7 +201,7 @@ test("the boss's start_version proposal is confirmed through act, which starts t
 
 test("start_build from an issue number when intake is on, and says so when it is off", async (t) => {
   const gh = await fakeGitHub();
-  const f = await factory({ github: gh, intake: { github_issues: { label: "product-factory", poll_seconds: 3600 } } });
+  const f = await factory({ holder: "harness", github: gh, intake: { github_issues: { label: "product-factory", poll_seconds: 3600 } } });
   t.after(async () => { await f.close(); await gh.close(); });
   const m = mcp(t, f);
   const n = gh.addIssue({ title: "Count the words in a passage.", labels: ["product-factory"] });

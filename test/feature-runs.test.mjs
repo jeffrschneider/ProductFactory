@@ -169,7 +169,7 @@ test("one feature's Send back to Test revises its own suite on its own pull requ
 test("a build started before feature runs, on make-a-new-agent v1, finishes the old way: Test and Code in its own run", async (t) => {
   // The old build: made by one Product Factory and left at the spec's gate, then turned into what an older
   // Product Factory kept (its own copy of make-a-new-agent v1, one run, no feature runs) for another to pick up.
-  const a = await factory();
+  const a = await factory({ holder: "harness" });
   t.after(a.close);
   const id = (await a.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
   await a.settled(id);
@@ -180,7 +180,7 @@ test("a build started before feature runs, on make-a-new-agent v1, finishes the 
   delete r.feature_runs;
   r.run = state;
 
-  const f = await factory();
+  const f = await factory({ holder: "harness" });
   t.after(f.close);
   const dir = f.store.folder(id);
   cpSync(a.store.folder(id), dir, { recursive: true });
@@ -225,7 +225,7 @@ test("bringing a feature up to date takes each script from the side that changed
 });
 
 test("on this computer too: two features each in a run of their own, and the one still open is laid out again with the first's tests once it is accepted", async (t) => {
-  const f = await factory();
+  const f = await factory({ holder: "harness" });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
   await f.settled(id);

@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { factory, stageOf } from "./helpers.mjs";
+import { factory, stageOf, walk } from "./helpers.mjs";
 import { createKeys, KEYS_FILE } from "../lib/people.mjs";
 import { holderToSave, withForms } from "../lib/setup.mjs";
 import { checkProduct } from "../standards/lifecycle-api-check.mjs";
@@ -35,13 +35,9 @@ const one = (list, stage) => list.find((x) => x.stage === stage);
 async function deployed(f, version = null, { deploy = true } = {}) {
   const r = await f.runner.start({ does: "Count the words in a passage.", name: "counter" }, undefined, version ? { version } : {});
   await f.settled(r.id);
-  if (!deploy) return f.settled(r.id);
-  await f.post(`/builds/${r.id}/actions/approve`);
-  await f.settled(r.id);
-  await f.post(`/builds/${r.id}/actions/accept`);
-  await f.settled(r.id);
-  await f.post(`/builds/${r.id}/actions/approve`);
-  const b = await f.settled(r.id);
+  // Not deployed: walked as far as the deploy's own approval, so the version's agent's own files are made.
+  if (!deploy) return walk(f, r.id, { until: ["deploy"] });
+  const b = await walk(f, r.id);
   assert.equal(stageOf(b, "deploy").state, "done", `${b.version} is deployed`);
   return b;
 }
@@ -294,7 +290,7 @@ test("Impact runs the reference impact analyst between the running version and a
   assert.equal(im.can_run, false);
   assert.match(im.why_not, /no newer version has its declaration yet/);
 
-  // Version 0.2.0 has its declaration once Requirements hands it back, before it is built.
+  // Version 0.2.0 has its declaration once its agent's own files are made, before it is deployed.
   const next = await deployed(f, "0.2.0", { deploy: false });
   im = one((await product(f)).when_needed, "impact");
   assert.equal(im.can_run, true);

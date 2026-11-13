@@ -126,7 +126,7 @@ test("a test named by an acceptance scenario counts for its feature; a kept inte
 // ---------- end to end ----------
 
 test("Requirements hands back the spec: its features come to you as proposed, Test is given spec.json, and the build folder carries the spec, pinned", async (t) => {
-  const f = await factory({ rounds: 1 });
+  const f = await factory({ holder: "harness", rounds: 1 });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter", more: "spec feature: Count words - Counts the words in a passage." })).json.build.id;
   let b = await f.settled(id);
@@ -181,7 +181,7 @@ test("Requirements hands back the spec: its features come to you as proposed, Te
 });
 
 test("a spec writer from before stages.json 1.6.0 hands back no spec: the spec reads not made, the build goes on from the agent's own files, and the hand-off is given none", async (t) => {
-  const f = await factory({ rounds: 1, extraEnv: { FAKE_NO_SPEC: "1" } });
+  const f = await factory({ holder: "harness", rounds: 1, extraEnv: { FAKE_NO_SPEC: "1" } });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
   let b = await f.settled(id);
@@ -202,7 +202,7 @@ test("a spec writer from before stages.json 1.6.0 hands back no spec: the spec r
 });
 
 test("a container agent's draft at out/agent/spec.json is not the spec: it keeps its agent/ folder, and only the spec goes on", async (t) => {
-  const f = await factory({ rounds: 1, extraEnv: { FAKE_CONTAINER_DRAFT: "1" } });
+  const f = await factory({ holder: "harness", rounds: 1, extraEnv: { FAKE_CONTAINER_DRAFT: "1" } });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
   const b = await f.settled(id);
@@ -235,7 +235,7 @@ test("on a pull request the spec is pinned like the agent's files: a change to i
 test("0.4.14: the spec of a version built before specs is written after, by the spec writer, and nothing else in the version changes", async (t) => {
   const off = join(await tempDir("spec-after"), "no-spec");
   writeFileSync(off, "on");
-  const f = await factory({ rounds: 1, extraEnv: { FAKE_NO_SPEC_FILE: off } });
+  const f = await factory({ holder: "harness", rounds: 1, extraEnv: { FAKE_NO_SPEC_FILE: off } });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
   let b = await f.settled(id);
@@ -274,7 +274,7 @@ test("0.4.14: the spec of a version built before specs is written after, by the 
 });
 
 test("0.4.14: a version whose Requirements handed back a spec is not offered a spec written after", async (t) => {
-  const f = await factory({ rounds: 1 });
+  const f = await factory({ holder: "harness", rounds: 1 });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
   const b = await f.settled(id);

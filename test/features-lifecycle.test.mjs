@@ -31,7 +31,7 @@ const BIN = fileURLToPath(new URL("../bin/product-factory.mjs", import.meta.url)
 
 /** A Product Factory holding the real word-counter build, made before features. */
 async function wordCounter(t, opts = {}) {
-  const f = await factory(opts);
+  const f = await factory({ holder: "harness", ...opts });
   t.after(f.close);
   cpSync(FIXTURE, f.store.folder(WC.id), { recursive: true });
   return { f, id: WC.id };
@@ -144,7 +144,7 @@ test("each stage carries its features: Requirements, Test with untied tests, Cod
 });
 
 test("a feature approved after the spec starts its own run then: its tests and its code, beside the first feature's", async (t) => {
-  const f = await factory({ rounds: 1 });
+  const f = await factory({ holder: "harness", rounds: 1 });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
   await f.settled(id);

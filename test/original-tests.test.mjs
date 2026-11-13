@@ -103,7 +103,7 @@ test("the write-up's tests and support folders are read with its JSON parts, wit
 
 /** A build from the write-up, walked to Code: its one behavior approved, and the spec. */
 async function toCode(t, opts = {}) {
-  const f = await factory(opts);
+  const f = await factory({ holder: "harness", ...opts });
   t.after(f.close);
   const rec = writeUp(join(await tempDir("record"), "as-built"));
   const started = await f.post("/builds", { name: "word-counter", starting_point: "as-built-record", source: { folder: rec } });
@@ -198,7 +198,7 @@ test("on a pull request the support files are pinned and fenced like the tests, 
 });
 
 test("an existing-code build carries the code's own tests the same way, and the adopted code passes them in the gate", async (t) => {
-  const f = await factory({ extraEnv: { PF_STUB_RE_CARRY: "1" } });
+  const f = await factory({ holder: "harness", extraEnv: { PF_STUB_RE_CARRY: "1" } });
   t.after(f.close);
   const code = join(await tempDir("code"), "word-counter");
   const files = {

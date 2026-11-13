@@ -9,7 +9,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkBuild, checkBuildList } from "adlc-console/lib/contract.mjs";
-import { factory, stageOf, actionNames } from "./helpers.mjs";
+import { factory, stageOf, actionNames, walk as walkGates } from "./helpers.mjs";
 import { STAGE_IDS, stageById } from "../lib/standards.mjs";
 import { readConfig } from "../lib/config.mjs";
 import { PLAN_STAGES } from "../lib/runtime.mjs";
@@ -20,14 +20,10 @@ const ok = (b) => assert.deepEqual(checkBuild({ build: b }, STAGE_IDS), []);
 const doc = { version: "0.1", organization: { used: { retract: false } } };
 const WATCH = { every_minutes: 5, alert: { after_failures: 3 } };
 
-/** Starts a build and walks it through your approval and your OK to the "approve the deploy" gate, and through it unless told not to. */
+/** Starts a build and walks it through your approval of the spec and your answers to the "approve the deploy" gate, and through it unless told not to. */
 async function walk(f, { name = "counter", deploy = true } = {}) {
   const id = (await f.post("/builds", { does: "Count the words.", name })).json.build.id;
-  await f.settled(id);
-  await f.post(`/builds/${id}/actions/approve`);
-  await f.settled(id);
-  await f.post(`/builds/${id}/actions/accept`);
-  const atGate = await f.settled(id);
+  const atGate = await walkGates(f, id, { until: ["deploy"] });
   if (!deploy) return atGate;
   assert.deepEqual(actionNames(atGate), ["approve", "stop"]);
   await f.post(`/builds/${id}/actions/approve`);

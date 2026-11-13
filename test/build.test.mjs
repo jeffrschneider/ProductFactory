@@ -18,7 +18,7 @@ const ok = (b) => assert.deepEqual(checkBuild({ build: b }, STAGE_IDS), []);
 const calls = (f) => (existsSync(f.stubLog) ? readFileSync(f.stubLog, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []);
 
 test("a build runs every stage: spec, your approval, suite, a failed round, your OK, package", async (t) => {
-  const f = await factory({ doc: leftOut, failRounds: 1 });
+  const f = await factory({ holder: "harness", doc: leftOut, failRounds: 1 });
   t.after(f.close);
 
   // Start it. Requirements runs, and the build waits for the person to approve the spec.
@@ -156,7 +156,7 @@ test("a build runs every stage: spec, your approval, suite, a failed round, your
 });
 
 test("a walked build's timeline has one bar per phase per round, each with its stage", async (t) => {
-  const f = await factory({ failRounds: 1, runtime: { command: ["node", FOLDER, "--into", "./installed"] } });
+  const f = await factory({ holder: "harness", failRounds: 1, runtime: { command: ["node", FOLDER, "--into", "./installed"] } });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage." })).json.build.id;
   let b = await f.settled(id);
@@ -195,7 +195,7 @@ test("a walked build's timeline has one bar per phase per round, each with its s
 });
 
 test("a build keeps the lifecycle it started under; a later change does not touch it", async (t) => {
-  const f = await factory({ doc: leftOut });
+  const f = await factory({ holder: "harness", doc: leftOut });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words." })).json.build.id;
   await f.settled(id);
@@ -220,7 +220,7 @@ test("a build keeps the lifecycle it started under; a later change does not touc
 });
 
 test("a project's lifecycle is the one a build under that project follows", async (t) => {
-  const f = await factory({ doc: { version: "0.1", organization: {}, projects: { web: { used: { package: false } } } } });
+  const f = await factory({ holder: "harness", doc: { version: "0.1", organization: {}, projects: { web: { used: { package: false } } } } });
   t.after(f.close);
   const b = (await f.post("/builds", { does: "Count the words.", project: "web" })).json.build;
   ok(b);
@@ -232,7 +232,7 @@ test("a project's lifecycle is the one a build under that project follows", asyn
 });
 
 test("when the rounds run out the build stops and waits; more rounds finish it", async (t) => {
-  const f = await factory({ failRounds: 3, rounds: 2 });
+  const f = await factory({ holder: "harness", failRounds: 3, rounds: 2 });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words.", name: "counter" })).json.build.id;
   await f.settled(id);
@@ -255,7 +255,7 @@ test("when the rounds run out the build stops and waits; more rounds finish it",
 });
 
 test("asking for changes needs words, and a refused spec runs again with them", async (t) => {
-  const f = await factory({ model: false });
+  const f = await factory({ holder: "harness", model: false });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words." })).json.build.id;
   const b = await f.settled(id);
@@ -302,7 +302,7 @@ test("the reference code writer holds Code with its own workspace, check and del
 });
 
 test("a stage that cannot run says why in words, and stopping a build ends it", async (t) => {
-  const noModel = await factory({ model: false });
+  const noModel = await factory({ holder: "harness", model: false });
   t.after(noModel.close);
   const b1 = await noModel.settled((await noModel.post("/builds", { does: "Count the words." })).json.build.id);
   ok(b1);
@@ -310,7 +310,7 @@ test("a stage that cannot run says why in words, and stopping a build ends it", 
   assert.match(stageOf(b1, "requirements").handed_back.words[0], /PF_T_MODEL_NAME, PF_T_MODEL_ENDPOINT, PF_T_MODEL_PROTOCOL are not set/);
   assert.deepEqual(actionNames(b1), ["resume", "changes", "stop"]);
 
-  const f = await factory({ harness: false });
+  const f = await factory({ holder: "harness", harness: false });
   t.after(f.close);
   const refusedAtSpec = await f.settled((await f.post("/builds", { does: "Please refuse at requirements." })).json.build.id);
   assert.equal(stageOf(refusedAtSpec, "requirements").state, "refused");
@@ -339,7 +339,7 @@ test("a stage that cannot run says why in words, and stopping a build ends it", 
 });
 
 test("a build that was running when Product Factory stopped runs its stage again", async (t) => {
-  const f = await factory();
+  const f = await factory({ holder: "harness" });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words.", name: "counter" })).json.build.id;
   await f.settled(id);
