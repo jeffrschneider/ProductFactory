@@ -207,9 +207,9 @@ test("a gate's approvers by person: only they answer; anyone else sees who may, 
   const yes = await as("ana").post(`/builds/${id}/actions/approve`);
   assert.equal(yes.status, 200);
   assert.match(JSON.stringify(f.store.read(id).run), /"approved"[^}]*ana@example.com|ana@example.com[^}]*"approved"/);
-  // Code names nobody, so anyone may OK it.
+  // What the build folder asks next names nobody, so anyone may answer it.
   await f.settled(id);
-  assert.ok(actionNames((await as("max").get(`/builds/${id}`)).json.build).includes("accept"));
+  assert.ok(actionNames((await as("max").get(`/builds/${id}`)).json.build).includes("changes"));
 });
 
 test("a gate's approvers by team: an approver in the team answers, a member in it does not", async (t) => {

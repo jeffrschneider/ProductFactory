@@ -84,7 +84,7 @@ async function atDeployGate(t) {
   await f.settled(id);
   await f.post(`/builds/${id}/actions/approve`);
   await f.settled(id);
-  await f.post(`/builds/${id}/actions/accept`);
+  await f.post(`/builds/${id}/actions/changes`, { changes: "egress-1: yes" });
   const b = await f.settled(id);
   assert.deepEqual(actionNames(b), ["approve", "stop"]);
   return { f, id };
@@ -129,7 +129,8 @@ test("after the deploy, check-conformance holds the deployed package to the chec
   const r = f.store.read(id).run;
   assert.deepEqual([r.status, r.outcome, r.open], ["closed", "ended", ["publish-the-agent"]]);
   assert.equal(r.phases["check-conformance"].holder.handle, "product-factory/common-agent-checks");
-  assert.deepEqual(r.handoffs.attestation.files.map((x) => x.name), ["attestation.md"]);
+  // The published document names the handoff eval-record, Product Factory's own adoption named it attestation.
+  assert.deepEqual((r.handoffs.attestation ?? r.handoffs["eval-record"]).files.map((x) => x.name), ["attestation.md"]);
   assert.ok(b.log.some((e) => /^Done at Conformance\. Product Factory does not publish/.test(e.said)));
 });
 

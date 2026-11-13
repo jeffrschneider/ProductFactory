@@ -159,7 +159,7 @@ test("the history follows each save, and is built again from the build files whe
 
 test("GET /v1/lifecycle/analytics: Product Factory's own route, from real walked builds", async (t) => {
   // The walked build goes through the deploy gate to the reference runtime, so it finishes.
-  const f = await factory({ failRounds: 1, runtime: { command: ["node", fileURLToPath(new URL("../runtimes/folder.mjs", import.meta.url)), "--into", "./installed"] } });
+  const f = await factory({ holder: "harness", failRounds: 1, runtime: { command: ["node", fileURLToPath(new URL("../runtimes/folder.mjs", import.meta.url)), "--into", "./installed"] } });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage.", project: "web" })).json.build.id;
   await f.settled(id);
