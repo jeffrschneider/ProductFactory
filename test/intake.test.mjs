@@ -61,8 +61,9 @@ test("a labelled issue starts one build that links back to it; a second poll sta
   const url = `https://github.example/acme/agents/issues/${n}`;
   assert.ok(b.log.some((l) => l.said === `Started from issue #${n} on acme/agents: ${url}`), "the build's log links to its issue");
   assert.deepEqual(f.store.read(id).issue, { repo: "acme/agents", number: n, url });
-  const asked = JSON.parse(readFileSync(join(f.store.folder(id), "stages", "requirements", "records", "r1", "asked.json"), "utf8"));
-  assert.match(asked.said, /what it should do: Count the words in a passage\.\nmore: It should refuse to change the passage\./);
+  // The issue's words are the person's words in the build folder's request.md, which the builder writes the spec from.
+  const asked = { said: readFileSync(join(f.store.folder(id), "build", "request.md"), "utf8") };
+  assert.match(asked.said,/what it should do: Count the words in a passage\.\nmore: It should refuse to change the passage\./);
 
   assert.deepEqual(await f.issues.pollOnce(), [], "an issue that has a build starts no other");
   assert.equal(f.store.list().length, 1, "the unlabelled issue started nothing");
@@ -116,10 +117,10 @@ test("the build comments on its issue when a gate waits on a person and when it 
 
   await f.post(`/builds/${id}/actions/approve`);
   b = await settled(f, id);
-  assert.equal(b.summary, "Waiting on you at Code");
-  assert.equal(on()[1], `Product Factory build \`${id}\` waits at **Code**: OK the code. Who may answer: anyone.`);
+  assert.equal(b.summary, "Waiting on you at Architecture and Design");
+  assert.ok(on()[1].startsWith(`Product Factory build \`${id}\` waits at **Architecture and Design**: `), "the build folder asks what only you can answer");
 
-  await f.post(`/builds/${id}/actions/accept`);
+  await f.post(`/builds/${id}/actions/changes`, { changes: "egress-1: yes" });
   b = await settled(f, id);
   assert.equal(on()[2], `Product Factory build \`${id}\` waits at **Deploy**: Approve the deploy. Who may answer: anyone.`);
 
@@ -181,7 +182,7 @@ test("a notice that fails is said in the build's log and never stops the build",
 
   await f.post(`/builds/${id}/actions/approve`);
   const after = await settled(f, id);
-  assert.equal(after.summary, "Waiting on you at Code", "the build went on");
+  assert.equal(after.summary, "Waiting on you at Architecture and Design", "the build went on");
 });
 
 test("waiting_on names the gate's approvers, people and teams, as the lifecycle names them", async (t) => {

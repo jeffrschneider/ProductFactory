@@ -5,20 +5,21 @@
 // writer files out/spec.json and out/spec.md beside out/agent/, the stand-in
 // test writer finds the spec by its format and names a test per acceptance
 // scenario ("[F1.A1] ...") and per kept interface ("[I1] ..."), and the
-// stand-in hand-off lays the spec out in the build folder, pinned. No test
-// reaches a model or the network.
+// stand-in hand-off lays the spec out in the build folder, pinned. The builds
+// run on the reference writers (a rebuild from an as-built record with no
+// behaviors), since one builder, which makes new agents, writes its own spec.
+// No test reaches a model or the network.
 
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { factory, tempDir, stageOf, codeDir } from "./helpers.mjs";
+import { factory, tempDir, stageOf, startRebuild } from "./helpers.mjs";
 import { checkArtifacts, checkBuild, checkFeatures, checkStageWorkspace, validate } from "../standards/lifecycle-api-check.mjs";
 import { STAGE_IDS } from "../lib/standards.mjs";
 import { specPieces, specSummary, specFeatures, specOfBuild, specFilesOf, isSpec } from "../lib/spec.mjs";
 import { specProposals, featureIds, interfaceIds, unmappedTests, testsOf, byFeature, registerOf, eventsOf } from "../lib/features.mjs";
-import { fenceProblems, declaredHosts, digestOf } from "../lib/fence.mjs";
-import { revisedSpecComment } from "../lib/pull-request.mjs";
+import { digestOf } from "../lib/fence.mjs";
 
 const AT = "2026-11-09T10:00:00.000Z";
 const SPEC = {
@@ -82,6 +83,7 @@ test("the spec's summary (SpecSummary): features with requirements and scenarios
   // A spec artifact carrying it is one the lifecycle API's check accepts.
   assert.deepEqual(checkArtifacts([{ id: "spec", stage: "requirements", name: "Spec", by: "spec writer", state: "made", kind: "spec", version: "v1", at: AT, summary: s, files: [] }], STAGE_IDS), []);
   assert.deepEqual(specFeatures(SPEC).map((f) => [f.id, f.as_built]), [["F1", ""], ["F2", "B2"]]);
+  assert.deepEqual(validate("SpecSummary", specSummary(SPEC)), []);
 });
 
 // ---------- the spec's features, and the tests named by its scenarios (lib/features.mjs) ----------
@@ -128,7 +130,7 @@ test("a test named by an acceptance scenario counts for its feature; a kept inte
 test("Requirements hands back the spec: its features come to you as proposed, Test is given spec.json, and the build folder carries the spec, pinned", async (t) => {
   const f = await factory({ rounds: 1 });
   t.after(f.close);
-  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter", more: "spec feature: Count words - Counts the words in a passage." })).json.build.id;
+  const id = await startRebuild(f, { does: "Count the words in a passage.", name: "counter", more: "spec feature: Count words - Counts the words in a passage." });
   let b = await f.settled(id);
   assert.deepEqual(checkBuild({ build: b }, STAGE_IDS, id), []);
 
@@ -155,14 +157,15 @@ test("Requirements hands back the spec: its features come to you as proposed, Te
   // Approving the spec approves the feature; Test is given the spec (spec.json) with the agent's own files.
   await f.post(`/builds/${id}/actions/approve`);
   b = await f.settled(id);
-  const attached = JSON.parse(readFileSync(join(codeDir(f, id), "stages", "test", "jobs", "r1", "attached.json"), "utf8"));
-  assert.deepEqual(attached, ["spec.json", "agent-descriptor.json", "agent-runtime-requirements.json", "plugin.json", "SKILL.md"]);
-  assert.match(stageOf(b, "test").given, /^The spec from Requirements, as you approved it \(spec\.json\), and the agent's own files made from it at Design/);
+  const attached = JSON.parse(readFileSync(join(f.store.folder(id), "stages", "test", "jobs", "r1", "attached.json"), "utf8"));
+  // Then the as-built record's parts, as a rebuild gives them.
+  assert.deepEqual(attached.slice(0, 5), ["spec.json", "agent-descriptor.json", "agent-runtime-requirements.json", "plugin.json", "SKILL.md"]);
+  assert.match(stageOf(b, "test").given, /^The spec from Requirements, as you approved it, the agent's own files made from it/);
   const suite = b.artifacts.find((a) => a.id === "suite");
-  assert.deepEqual(suite.summary.tests, ["[F1.A1] count words", "[I1] count is exported, as the spec keeps it"]);
+  assert.deepEqual(suite.summary.tests, ["counts the words in a passage", "[F1.A1] count words", "[I1] count is exported, as the spec keeps it"]);
 
   // The hand-off laid the spec out in the build folder and pinned it; AGENTS.md says to read it first.
-  const folder = join(codeDir(f, id), "stages", "code", "handoff", "work", "build");
+  const folder = join(f.store.folder(id), "stages", "code", "handoff", "work", "build");
   const lock = JSON.parse(readFileSync(join(folder, "build.lock.json"), "utf8"));
   for (const p of ["spec.json", "spec.md", "agent-descriptor.json"]) assert.equal(lock.digests[p], digestOf(readFileSync(join(folder, p))), `${p} is pinned`);
   assert.deepEqual(JSON.parse(readFileSync(join(folder, "spec.json"), "utf8")).features.map((x) => x.id), ["F1"]);
@@ -177,13 +180,13 @@ test("Requirements hands back the spec: its features come to you as proposed, Te
   const row = m.features.find((x) => x.id === "F1");
   assert.deepEqual(row.tests, ["[F1.A1] count words"]);
   assert.deepEqual([row.cells.spec.state, row.cells.spec.link.artifact, row.cells.tests.words, row.cells.code.words], ["done", "spec", "Tests 1/1", "Passes 1/1"]);
-  assert.deepEqual(m.unmapped, [], "the feature's test writer wrote that feature's tests alone");
+  assert.deepEqual(m.unmapped, ["counts the words in a passage"], "the stand-in's test no scenario names is unmapped");
 });
 
 test("a spec writer from before stages.json 1.6.0 hands back no spec: the spec reads not made, the build goes on from the agent's own files, and the hand-off is given none", async (t) => {
   const f = await factory({ rounds: 1, extraEnv: { FAKE_NO_SPEC: "1" } });
   t.after(f.close);
-  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
+  const id = await startRebuild(f, { does: "Count the words in a passage.", name: "counter" });
   let b = await f.settled(id);
   assert.deepEqual(checkBuild({ build: b }, STAGE_IDS, id), []);
   const spec = b.artifacts.find((a) => a.id === "spec");
@@ -193,9 +196,9 @@ test("a spec writer from before stages.json 1.6.0 hands back no spec: the spec r
   assert.equal(b.artifacts.find((a) => a.id === "statement").state, "made");
   await f.post(`/builds/${id}/actions/approve`);
   b = await f.settled(id);
-  const attached = JSON.parse(readFileSync(join(codeDir(f, id), "stages", "test", "jobs", "r1", "attached.json"), "utf8"));
+  const attached = JSON.parse(readFileSync(join(f.store.folder(id), "stages", "test", "jobs", "r1", "attached.json"), "utf8"));
   assert.ok(!attached.includes("spec.json"));
-  const folder = join(codeDir(f, id), "stages", "code", "handoff", "work", "build");
+  const folder = join(f.store.folder(id), "stages", "code", "handoff", "work", "build");
   const lock = JSON.parse(readFileSync(join(folder, "build.lock.json"), "utf8"));
   assert.equal(lock.digests["spec.json"], undefined);
   assert.equal(stageOf(b, "code").rounds.at(-1).verdict, "The suite passes");
@@ -204,7 +207,7 @@ test("a spec writer from before stages.json 1.6.0 hands back no spec: the spec r
 test("a container agent's draft at out/agent/spec.json is not the spec: it keeps its agent/ folder, and only the spec goes on", async (t) => {
   const f = await factory({ rounds: 1, extraEnv: { FAKE_CONTAINER_DRAFT: "1" } });
   t.after(f.close);
-  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
+  const id = await startRebuild(f, { does: "Count the words in a passage.", name: "counter" });
   const b = await f.settled(id);
   const paths = stageOf(b, "requirements").handed_back.files.map((x) => x.path);
   assert.ok(paths.includes("requirements/spec.json") && paths.includes("requirements/agent/spec.json"), paths.join(", "));
@@ -215,29 +218,12 @@ test("a container agent's draft at out/agent/spec.json is not the spec: it keeps
   assert.deepEqual(delivered.filter((n) => /spec/.test(n)), ["spec.json", "spec.md"], "the draft is not delivered as the spec");
 });
 
-// ---------- on a pull request (lib/fence.mjs, lib/pull-request.mjs) ----------
-
-test("on a pull request the spec is pinned like the agent's files: a change to it goes back through the spec and test steps, and its systems' addresses are declared hosts", () => {
-  const json = Buffer.from(JSON.stringify(SPEC));
-  const md = Buffer.from("# hn-reader\n");
-  const issued = { digests: { "spec.json": digestOf(json), "spec.md": digestOf(md), "test/a.test.mjs": "sha256:t" }, repoFiles: {}, hosts: [] };
-  const files = new Map([["spec.json", json], ["spec.md", Buffer.from("# hn-reader, changed\n")], ["test/a.test.mjs", Buffer.from("x")]]);
-  const problems = fenceProblems(issued, files);
-  assert.deepEqual(problems.find((p) => p.path === "spec.md"), { path: "spec.md", what: "was changed; a change to a test or the spec goes back through the spec and test steps" });
-  assert.ok(!problems.some((p) => p.path === "spec.json"));
-  assert.ok(declaredHosts(issued, files).includes("hacker-news.firebaseio.com"));
-  // After Send back to Requirements, the comment names the spec's own files apart from what was made from it.
-  const said = revisedSpecComment([{ path: "spec.json" }, { path: "spec.md" }, { path: "plugin.json" }, { path: "test/a.test.mjs" }], [], "Keep the stop pattern.", "abcdef1234567");
-  assert.match(said, /The revised spec changed `spec\.json`, `spec\.md`\. The files made from it changed: `plugin\.json`\. The test writer revised `test\/a\.test\.mjs` against it\./);
-  assert.deepEqual(validate("SpecSummary", specSummary(SPEC)), []);
-});
-
 test("0.4.14: the spec of a version built before specs is written after, by the spec writer, and nothing else in the version changes", async (t) => {
   const off = join(await tempDir("spec-after"), "no-spec");
   writeFileSync(off, "on");
   const f = await factory({ rounds: 1, extraEnv: { FAKE_NO_SPEC_FILE: off } });
   t.after(f.close);
-  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
+  const id = await startRebuild(f, { does: "Count the words in a passage.", name: "counter" });
   let b = await f.settled(id);
   let spec = b.artifacts.find((a) => a.id === "spec");
   assert.equal(spec.state, "not_made");
@@ -254,7 +240,7 @@ test("0.4.14: the spec of a version built before specs is written after, by the 
   assert.match(got.json.artifact.written_after.words, /^Written after version .* was built, from what it was asked/);
   assert.deepEqual(got.json.artifact.files.map((x) => x.path), ["requirements/spec.json", "requirements/spec.md"]);
   // The spec writer was told the version is built, and given its own files.
-  const asked = readFileSync(join(codeDir(f, id), "stages", "requirements", "written-after", "r1", "job", "message.txt"), "utf8");
+  const asked = readFileSync(join(f.store.folder(id), "stages", "requirements", "written-after", "r1", "job", "message.txt"), "utf8");
   assert.match(asked, /is already built/);
   // Nothing else in the version changed: its stages, its rounds and what Requirements handed back.
   const after = f.store.read(id);
@@ -276,7 +262,7 @@ test("0.4.14: the spec of a version built before specs is written after, by the 
 test("0.4.14: a version whose Requirements handed back a spec is not offered a spec written after", async (t) => {
   const f = await factory({ rounds: 1 });
   t.after(f.close);
-  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
+  const id = await startRebuild(f, { does: "Count the words in a passage.", name: "counter" });
   const b = await f.settled(id);
   const spec = b.artifacts.find((a) => a.id === "spec");
   assert.equal(spec.state, "made");

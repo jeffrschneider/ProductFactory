@@ -23,7 +23,7 @@ exists, so it works on day one and nothing is locked in.
 
 | You bring | What the factory needs from it | Reference choice |
 |---|---|---|
-| Coding harness | Takes a "write the code" pull request and pushes commits until the gate passes, reading the AGENTS.md hand-off contract | Claude Code, Codex, Devin or any agent that works on a pull request; the reference code writer |
+| Coding harness | Builds a new agent as one builder, from the approved spec through the code, in one build folder (or on a pull request) until the folder's own check passes, reading its AGENTS.md | Claude Code with the ADLC plugin, or any agent that follows the folder's AGENTS.md; for a rebuild, the reference code writer runs it |
 | Model | An endpoint the reference agents call | Any provider the organization uses |
 | Role holders | An agent, a person or a tool for each role in the lifecycle | The reference agents at github.com/CommonAgent/adlc |
 | Lifecycle | Which stages are used, stages of your own, who holds each role | The ADLC's 24 stages, as a lifecycle document |
@@ -100,14 +100,16 @@ done when, asset, build, process, step, orchestrator. Two more:
 
 - Each build runs the lifecycle the team had when the build started. A later
   change to the lifecycle never changes a build under way.
-- Each stage is sent to its holder. A stage held by the team's coding harness
-  becomes a pull request with the hand-off contract; the gate (the suite, the
-  code critic, the security reviewer, whichever the lifecycle uses) runs on
-  every push.
+- Each stage is sent to its holder. A new agent is built by one builder, the
+  team's coding harness, in one build folder (on this computer, or on a pull
+  request); the folder's own check judges each stage, and the code critic and
+  the security reviewer, whichever the lifecycle uses, read the build once
+  the check passes it. Adopting existing code and rebuilding from a record
+  run on the reference writers.
 - Every stage shows who held it, what it was given, what it handed back, and
   each round it took.
-- A person can send work back a stage (Code back to Test) with words saying
-  why.
+- A person can send work back a stage (to the spec, or to the start of the
+  build) with words saying why.
 
 ### 5.4 Gates
 

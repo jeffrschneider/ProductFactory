@@ -148,8 +148,8 @@ test("a stage the lifecycle leaves out has no artifact; a working build's next o
   assert.equal(stopped.suite.state, "not_made");
   assert.match(stopped.suite.summary.words, /stopped/);
 
-  // Code held on this computer: nobody asks the reviewers, and the artifact says why.
-  w.status = "working"; w.settings.code.holder = "harness";
+  // A build on the reference writers: nobody asks the reviewers, and the artifact says why.
+  w.status = "working"; w.settings.code.holder = "code-writer";
   assert.equal(byId(artifactsOf(w, { dir: DIR, link })).findings.state, "not_run");
 });
 

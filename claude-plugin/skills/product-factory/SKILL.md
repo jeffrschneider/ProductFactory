@@ -1,6 +1,6 @@
 ---
 name: product-factory
-description: Start and drive Product Factory builds from Claude Code with the product-factory MCP tools. Use when the engineer says things like "start a build of an agent that...", "build an agent from issue 12", "what's waiting on me", "where is the word-counter build", "show me the spec", "approve the spec", "ask for changes", "OK the code", "tell the test writer...", "ask the boss...", "approve feature F2", or "take the Code hand-off" on a pull request.
+description: Start and drive Product Factory builds from Claude Code with the product-factory MCP tools. Use when the engineer says things like "start a build of an agent that...", "build an agent from issue 12", "what's waiting on me", "where is the word-counter build", "show me the spec", "approve the spec", "ask for changes", "OK the code", "tell the test writer...", "ask the boss...", "approve feature F2", or "work the build on its pull request".
 ---
 
 # Driving Product Factory from Claude Code
@@ -44,8 +44,8 @@ approve, show the gate's words and tell them to press it in the console.
    read the spec with `stage`.
 3. Ask, naming the action: "Ask the spec writer for that change on word-counter 0.1.0?"
 4. Only on a clear yes in this conversation, call `act` with the id and the
-   engineer's own words in `engineer_said`. For Ask for changes or Send back to
-   Test, put their words in `needs` (`{ "changes": "..." }`).
+   engineer's own words in `engineer_said`. For Ask for changes, Send back or
+   Send back to Requirements, put their words in `needs` (`{ "changes": "..." }`).
 5. Say what `act` answered: what it took, and where the build is now.
 
 When the engineer has already said exactly what to do ("ask for changes to the
@@ -62,14 +62,14 @@ Show it with its id, and take it only when the engineer says so.
 ## Starting a build
 
 Use the engineer's words for `does`. Ask for a name if they have one in mind;
-otherwise leave it out. After `start_build`, the spec writer works for a
+otherwise leave it out. After `start_build`, one builder writes the spec for a
 while; use `build_status` with `wait_seconds` (60 to 120) to see the spec
 waiting at the Requirements gate, then show it and ask.
 
 ## A build that one builder holds
 
-When Product Factory's `code.holder` is `builder`, one builder (a coding
-assistant with the ADLC plugin) writes the whole agent in one build folder,
+Every new agent is built by one builder (a coding assistant with the ADLC
+plugin), which writes the whole agent in one build folder,
 the same folder the ADLC plugin lays out on its own: `AGENTS.md`,
 `.adlc/check.mjs` and `build.lock.json`. The build has two phases. First the
 builder writes the spec, and the engineer approves it in the console. Then the
@@ -97,46 +97,17 @@ again, tests included), with the engineer's words. When the check says the
 build has passed, Product Factory makes the package, and the engineer approves
 the deploy in the console.
 
-## Taking the Code hand-off on a pull request (separate writers)
+## Builds on the reference writers
 
-This section is for builds whose `code.holder` is `pull-request`: separate
-writers, with the scripts written on a "Write the scripts" pull request. A
-build that one builder holds never has this hand-off.
-
-When the build is at Code and `build_status` shows a pull request, the
-engineer's coding harness writes the scripts on it.
-
-If Product Factory's settings name `code.harness`, it runs the harness
-itself in the fix loop: each round's scripts go on the branch as a commit
-Product Factory makes, the gate runs on it, and the gate's findings go back
-to the harness in the next round, up to `code.fix_rounds` rounds. The Code
-stage shows each "Fix round". Do not push to the branch while the loop runs.
-Watch it with `build_status` and `wait_seconds`, and report the rounds. The
-loop stops and waits on the engineer on a conflict, on a security refusal, or
-when its rounds are used up; show the words and the actions offered, and ask.
-
-When the loop is not on and the engineer asks you to take the hand-off, do it
-in this same session:
-
-1. Check out the pull request's branch: `gh pr checkout <pull request URL>`
-   (or `git fetch origin` and check out its branch).
-2. The build folder is `agents/<product name>/` in the repository. Read its
-   `AGENTS.md` first and follow it: it is the hand-off contract.
-3. Write only what the fence allows: the scripts under `scripts/`, and new
-   tests under `test/` if the contract allows them. Do not change the spec
-   files, the suite or `build.lock.json`.
-4. Run the check from the build folder, `node .adlc/check.mjs`, until it exits 0.
-5. Commit and push to the pull request's branch.
-6. Watch the gate result come back: `build_status` with `wait_seconds` (Product
-   Factory checks the pull request for pushes every `poll_seconds`, 30 by
-   default). Report the check's words. When it fails, read them, fix the
-   scripts, and push again.
-7. When the gate passes, the build waits for the engineer's OK on the code.
-   Show the check, and tell them to press OK the code in the console.
-
-If a test cannot pass without breaking the spec, write `records/conflict.md`
-in the build folder saying why, as AGENTS.md describes, and push; the gate
-stops, and the engineer can Send back to Test with their words.
+A build started from existing code, or rebuilt from an as-built record, runs
+on the reference writers instead: the reference spec writer writes the spec,
+the reference test writer the suite, and at Code the existing code is
+adopted as it is, or, for a rebuild, the reference code writer runs the
+engineer's coding harness in its own workspace. There is nothing to check
+out: watch it with `build_status`, and when Code waits, tell the engineer to
+press OK the code in the console. When Code was refused and the spec is what
+has to change, Send back to Requirements takes the engineer's words to the
+spec writer.
 
 ## When the tools cannot reach Product Factory
 

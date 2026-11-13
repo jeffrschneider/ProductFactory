@@ -1,4 +1,4 @@
-// The original's own tests in the gate (reverse engineer 0.3.0, test-writer
+// The original's own tests in the suite (reverse engineer 0.3.0, test-writer
 // 0.10.0), with stand-in holders: no test reaches a model or the network.
 //
 //   - the write-up's tests/ and support/ folders are read with its JSON parts,
@@ -8,7 +8,7 @@
 //     them;
 //   - the suite comes back with the support files under test/support/ and
 //     their record; the hand-off is given the suite as one archive, so the
-//     build folder keeps their layout, pins them, and the gate runs the
+//     build folder keeps their layout, pins them, and Code's check runs the
 //     carried test, which passes only because the closure is laid out;
 //   - the features view names the carried tests as the original named them
 //     and counts them as original tests, apart from the tests not tied to a
@@ -16,25 +16,21 @@
 //   - an existing-code build carries the code's own tests the same way;
 //   - a revision that drops a carried test, as the person names it, takes it
 //     out of the suite;
-//   - the gate runs no file under test/support/ as a test, and the fence holds
-//     a support file as it holds a test.
+//   - what is a test, and what a suite carries beside its tests.
 
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { factory, tempDir, stageOf } from "./helpers.mjs";
 import { checkBuild, checkStageWorkspace } from "../standards/lifecycle-api-check.mjs";
 import { STAGE_IDS } from "../lib/standards.mjs";
 import { readRecordFolder, carriedOf, EXTRA_FILES_MAX } from "../lib/as-built-record.mjs";
 import { carriedPlace, isCarriedSuitePath, isTestFile, suiteForHandOff } from "../lib/adapters.mjs";
-import { digestOf, fenceProblems } from "../lib/fence.mjs";
-import { fakeGitHub } from "./fixtures/fake-github.mjs";
+import { digestOf } from "../lib/fence.mjs";
 
-const GATE_SUITE = fileURLToPath(new URL("../lib/gate-suite.mjs", import.meta.url));
 const COMMIT = "bfecc9cea70c5df651db5cf2530416832c6fc68d";
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 const ok = (b) => assert.deepEqual(checkBuild({ build: b }, STAGE_IDS), []);
@@ -139,7 +135,7 @@ test("a build from a write-up carries the original's tests into the suite and th
   for (const p of ["test/count.test.mjs", "test/words.test.mjs", "test/support/lib/say.mjs", "test/support/lib/plan.mjs", "test/support/lib/words/unit.mjs", "test/carried-tests.json"]) assert.ok(handed.includes(p), p);
 
   // The hand-off laid out the build folder with the support closure in place, pinned in the lock,
-  // and the gate ran the carried test, which passes only because the closure is there.
+  // and Code's check ran the carried test, which passes only because the closure is there.
   const build = join(f.store.folder(id), "stages", "code", "handoff", "work", "build");
   assert.equal(readFileSync(join(build, "test", "words.test.mjs"), "utf8"), ORIGINAL.replace('"../../../lib/say.mjs"', '"./support/lib/say.mjs"'));
   const lock = JSON.parse(readFileSync(join(build, "build.lock.json"), "utf8"));
@@ -163,38 +159,20 @@ test("a build from a write-up carries the original's tests into the suite and th
   assert.ok(!(matrix.unmapped ?? []).includes("a passage of two words is said as two words"));
 });
 
-test("on a pull request the support files are pinned and fenced like the tests, and a revision that drops a carried test, as the person names it, takes only it out", async (t) => {
-  const gh = await fakeGitHub();
-  t.after(() => gh.close());
-  const { f, id } = await toCode(t, { holder: "pull-request", github: gh, doc: { version: "0.1", organization: { used: { review: false, security: false } } } });
-  const BRANCH = "adlc/word-counter-0.1.0";
-  const at = (p) => `agents/word-counter/${p}`;
-  const issued = gh.filesAt(BRANCH);
-  for (const p of ["test/words.test.mjs", "test/carried-tests.json", ...Object.keys(SUPPORT).map((x) => `test/${x}`)]) assert.ok(at(p) in issued, p);
-  const pr = f.store.read(id).work.pr;
-  assert.equal(pr.digests["test/support/lib/words/unit.mjs"], digestOf(Buffer.from(SUPPORT["support/lib/words/unit.mjs"])), "a support file is pinned");
-
-  // A push that changes a support file is refused by the fence, as a changed test is.
-  gh.push(BRANCH, { [at("scripts/count.mjs")]: "export function count(text) { return String(text).split(/\\s+/).filter(Boolean).length; }\n", [at("test/support/lib/words/unit.mjs")]: "export const UNIT = { one: \"word\", many: \"word\" };\n" });
-  await f.runner.poll(id);
-  let b = await f.settled(id);
-  assert.deepEqual(stageOf(b, "code").where.check.items, [`${at("test/support/lib/words/unit.mjs")} was changed; a change to a test or the spec goes back through the spec and test steps`]);
-
-  // Send back to Test, dropping the carried test by name.
-  const sent = await f.post(`/builds/${id}/actions/back_to_test`, { changes: "Drop the original test words.test.mjs: we no longer say counts." });
+test("a revision that drops a carried test, as the person names it, takes only it out of the suite", async (t) => {
+  // Code is refused (the stand-in harness writes the wrong code), so the build can be sent back to Requirements.
+  const { f, id, b: atCode } = await toCode(t, { failRounds: 5, rounds: 1 });
+  assert.equal(stageOf(atCode, "code").state, "refused");
+  const sent = await f.post(`/builds/${id}/actions/back_to_requirements`, { changes: "Drop the original test words.test.mjs: we no longer say counts." });
   assert.equal(sent.status, 200, JSON.stringify(sent.json));
-  b = await f.settled(id);
+  await f.settled(id);
+  assert.equal((await f.post(`/builds/${id}/actions/approve`)).status, 200);
+  const b = await f.settled(id);
   ok(b);
   const after = stageOf(b, "test").handed_back.files.map((x) => x.path);
   assert.ok(!after.includes("test/words.test.mjs"), "the dropped test is out of the suite");
   for (const p of ["test/carried-tests.json", "test/count.test.mjs", ...Object.keys(SUPPORT).map((x) => `test/${x}`)]) assert.ok(after.includes(p), p);
   assert.ok(stageOf(b, "test").log.some((e) => /It dropped the original test test\/words\.test\.mjs, as you named it\./.test(e.said)));
-  // On the branch: the test taken out, its record with the drop, the support files as they were.
-  const files = gh.filesAt(BRANCH);
-  assert.ok(!(at("test/words.test.mjs") in files));
-  assert.deepEqual(JSON.parse(files[at("test/carried-tests.json")]).dropped.map((d) => d.test), ["test/words.test.mjs"]);
-  assert.ok(at("test/support/lib/say.mjs") in files);
-  assert.ok(!("test/words.test.mjs" in f.store.read(id).work.pr.digests), "the fence no longer holds the dropped test");
 });
 
 test("an existing-code build carries the code's own tests the same way, and the adopted code passes them in the gate", async (t) => {
@@ -228,31 +206,11 @@ test("an existing-code build carries the code's own tests the same way, and the 
   assert.equal(readFileSync(join(f.store.folder(id), "stages", "code", "handoff", "work", "build", "test", "words.test.mjs"), "utf8"), ORIGINAL.replace('"../../../lib/say.mjs"', '"./support/lib/say.mjs"'));
 });
 
-test("the gate runs no file under test/support/ as a test, and the fence holds a support file as it holds a test", async () => {
-  const dir = await tempDir("gate");
+test("what is a test, and what a suite carries beside its tests", async () => {
+  const dir = await tempDir("suite");
   const put = (p, text) => { mkdirSync(join(dir, ...p.split("/").slice(0, -1)), { recursive: true }); writeFileSync(join(dir, ...p.split("/")), text); };
-  put("scripts/count.mjs", "export const count = (t) => String(t).split(/\\s+/).filter(Boolean).length;\n");
   put("test/count.test.mjs", `import { test } from "node:test";\nimport assert from "node:assert/strict";\nimport { count } from "../scripts/count.mjs";\nimport { TWO } from "./support/lib/two.mjs";\ntest("two words", () => assert.equal(count("a b"), TWO));\n`);
   put("test/support/lib/two.mjs", "export const TWO = 2;\n");
-  // A file under test/support/ named like a test, which would fail if it were run as one.
-  put("test/support/lib/never.test.mjs", `import { test } from "node:test";\ntest("never run", () => { throw new Error("run"); });\n`);
-  put("test/carried-tests.json", "{}\n");
-  put(".gate/scripts.json", JSON.stringify(["scripts/count.mjs"]));
-  const env = { ...process.env };
-  for (const k of Object.keys(env)) if (k.startsWith("NODE_TEST_")) delete env[k];
-  const r = spawnSync(process.execPath, [GATE_SUITE], { cwd: dir, env: { ...env, GATE_BLANKS_DIR: join(dir, "..", "gate-blanks") }, encoding: "utf8" });
-  const result = JSON.parse(/GATE_RESULT (.+)$/m.exec(r.stdout)[1]);
-  assert.equal(result.error, null);
-  assert.deepEqual([result.suite.exit, result.suite.tests, result.suite.pass], [0, 1, 1], "only test/count.test.mjs ran");
-  assert.deepEqual(result.blanks.map((x) => [x.script, x.noticed]), [["scripts/count.mjs", true]]);
-
-  // The fence: a support file is pinned like a test, so changing or removing it goes back through Test.
-  const two = Buffer.from("export const TWO = 2;\n");
-  const issued = { digests: { "test/count.test.mjs": digestOf(Buffer.from("t")), "test/support/lib/two.mjs": digestOf(two), "test/carried-tests.json": digestOf(Buffer.from("{}\n")) }, repoFiles: {} };
-  const files = new Map([["test/count.test.mjs", Buffer.from("t")], ["test/support/lib/two.mjs", Buffer.from("export const TWO = 3;\n")], ["test/carried-tests.json", Buffer.from("{}\n")]]);
-  assert.deepEqual(fenceProblems(issued, files), [{ path: "test/support/lib/two.mjs", what: "was changed; a change to a test or the spec goes back through the spec and test steps" }]);
-  files.delete("test/support/lib/two.mjs");
-  assert.deepEqual(fenceProblems(issued, files), [{ path: "test/support/lib/two.mjs", what: "was removed; a change to a test or the spec goes back through the spec and test steps" }]);
 
   // What is a test, and what a suite carries beside its tests.
   assert.equal(isTestFile("test/count.test.mjs"), true);

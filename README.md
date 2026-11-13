@@ -15,32 +15,33 @@ reads, so the console shows your builds and lets you act at your gates. The
 same command starts the console against it and opens it in your browser. It
 keeps everything in files: the lifecycle document and one folder per build.
 
-A build follows the lifecycle in effect when it started, and runs these stages:
+A new agent is built by one builder: your coding harness with the ADLC plugin
+(see [One builder](#one-builder)). A build follows the lifecycle in effect
+when it started, and runs these stages:
 
 | Stage | Who holds it | What happens |
 |---|---|---|
-| Requirements | the reference spec writer | It writes the spec from your words: each feature with its requirements and acceptance scenarios, the interfaces, constraints, systems and settings, and what it could not settle. In the same job it drafts the agent's own files from the spec. |
-| | you, in the console | You approve the spec, or ask for changes and it is revised. |
-| Architecture and Design | the reference solution architect, then the reference spec writer | The solution architect (CommonAgent/adlc `agents/solution-architect`) writes the architecture record from the spec as you approved it: the systems the agent reaches in plain system words, the product bound to each in dev, test and production, its dependencies, its kind, its limits on cost, speed, data and trust, its egress, and every decision with its reason. Product Factory holds no organization's stack, so each system is bound to the platform's default or asked. What only you can commit to (a binding nobody chose, a spending limit, a destination beyond the derived set) is asked, never filled in, and the build waits for your answers. Then the spec writer makes the agent's own files again from the spec, within the record (the Design part). The record is set up once for a product: a later version with the same holder and settings carries it forward unchanged. It is the build's `architecture` artifact, read into the lifecycle API's ArchitectureSummary, and the security reviewer is given it beside the package. |
-| | you, in the console | Only when the record asks: you answer each question, one per line as `key: answer`, and the solution architect revises the record with your answers. |
-| Test | the reference test writer | It writes the suite from the spec and the agent's own files: a test for each acceptance scenario, named by its id (`[F1.A1] ...`), and one for each interface the spec keeps (`[I1] ...`). |
-| Code | your coding harness | The build folder is laid out with the spec (`spec.json` and `spec.md`), the agent's own files, the suite and `AGENTS.md`, and your harness writes the scripts in it. The suite runs after each round; if it fails, the harness gets another round, up to the number you set. |
-| | you, in the console | You give your OK on the code. |
+| Requirements | one builder | Product Factory lays out one build folder with the ADLC plugin's kit and your words in `request.md`, and the builder writes the spec there (`spec.json`): each feature with its requirements and acceptance scenarios, the interfaces, constraints, systems and settings, and what it could not settle. The folder's own check says when it is ready for you. |
+| | you, in the console | You approve the spec, or ask for changes and the builder revises it. |
+| Architecture and Design, Test, Code | one builder | From the spec you approved, in the same folder and in whatever order works best: the architecture record, the agent's own files, the suite and the scripts. The folder's own check judges them together, and each stage reads done when the check passes the gates at it. What only you can answer waits for you, as `key: answer`. |
+| Review, Security review | the reference code critic and the reference security reviewer | Once the check passes the build, the reviewers read it, the security reviewer against the architecture record. A refusal holds the build for you, with their words. |
 | Package | the Common Agent packer | The agent's files and the scripts are packed as an Agent Package and validated. |
 | | you, in the console | The run plan is written beside the package. You read it with the package's build record, and approve the deploy. |
 | Deploy | the runtime you bring | The package and the run plan are handed to your runtime's command. With no runtime set, Deploy waits for you to hand them over. |
 | Conformance | the Common Agent checkers | Once your runtime took the package, it is held to the Common Agent 0.41.0 checks that programs run with node and no network (Section 14): the package's mechanical checks of Section 12.10, by the packer's own `validate`, and, when the build carries a package AgentDoc (Section 13.4), its static checks of Section 9.10, by `@common-agent/agentdoc`. The checks that need the running agent (the Descriptor it serves, Section 4.9; the five questions, Section 4.3; trials, Section 7.7) are named as not checked, because your runtime holds the agent. The result is the build's `attestation` artifact, `attestation.md`, unsigned because Product Factory holds no key. A check that fails refuses the stage with the attestation; nothing reads as passed that did not run. The run ends before the publish gate, which Product Factory does not hold. |
 
-A stage your lifecycle leaves out reads "not used"; when that is Architecture
-and Design, neither of its phases runs and the agent's own files go on as the
-spec was approved with them. Stages milestone 1 does not run read "not
-offered", and say so in plain words: the stages between Requirements and
-Package that it does not run yet (Impact, Source, Review, Security review),
-and Release, Acceptance and Docs after it. A build started on an
-earlier version of the process (`make-a-new-agent.txt` v2, before the
-architecture phase) keeps its own copy and is not run again, so its
-Architecture and its Conformance read "not offered", and its run ends at the
-deploy as it did.
+A build can also start from existing code ([Start from existing code](#start-from-existing-code))
+or from an as-built record ([Start from an as-built record](#start-from-an-as-built-record)).
+Those run their own process documents on the reference writers: the
+reference spec writer at Requirements, the reference test writer at Test, and
+at Code the existing code adopted as it is, or, for a rebuild, the reference
+code writer, which runs your coding harness in its own workspace.
+
+A stage your lifecycle leaves out reads "not used". Stages milestone 1 does
+not run read "not offered", and say so in plain words: the stages between
+Requirements and Package that it does not run yet (Impact, Source), and
+Release, Acceptance and Docs after it. A build started on an earlier version
+of a process keeps its own copy of it and is not run again.
 
 ## Run stages handed to your runtime
 
@@ -90,9 +91,9 @@ four over its folder and keeps what runs, and every verb, in
 No board, no tracker but GitHub Issues, no repository host but GitHub, no single sign-on,
 nothing installed by Product Factory itself (Deploy hands the package to your
 runtime), no try-it, and agents only (no processes or general software). By
-default the build folder is a folder on this computer, and its path is in the
-Code stage's log; Code can be a pull request on GitHub instead (see
-[Code on a pull request](#code-on-a-pull-request)). The package's build
+default the build folder is a folder on this computer; one builder can work
+on a pull request on GitHub instead (see
+[One builder on a pull request](#one-builder-on-a-pull-request)). The package's build
 record is unsigned.
 Role bindings in your lifecycle other than the reference agents are kept, and
 the build's log says when milestone 1 sent a stage to someone else instead.
@@ -136,8 +137,8 @@ on the terminal and in each build that stops for it.
 
 Each start prints a plain note for each thing that will stop a build: a model
 setting that is not set, an adlc checkout that is not at the `adlc` path, a
-coding harness command that is not on PATH, and, when Code goes to a pull
-request, a repository token variable that is not set.
+coding harness command that is not on PATH, and, when one builder works on a
+pull request, a repository token variable that is not set.
 
 ```
 npx product-factory check
@@ -219,13 +220,13 @@ an environment variable, and a value there is refused.
   `MODEL_KEY` (may be empty) and `MODEL_PROTOCOL` (`anthropic-messages`,
   `openai-chat` or `gemini`), and Product Factory passes them through under
   those names. With one missing, Requirements and Test stop and name it.
-- `code`: who holds Code, the harness command, how many rounds the harness
-  gets before the build stops and asks you, and how long one round may take.
-  `"holder": "pull-request"` puts Code on a pull request; then `repository`
-  names where (see [Code on a pull request](#code-on-a-pull-request)).
-- `code.fix_rounds` (default 3): on a pull request with `code.harness` set,
-  how many fix rounds Product Factory runs before Code is refused and asks
-  you (see [The fix loop](#the-fix-loop)).
+- `code`: the harness command, how many rounds the harness gets before the
+  build stops and asks you, and how long one round may take. `"holder":
+  "builder"` is the only holder, and may be left out: one builder makes every
+  new agent. A file that names `"harness"`, `"code-writer"` or `"pull-request"`,
+  the holders Product Factory had before, is refused in words. `"where":
+  "pull-request"` puts one builder on a pull request; then `repository` names
+  where (see [One builder on a pull request](#one-builder-on-a-pull-request)).
 - `code.env_remove`: environment variables removed before the harness command
   runs. The default is `["ANTHROPIC_API_KEY"]`, so a harness uses its own
   sign-in. Claude Code run headless prefers `ANTHROPIC_API_KEY` over your
@@ -240,8 +241,8 @@ an environment variable, and a value there is refused.
 
 ## One builder
 
-With `"code": { "holder": "builder" }`, which `product-factory init` writes, one
-builder writes everything, from the spec through the code: your coding harness
+Every new agent is built by one builder (`"code": { "holder": "builder" }`,
+which `product-factory init` writes, or no holder at all). It writes everything, from the spec through the code: your coding harness
 with the ADLC plugin of the `adlc` checkout (`{plugin}` in the harness command).
 No reference spec writer runs, so the spec and everything built from it have one
 author and one check. The build runs the reference process "make a new agent" v3
@@ -275,8 +276,7 @@ any of these stages you can send the build back with your words (`send_back`,
 lifecycle API 0.5.0): to a stage of the build, which opens the build again,
 tests included, and the builder goes on from there; or to Requirements, which adds
 your words to request.md, the builder revises the spec, and it goes on once you
-approve it. The other holders below keep Product Factory's earlier process and
-its own Code gate.
+approve it.
 
 ### One builder on a pull request
 
@@ -294,6 +294,20 @@ ADLC plugin (`/plugin install adlc --marketplace CommonAgent/adlc`), check the
 branch out, open the folder and follow its `AGENTS.md`; another assistant reads
 `AGENTS.md` too. Push as you go.
 
+```json
+"code": { "holder": "builder", "where": "pull-request" },
+"repository": { "host": "github", "repo": "owner/name", "token": "GITHUB_TOKEN" }
+```
+
+`token` is the name of the environment variable that holds a GitHub token,
+never the token: it is read from there each time and never kept. The token
+needs to read and write the repository's contents and pull requests, and, if
+it may, commit statuses. Optional: `api` for a GitHub Enterprise Server
+(`https://github.example.com/api/v3`), `poll_seconds` (default 30), and
+`review.spending_limit`, the line the security reviewer is told (default
+`10 USD per day`). GitHub calls go through the adlc console's client
+(`adlc-console/lib/github.mjs`), from [lib/pull-request.mjs](lib/pull-request.mjs).
+
 Product Factory checks the pull request for pushes every
 `repository.poll_seconds`, runs the folder's own check on each push, says its
 result on the pull request, and shows each stage exactly as above. What only
@@ -305,9 +319,9 @@ in the console. `code.harness` is not used.
 
 ## Point it at your coding harness
 
-Your coding harness is a command that runs in the build's folder. The folder
-carries the hand-off contract: `AGENTS.md` says what to write and what not to
-touch, and `node .adlc/check.mjs` is the check (see
+Your coding harness is a command that runs in the build folder as one
+builder. The folder carries the ADLC plugin's kit: `AGENTS.md` says what to
+write and what not to touch, and `node .adlc/check.mjs` is the check (see
 [your coding agent](https://agenticdevelopment.ai/your-coding-agent.html)).
 Coding agents read `AGENTS.md` on their own.
 
@@ -316,13 +330,18 @@ build carries can become part of a command line. These words are filled in:
 
 | Word | What it becomes |
 |---|---|
-| `{prompt}` | one line: read AGENTS.md and write the scripts until the check exits 0; on a later round, also the file that says what is still wrong. In [the fix loop](#the-fix-loop), from round 2 on, the gate's findings follow on lines of their own |
+| `{prompt}` | the round's instruction: write the spec from `request.md`, or build the agent from the approved spec, running the check after each change, with what the check said last |
+| `{plugin}` | the ADLC plugin of the `adlc` checkout |
 | `{workspace}` | the build folder |
-| `{feedback_file}` | the file holding what the last check said, or empty |
 | `{round}` | the round's number |
 
-The same values are in the environment as `PF_PROMPT`, `PF_WORKSPACE`,
-`PF_FEEDBACK_FILE` and `PF_ROUND`. Your harness keeps its own sign-in and
+The same values are in the environment as `PF_PROMPT`, `PF_WORKSPACE` and
+`PF_ROUND`. On Windows, a harness installed as a `.cmd` file runs through
+cmd.exe, which cannot carry a line break in a command line, so `{prompt}`
+reaches it with its line breaks as spaces. A rebuild from an as-built record runs the same command for the
+reference code writer, in its workspace, with its own prompt; there
+`{feedback_file}` (and `PF_FEEDBACK_FILE`) is the file holding what its last
+check said, or empty. Your harness keeps its own sign-in and
 settings; Product Factory passes your environment through, less the variables
 in `code.env_remove` (by default `ANTHROPIC_API_KEY`, so the harness signs in
 its own way and not with a key that happens to be set).
@@ -341,160 +360,30 @@ with `--mcp-config`, and it names none. Claude Code's `--bare` would skip them
 too, but it ignores your normal sign-in and reads only `ANTHROPIC_API_KEY`, so
 it is not used.
 
-After the harness ends, Product Factory runs `node .adlc/check.mjs` itself.
-Exit 0 is a pass and the build waits for your OK. Anything else is a failed
-round: its words go to the harness on the next round, up to `rounds`. Then
-the build stops and waits on you, with "Give it more rounds" or "Stop".
+After the harness ends, Product Factory runs the folder's check itself, and
+what it said goes to the harness on the next round, up to `rounds`. Then the
+build stops and waits on you, with "Give it more rounds", "Send back" or
+"Stop". For a rebuild, the reference code writer's own steps from your adlc
+checkout (its workspace, its check with its rounds, its report and its
+delivery check) run around the same harness command, and a pass waits for
+your OK on the code.
 
-To have the reference code writer hold Code instead, set `"holder":
-"code-writer"`. It runs the code writer's own steps from your adlc checkout
-(its workspace, its check with its rounds, its report and its delivery check)
-around the same harness command.
+## Send back to Requirements from Code
 
-## Code on a pull request
-
-Code can be a real GitHub pull request that your own coding harness works on:
-Claude Code, Codex, Devin, or anything that pushes commits. Set:
-
-```json
-"code": { "holder": "pull-request", "minutes": 30 },
-"repository": { "host": "github", "repo": "owner/name", "token": "GITHUB_TOKEN" }
-```
-
-`token` is the name of the environment variable that holds a GitHub token,
-never the token: it is read from there each time and never kept. The token
-needs to read and write the repository's contents and pull requests, and, if
-it may, commit statuses. Optional: `api` for a GitHub Enterprise Server
-(`https://github.example.com/api/v3`), `poll_seconds` (default 30), and
-`review.spending_limit`, the line the security reviewer is told (default
-`10 USD per day`).
-
-What happens at Code:
-
-1. Product Factory lays out the build folder as in local mode (`AGENTS.md`,
-   `.adlc/check.mjs`, `build.lock.json`) and opens a branch and a "Write the
-   scripts" pull request holding it, in `agents/<name>/`. The repository's
-   other files are left as they are.
-2. You point your harness at the pull request. `AGENTS.md` is the contract.
-   With `code.harness` set, Product Factory runs your harness itself instead,
-   round by round (see [The fix loop](#the-fix-loop)).
-3. Product Factory checks the pull request for a new push every
-   `poll_seconds` (no webhook needed). On each one it runs the gate: the
-   fence (only `scripts/` may change, and new tests under `test/`), a scan of
-   the scripts for credential values, hidden characters and undeclared
-   addresses, the suite and the suite again with each script blanked, and
-   then the code critic and the security reviewer, where the lifecycle uses
-   Review and Security review and the reference agent is in your adlc
-   checkout. It says the result on the pull request as a comment, and as the
-   commit status "Product Factory gate" where the token may post one. The
-   scripts and the suite run without a credential: the token's variable, the
-   model key's variable and `MODEL_KEY`, each webhook notice's address and
-   every name in `code.env_remove` are taken out of their environment by their
-   exact names, and everything else (`PATH`, `HOME` or `USERPROFILE`, `TEMP`,
-   and the settings the agent's own files declare) stays.
-4. The console shows the pull request and the latest check on the Code stage.
-5. When the gate passes, the build waits for your OK. Your OK takes the
-   scripts from that exact commit, merges the pull request there, and goes on
-   to Package. A push after the pass needs its own pass first.
-6. If your harness writes `records/conflict.md` (a test it cannot pass without
-   breaking the spec), the gate stops and says so. **Send back to Test**, with
-   your words, has the test writer revise the suite; the revised tests go on
-   the same pull request as one commit, with the lock updated and the
-   conflict removed, and the gate runs again.
-7. When the spec, not the suite, is what has to change (a reviewer refuses
-   something only the spec can settle, such as an address it does not
-   declare), **Send back to Requirements**, with your words, reopens the spec
-   as an ask for changes. Once you approve the revised spec, the test writer
-   revises the suite against it, and the revised agent files and tests go on
-   the same pull request as one commit, with the new lock; your scripts stay
-   as they are, and the gate runs again. It is offered wherever Send back to
-   Test is, and also when Code was refused, on a pull request or on this
-   computer (where the scripts written so far carry over into the new build
-   folder). The run records it as a deviation, as it does Send back to Test.
-
-The logic comes from the hand-off AgentMesh built, ported as plain
-JavaScript: [lib/pull-request.mjs](lib/pull-request.mjs) (opening, revising
-and taking the pull request), [lib/fence.mjs](lib/fence.mjs),
-[lib/gate.mjs](lib/gate.mjs) and [lib/gate-suite.mjs](lib/gate-suite.mjs)
-(the gate), and [lib/review.mjs](lib/review.mjs) (the reviewers). GitHub calls
-go through the adlc console's client (`adlc-console/lib/github.mjs`). Local
-mode is unchanged.
-
-## The fix loop
-
-On a pull request, the gate says what is wrong on every push. With
-`code.harness` set as well as `"holder": "pull-request"`, Product Factory acts
-on what the gate says: it runs your coding harness itself, sends the gate's
-findings back to it, and commits what it writes, for a bounded number of
-rounds. You step in only when a decision is yours.
-
-```json
-"code": { "holder": "pull-request", "harness": ["claude", "-p", "{prompt}", "--permission-mode", "acceptEdits", "--allowedTools", "Bash(node:*)", "--setting-sources", "project", "--strict-mcp-config"], "fix_rounds": 3, "minutes": 30 },
-"repository": { "host": "github", "repo": "owner/name", "token": "GITHUB_TOKEN" }
-```
-
-Without `code.harness`, nothing changes: your own harness pushes to the pull
-request, and every push runs the gate, as above.
-
-What one round does:
-
-1. The round's folder is the build folder as the branch's newest commit has
-   it, read through GitHub's API: the pinned files as you approved them (the
-   latest revision's, after Send back to Test or Requirements) and the scripts
-   on the branch.
-2. Your harness runs in that folder with the round's prompt: read `AGENTS.md`,
-   make `node .adlc/check.mjs` exit 0, change only `scripts/`, and write
-   `records/conflict.md` if a test contradicts the spec. From the second round
-   on, the prompt also carries the last gate run's findings word for word: its
-   title, its summary and its items. The findings are also in a file, given as
-   `{feedback_file}` and `PF_FEEDBACK_FILE`, and the whole prompt is in
-   `PF_PROMPT`. On Windows, a harness installed as a `.cmd` file runs through
-   cmd.exe, which cannot carry a line break in a command line, so `{prompt}`
-   reaches it with its line breaks as spaces.
-3. Product Factory commits what the harness changed under `scripts/` (and
-   `records/conflict.md` when it wrote one) to the branch through the API, as
-   one commit, "Fix round <n>: <the gate's title>" (round 1 says "Write the
-   scripts"). Anything it changed outside those paths is not committed, and the
-   round says which files. The harness never needs repository credentials, and
-   it runs without a credential, as the gate's scripts do: no repository token,
-   no model key, nothing in `code.env_remove`.
-4. The gate runs on that commit as it does on any push, and says so on the
-   pull request.
-
-Each round is a round of the Code stage, "Fix round <n>": what was sent, how
-long the harness took and what it said, the commit, and the gate's verdict.
-The console, the activity feed and the history show it.
-
-What happens after each gate run:
-
-- **It passed.** The build waits for your OK, as on any push.
-- **A conflict.** The harness wrote `records/conflict.md`. The loop stops, and
-  Code waits on you with **Send back to Test** and **Send back to
-  Requirements**.
-- **The security reviewer refused it.** The loop stops, and Code waits on you:
-  what it refused may be something only the spec can settle, such as an
-  address or a system the spec does not declare, so **Send back to
-  Requirements** comes first, with **Give it more rounds** if the scripts are
-  what is wrong.
-- **Anything else** (tests that failed, the code critic's findings, the static
-  review of the scripts, fence problems inside `scripts/`): the next round
-  starts while rounds remain.
-- **The rounds are used up** (`code.fix_rounds`, default 3). Code is refused
-  with the last gate run's words, offering **Give it more rounds** (the rounds
-  go on from where they were, with the last findings), **Send back to Test**,
-  **Send back to Requirements** and **Stop**.
-
-Stop works mid-round: the harness is stopped and nothing more of the round is
-committed. Send back to Test or Requirements mid-round ends the round in hand
-too. Product Factory's own revisions go to the branch as they always do; after
-one, the loop starts again from round 1 on the revised spec and suite. If
-Product Factory stops while the loop runs, the next round runs when it starts
-again.
+On a build that runs on the reference writers (a rebuild from an as-built
+record, or adopted code), Code can be refused: the rounds are used up, or the
+existing code does not pass its characterization suite. When the spec, not
+the code, is what has to change, **Send back to Requirements**, with your
+words, reopens the spec as an ask for changes. Once you approve the revised
+spec, the test writer revises the suite against it, and Code goes on; for a
+rebuild, the scripts written so far carry over into the new build folder.
+The run records it as a deviation. One builder's build is sent back with
+**Send back** instead (see [One builder](#one-builder)).
 
 ## Start builds from issues
 
 An open GitHub issue with a label you choose can start a build. Name the
-repository as for Code on a pull request, and add:
+repository as for one builder on a pull request, and add:
 
 ```json
 "repository": { "host": "github", "repo": "owner/name", "token": "GITHUB_TOKEN" },
@@ -551,41 +440,21 @@ build's log, and the build goes on.
 
 ## How a build is run
 
-Each build runs a process document: "make a new agent", as published at
+Each build runs a process document, with its blanks filled for one computer
+([processes/SOURCE.json](processes/SOURCE.json) lists each fill). A new agent
+runs "make a new agent" v3, as published at
 [agentprocesses.ai](https://agentprocesses.ai/make-a-new-agent.html), in
-[processes/make-a-new-agent.txt](processes/make-a-new-agent.txt) with its
-blanks filled for one computer ([processes/SOURCE.json](processes/SOURCE.json)
-lists each fill). Its version 2 makes each feature in a run of its own, so a
-feature that is ready never waits for the slowest. The version's run keeps what
-is product-wide: `write-the-spec`, then `approve-the-spec`, a person's gate.
-Once the spec is approved, each approved feature runs
-[processes/make-a-feature.txt](processes/make-a-feature.txt) as a run of its
-own, all at the same time: its suite (`write-the-suite`), its scripts
-(`write-the-scripts`, supervised, on a pull request of its own when Code is on
-one) and your OK on it (`ok-the-feature`). A feature approved later in a chat
-starts its own run then. A spec with no features is made in one run, the whole
-spec. The version waits at `gather-the-features`, a phase Product Factory holds,
-and goes on to `make-the-package` once every feature's run has closed.
-
-The gate on a feature's scripts runs the whole suite: the tests of every feature
-already accepted and its own. When you accept a feature, its tests and scripts
-become the version's base, and every other feature open at Code is brought up
-to date with it before its gate runs again: on a pull request, one merge commit
-on its branch; on this computer, its build folder laid out again. A script both
-changed is the base's, with the feature's own beside it under `records/yours/`
-and `records/up-to-date.md` saying so, for the next round to work in. Send back
-to Test stays in the feature's run. Send back to Requirements takes the version
-back to its spec; each feature still open waits for the revised spec, then
-revises its suite against it and goes on, on the same pull request.
-
-A feature's test writer is asked for that feature's tests alone, with a line
-`feature: F2` in its message and the accepted features' tests attached to add
-to; the reference test writer reads that line from 0.11.0 (CommonAgent/adlc),
-and names each file for the feature. An older one writes the whole spec's tests
-in every feature's run, which still works, with more tests than needed.
-
-A build started before version 2 keeps its own copy of the document in its
-folder, and finishes the old way, in one run.
+[processes/make-a-new-agent-one-builder.txt](processes/make-a-new-agent-one-builder.txt):
+`write-the-spec` and `approve-the-spec`, a person's gate, then
+`build-the-agent`, which one builder holds, then `make-the-package`,
+`approve-the-deploy`, `deploy-the-agent` and `check-conformance`. A build
+started from existing code runs
+[processes/adopt-existing-code.txt](processes/adopt-existing-code.txt), and one
+started from an as-built record runs
+[processes/rebuild-from-as-built-record.txt](processes/rebuild-from-as-built-record.txt);
+both have `write-the-spec`, `approve-the-spec`, `write-the-suite` and
+`write-the-scripts` on the reference writers. A build started on an earlier
+version of a document keeps its own copy of it in its folder.
 
 The open-source process runner
 ([AgentMesh-Community/process-runner](https://github.com/AgentMesh-Community/process-runner),
@@ -615,10 +484,6 @@ one file.
 
 Phases no `after:` path connects never wait for each other (Agent Processes
 6.2): when the runner has more than one phase ready, the driver sends each now.
-Every open run of a version, its own and each feature's, is driven at the same
-time. A feature run lives in its version's build.json, under `feature_runs`, and
-[lib/feature-runs.mjs](lib/feature-runs.mjs) says how: the driver reads and
-changes one by its key, `<build id>~<run id>`, as if it were a build.
 
 A phase at a stage milestone 1 does not run, or at a stage the build's
 lifecycle leaves out, ends the run there. The run's record names the phases
@@ -680,8 +545,8 @@ reference agents' shared model caller in your adlc checkout, with the same
 four model settings, from the stage's outputs, what it was given and the
 build's record. Answering changes nothing. When you ask for a change, the
 reply proposes the build's existing action for it (Requirements: Ask for
-changes, or Send back to Requirements once the build is at Code; Test: Send
-back to Test, from Code; Code: Give it more rounds, when Code was refused), with its words filled in, and only when you may take that
+changes, or Send back to Requirements once Code was refused; Code: Give it
+more rounds, when Code was refused), with its words filled in, and only when you may take that
 action now. You confirm it with the action, so a change always goes back
 through its gate. A stage held by a person, an outside tool, or your own
 coding harness is not answered here, and the reply says so.
@@ -693,12 +558,12 @@ of each stage workspace carries it (`cadence`):
 
 - **Every build**, the routine: Requirements, Test, Code, Review, Security
   review, Package, Release, Deploy, Conformance, Acceptance and Docs. These are
-  a build's steps. Review and Security review run inside Code's gate when Code
-  is on a pull request, and their stages say what the gate's reviewers said on
-  the commit Code's work is from: done, or refused with the reviewer's words,
-  one round per push they read. The findings and the security record are their
-  outputs. A reviewer the gate did not ask says why. With Code held on this
-  computer, the suite is the gate and they are not asked.
+  a build's steps. Review and Security review run on one builder's build once
+  its folder's check passes it, and their stages say what the reviewers said
+  on the build Code's work is from: done, or refused with the reviewer's
+  words. The findings and the security record are their outputs. A reviewer
+  not asked says why. On a build that runs on the reference writers, the suite
+  is the gate and they are not asked.
 - **Set up once** per product: Source, Architecture and Design, Publish,
   Monitor, Eval, Incident response, Cost and Update. Who holds each, and with
   what settings, comes from the lifecycle and is carried forward. A new
@@ -831,7 +696,7 @@ test writer names each test by the acceptance scenario of the spec it checks
 (`[F3.A1] counts an empty passage as none`), which counts for feature F3, and
 a test of a feature the spec has no scenario for by the feature's id (`[F3]
 ...`), so every round at Code reports its results per feature (`by_feature`,
-and "By feature: F1 2 of 2 pass" in its words and on the pull request). A test
+and "By feature: F1 2 of 2 pass" in its words). A test
 of an interface the spec keeps (`[I4] ...`) checks no feature, and is not
 counted among the tests that check none.
 
@@ -947,7 +812,7 @@ folders: the original's own tests, and each file they import from outside the
 codebase with the whole closure of what those import (reverse engineer
 0.3.0). The same limits hold them: 100 files beside the six, 20 MB in all.
 
-### The original's own tests are in the gate
+### The original's own tests are in the suite
 
 The original's own tests are the strongest check on a rebuild, so they are
 carried into the suite unchanged. For a build with an as-built record, brought
@@ -967,25 +832,25 @@ each test at `test/<name>` with only the listed import specifiers rewritten,
 each support file at `test/support/<path from the repository's top>`, and
 their record at `test/carried-tests.json`. The hand-off is then given the
 suite as one archive, so the build folder keeps the support files' layout and
-`build.lock.json` pins them like the tests; on a pull request the fence
-refuses a changed or removed support file as it does a test. The gate runs
-`test/*.test.mjs` only, so a file under `test/support/` is never run as a
-test. In the features view the carried tests keep the names the original gave
-them and are counted as original tests, `original` beside `untied` on the
-Test slice and on the matrix, not tied to a feature. Send back to Test with
-"drop the original test <name>" in your words takes that one test out of the
-suite, recorded in `test/carried-tests.json`; no revision changes one.
+`build.lock.json` pins them like the tests. Only `test/*.test.mjs` is run as
+the suite, so a file under `test/support/` is never run as a test. In the
+features view the carried tests keep the names the original gave them and are
+counted as original tests, `original` beside `untied` on the Test slice and on
+the matrix, not tied to a feature. Send back to Requirements with "drop the
+original test <name>" in your words takes that one test out of the suite when
+the test writer revises it, recorded in `test/carried-tests.json`; no
+revision changes one.
 
 The build runs the process "rebuild from an as-built record"
-(`processes/rebuild-from-as-built-record.txt`), which is "make a new agent"
-with the record given to the spec and the suite:
+(`processes/rebuild-from-as-built-record.txt`), "make a new agent" v1 with the
+record given to the spec and the suite, on the reference writers:
 
 | Stage | Who holds it | What happens |
 |---|---|---|
 | 00 Reverse engineering | the as-built record you brought | Not run here. The record is kept as the build's `as_built` artifact, which says it was brought, and the build's `source` names the code the record describes and where the record was read. |
 | Requirements | the spec writer, then you | The spec writer is given the behaviors, the interfaces, the architecture as built, and the existing tests and gaps, whole, and asked to keep the interfaces and settings exactly as the record gives them. Each behavior arrives as a proposed feature marked as built, answered as for existing code. |
 | Test | the reference test writer | It is given the same parts and writes tests that pin each approved behavior, for code written fresh. |
-| Code | your coding harness, on this computer or on a pull request | A normal new build. Nothing is adopted: the code the record describes is never copied in. |
+| Code | the reference code writer, running your coding harness | The code is written fresh in the code writer's workspace, and waits for your OK. Nothing is adopted: the code the record describes is never copied in. |
 
 The product's drift and its when-needed Reverse engineering are about code
 a build took on, so a build started from a record has none.
@@ -1096,7 +961,7 @@ and look the person up in `people.json` by its email.
 <data>/builds/<id>/build.json      the build's record: the lifecycle it started under, each stage, the run
 <data>/builds/<id>/run/            the process document, and the run as the process runner keeps it
 <data>/builds/<id>/stages/         every job folder, record, log and file each stage made
-<data>/builds/<id>/runs/<run>/     each feature's own run: what its trigger carried (given/), its run/ and its stages/
+<data>/builds/<id>/build/          one builder's build folder
 ```
 
 ## Standards it uses
@@ -1120,30 +985,23 @@ and look the person up in `people.json` by its email.
 
 Where milestone 1 differs from one of them:
 
-- **The spec.** The reference spec writer drafts the agent's own files in the
-  same job as the spec, at Requirements, and you see them with the spec. From
-  `make-a-new-agent.txt` v3 the same job runs again at the Design part of
-  Architecture and Design, where stages.json 1.6.0 puts the files, given the
-  approved spec and the architecture record, and those files are the ones the
-  features and the package are made from. Their artifact (`statement`) sits at
-  Architecture and Design, as lifecycle API 0.4.8 says, and is listed even
-  where the lifecycle leaves that stage out.
+- **The spec.** One builder writes the agent's own files in its build folder
+  with the rest of the build, and they are shown at Architecture and Design,
+  where stages.json 1.6.0 puts them. On the reference writers (adopting or
+  rebuilding), the spec writer drafts them in the same job as the spec, at
+  Requirements. Their artifact (`statement`) sits at Architecture and Design,
+  as lifecycle API 0.4.8 says, and is listed even where the lifecycle leaves
+  that stage out. The spec artifact's summary also carries the spec's systems,
+  settings and price in words, which `SpecSummary` does not name.
 
-- **The architect's questions.** stages.json gives Architecture and Design no
-  person's gate, so the process document has none there. When the record asks
-  what only you can answer, the solution architect's phase asks you through
-  the process runner's own question to the owner (its `block`), and goes on
-  with your answers; a record that asks nothing does not wait on you. The spec artifact's summary also carries the spec's systems, settings
-  and price in words, which `SpecSummary` does not name.
-
-- **Lifecycle API.** Code's holder is `your_agent` with no handle (the API's
-  check allows that on a build's stage), and Package's holder is
+- **Lifecycle API.** One builder's holder is `your_agent` with no handle (the
+  API's check allows that on a build's stage), and Package's holder is
   `outside_tool` (the packer), not the reference package maker, which needs
   Python. The roles answer is the lifecycle document's: it does not show your
-  harness as the code writer's binding, because a binding to your own agent
-  needs a handle. A stage's `where` is null, except at Code on a pull request,
-  where it is that pull request with its newest commit and check. Stages of your own are not in the stages answer, which lists
-  stages.json's stages only.
+  harness as a binding, because a binding to your own agent needs a handle. A
+  stage's `where` is null, except at Code on a build made before with its
+  Code on a pull request. Stages of your own are not in the stages answer,
+  which lists stages.json's stages only.
 - **Agent Package.** The packer (0.1.0) implements Common Agent 0.30.0-draft.
   It packs each skill as written, so Product Factory first places each skill's
   scripts and references under `skills/<slug>/`, as plugin.json's build entry
@@ -1154,12 +1012,10 @@ Where milestone 1 differs from one of them:
   "Approve the spec" in the console answers two phases at once: the spec
   writer's draft, which the document makes assisted (held for the person), and
   the approve-the-spec gate. There is no "another round" at your OK on the
-  code, because the document has no way back from there; you can stop. The
-  document has no way back from Code to Test either, only `[conflict]` back
-  to the spec's gate, where "the suite or the spec is revised". So Send back
-  to Test on a pull request takes `[conflict]`, and the same answer passes the
-  spec's gate again with the spec as approved; the test writer then revises
-  the suite from your words. The run records both, in your words.
+  code, because the document has no way back from there; you can stop. Send
+  back to Requirements from a refused Code takes `[conflict]` back to the
+  spec's gate, then `[changes]` to the spec writer, and the run records both,
+  in your words.
 - **The process runner.** The run asks the document's "approve the deploy"
   gate. Once you say yes, the run closes with the outcome `ended` before
   deploy-the-agent, with its open phases listed, and the package goes to your
@@ -1173,25 +1029,18 @@ npm test
 
 node:test, with fake holders: stand-in spec writer, test writer and code
 writer scripts at the same paths as the real ones
-(`test/fixtures/fake-adlc`), a stand-in harness and a stand-in packer. They
-cover the file store, the lifecycle file, every API answer run through the
-console's contract checks and the lifecycle API's own check
-(`standards/lifecycle-api-check.mjs`), and builds walked through every stage:
-both gates, asking for changes, a failed suite round, rounds running out, a
-left-out stage, a project's lifecycle, the reference code writer, a refused
-spec started again, stopping, archiving, and starting again mid-stage. Code
-on a pull request runs against a fake GitHub (`test/fixtures/fake-github.mjs`,
-a local HTTP stub with a small git in memory), with stand-in reviewers:
-opening the pull request, a failing push and a passing one, the fence
-refusing changes outside what the coding step may change, a reviewer's open
-finding, your OK taking the passing commit and refused for a newer one, Send
-back to Test, and starting again while it waits on pushes. The fix loop
-(`test/fix-loop.test.mjs`) runs a stand-in harness that writes the wrong
-script until the prompt carries the gate's findings: fixed in round 2 and
-waiting for the OK, a conflict and a security refusal each stopping the loop,
-the rounds used up and given more, a round that changes nothing, edits outside
-`scripts/` left uncommitted, no `code.harness` changing nothing, and Stop and
-Send back to Test mid-round. The history's
+(`test/fixtures/fake-adlc`, with a stand-in ADLC plugin kit), a stand-in
+builder (`test/fixtures/stub-builder.mjs`, which writes the scripts as the
+stand-in harness does when the reference code writer runs it) and a
+stand-in packer. They cover the file store, the lifecycle file, every API
+answer run through the console's contract checks and the lifecycle API's own
+check (`standards/lifecycle-api-check.mjs`), and builds walked through every
+stage: one builder's spec and build, its questions, send backs and
+reviewers; a rebuild's reference code writer, rounds running out and Send
+back to Requirements; a left-out stage, a project's lifecycle, stopping,
+archiving, and starting again mid-stage. One builder on a pull request runs
+against a fake GitHub (`test/fixtures/fake-github.mjs`, a local HTTP stub
+with a small git in memory). The history's
 tests build it again from the build files, answer the four analytics
 questions over hand-made builds where every number is known, and call the
 analytics route. Teams: the people

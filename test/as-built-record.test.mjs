@@ -5,16 +5,15 @@
 //   - a build started from an as-built record of code kept elsewhere enters at
 //     Requirements; the record is its as_built artifact, marked brought; each
 //     behavior is proposed as built; the spec writer and the test writer get
-//     the record's parts whole; and Code runs as for a new build, with nothing
-//     adopted;
+//     the record's parts whole; and the reference code writer writes the code
+//     fresh, with nothing adopted;
 //   - the record may come from a repository, at a path in it;
 //   - a record that is not whole, or a source that is wrong, is refused in words;
 //   - the as-built gaps are read as the reverse engineer writes them (about,
 //     why), with what and words as fallbacks;
-//   - Send back to Requirements from Code: on a pull request the spec writer
-//     revises the spec, the test writer revises the suite against it, and both
-//     go on the same branch as one forward commit; when Code was refused on
-//     this computer, the scripts written so far carry over;
+//   - Send back to Requirements from Code: when Code was refused, the spec
+//     writer revises the spec, the test writer revises the suite against it,
+//     and the scripts written so far carry over;
 //   - the Features words of a build that has not reached features, and the
 //     harness command init writes.
 
@@ -23,8 +22,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { factory, tempDir, stageOf, actionNames, codeRun, codeDir } from "./helpers.mjs";
-import { fakeGitHub } from "./fixtures/fake-github.mjs";
+import { factory, tempDir, stageOf, actionNames, startRebuild } from "./helpers.mjs";
 import { checkBuild as consoleCheckBuild } from "adlc-console/lib/contract.mjs";
 import { checkBuild, checkArtifacts, checkFeatures, checkStageWorkspace, AS_BUILT_PARTS, run as apiCheck, stageIds, stageRoles, stageFacts } from "../standards/lifecycle-api-check.mjs";
 import { STAGE_IDS } from "../lib/standards.mjs";
@@ -134,7 +132,7 @@ test("start from an as-built record: Requirements first, the record brought, beh
   assert.equal((await f.post(`/builds/${id}/actions/approve`)).status, 200);
   b = await f.settled(id);
   ok(b);
-  const job = join(codeDir(f, id), "stages", "test", "jobs", "r1");
+  const job = join(f.store.folder(id), "stages", "test", "jobs", "r1");
   const said = readFileSync(join(job, "message.txt"), "utf8");
   assert.match(said, /^Write the suite for the spec and the agent's files attached\. The code is written fresh from them/);
   assert.match(said, /Gaps the record marked: what the code does when it runs: no test command was run\./);
@@ -142,9 +140,9 @@ test("start from an as-built record: Requirements first, the record brought, beh
   for (const n of ["behaviors.json", "interfaces.json", "architecture.json", "tests-and-gaps.json", "count-v1.schema.json"]) assert.ok(attached.includes(n), n);
   assert.match(stageOf(b, "test").given, /the as-built record you brought: its behaviors, interfaces, architecture as built, and existing tests and gaps/);
 
-  // Code ran your coding harness on a fresh build folder: nothing was adopted.
+  // The reference code writer wrote the code in a fresh build folder: nothing was adopted.
   const code = stageOf(b, "code");
-  assert.equal(code.holder.kind, "your_agent");
+  assert.deepEqual(code.holder, { kind: "reference_agent", name: "code-writer", role: "code-writer" });
   assert.equal(code.state, "waiting_on_you");
   assert.ok(existsSync(f.stubLog), "the coding harness ran");
   assert.ok(!existsSync(join(f.store.folder(id), "source", "code")), "no codebase was copied in");
@@ -158,7 +156,7 @@ test("start from an as-built record: Requirements first, the record brought, beh
 });
 
 test("with one builder set, a rebuild from an as-built record runs on the reference writers, and its settings say so", async (t) => {
-  const f = await factory({ holder: "builder" });
+  const f = await factory();
   t.after(f.close);
   const rec = writeRecord(join(await tempDir("record"), "as-built"));
   const started = await start(f, { folder: rec });
@@ -229,7 +227,8 @@ test("as-built gaps are read as the reverse engineer writes them, with what and 
 test("the Features words of a new build at Requirements say it has not reached features, not that it was made before them", async (t) => {
   const f = await factory();
   t.after(f.close);
-  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
+  // A record with no behaviors, so nothing is proposed as built before the spec is written.
+  const id = await startRebuild(f, { does: "Count the words in a passage.", name: "counter" });
   await f.settled(id);
   const m = (await f.get(`/builds/${id}/features`)).json;
   assert.deepEqual(m.features, []);
@@ -254,126 +253,10 @@ test("the harness command init writes runs Claude Code as the one builder, with 
 
 // ---------- Send back to Requirements ----------
 
-const BRANCH = "adlc/counter-0.1.0";
-const SCRIPT = "agents/counter/scripts/count.mjs";
-const RIGHT = "export function count(text) { return String(text).split(/\\s+/).filter(Boolean).length; }\n";
-
-test("Send back to Requirements on a pull request: the spec is revised, then the suite against it, and both go on the same branch as one forward commit", async (t) => {
-  const gh = await fakeGitHub();
-  const f = await factory({ holder: "pull-request", github: gh, doc: { version: "0.1", organization: { used: { review: false, security: false } } } });
-  t.after(async () => { await f.close(); await gh.close(); });
-  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
-  await f.settled(id);
-  await f.post(`/builds/${id}/actions/approve`);
-  let b = await f.settled(id);
-  // A push passes the gate, and the build waits for your OK; you judge the spec wrong instead.
-  gh.push(BRANCH, { [SCRIPT]: RIGHT });
-  await f.runner.poll(id);
-  b = await f.settled(id);
-  assert.deepEqual(actionNames(b), ["accept", "back_to_test", "back_to_requirements", "stop"]);
-  const offered = b.actions.find((a) => a.name === "back_to_requirements");
-  assert.deepEqual([offered.stage, offered.label, offered.needs], ["code", "Send back to Requirements", [{ name: "changes", label: "What should change in the spec, for the spec writer", kind: "words" }]]);
-  const before = { ...codeRun(f, id).work.pr.digests };
-
-  // It needs words; with them, Requirements opens again as an ask for changes.
-  assert.equal((await f.post(`/builds/${id}/actions/back_to_requirements`, {})).status, 400);
-  const sent = await f.post(`/builds/${id}/actions/back_to_requirements`, { changes: "Declare the address of the counting service as a setting." });
-  assert.equal(sent.status, 200, JSON.stringify(sent.json));
-  ok(sent.json.build);
-  b = await f.settled(id);
-  ok(b);
-  assert.equal(stageOf(b, "requirements").state, "waiting_on_you");
-  assert.equal(stageOf(b, "code").state, "not_started");
-  assert.deepEqual(actionNames(b), ["approve", "changes", "stop"]);
-  const asked = JSON.parse(readFileSync(join(f.store.folder(id), "stages", "requirements", "records", "r2", "asked.json"), "utf8"));
-  assert.match(asked.said, /^changes: Declare the address of the counting service as a setting\./);
-  // The Code gate reads as answered by it, and the spec's gate as a wait of its own only once the revised spec is ready.
-  const codeWs = (await f.get(`/builds/${id}/stages/code`)).json;
-  assert.equal(codeWs.gate.answered.action, "back_to_requirements");
-  assert.deepEqual(checkStageWorkspace(codeWs, STAGE_IDS, "code"), []);
-
-  // You approve the revised spec: the test writer revises the suite against it.
-  assert.equal((await f.post(`/builds/${id}/actions/approve`)).status, 200);
-  b = await f.settled(id);
-  ok(b);
-  const said = readFileSync(join(codeDir(f, id), "stages", "test", "jobs", "r2", "message.txt"), "utf8");
-  assert.match(said, /^Revise the suite\.\n\nThe spec was revised at Requirements: the build was sent back from Code/);
-  assert.match(said, /Declare the address of the counting service as a setting\./);
-  assert.equal(stageOf(b, "test").rounds[0].verdict, "Suite revised");
-
-  // One forward commit on the same branch: the revised spec, the revised test, and the new lock; the scripts as they were.
-  assert.equal(gh.pulls.size, 1);
-  const files = gh.filesAt(BRANCH);
-  // The agent's own files are made again from the revised spec at the Design, within the architecture record (make-a-new-agent.txt v3).
-  assert.match(files["agents/counter/skills/count/SKILL.md"], /Designed within the architecture record, from the spec at [0-9a-f]{12}\./);
-  assert.match(files["agents/counter/test/count.test.mjs"], /an empty passage has no words/);
-  assert.equal(files[SCRIPT], RIGHT, "the coding agent's script is as it was");
-  const lock = JSON.parse(files["agents/counter/build.lock.json"]);
-  const pr = codeRun(f, id).work.pr;
-  assert.deepEqual(lock.digests, pr.digests, "the lock and the fence agree");
-  assert.notEqual(pr.digests["skills/count/SKILL.md"], before["skills/count/SKILL.md"]);
-  const comment = gh.comments.at(-1).body;
-  assert.match(comment, /^\*\*The spec and the tests were revised\*\*/);
-  // The stand-in spec writer names the agent again on a revision, so more of its files change than the skill.
-  // The spec itself went to the branch with the files made from it (stages.json 1.6.0).
-  assert.match(comment, /The revised spec changed `spec\.json`, `spec\.md`\. The files made from it changed: (`[^`]+`, )*`skills\/count\/SKILL\.md`\. The test writer revised `test\/count\.test\.mjs` against it\./);
-  assert.match(comment, /> Declare the address of the counting service as a setting\./);
-  assert.equal(stageOf(b, "code").state, "working");
-  assert.deepEqual(actionNames(b), ["back_to_test", "back_to_requirements", "stop"]);
-  assert.ok(stageOf(b, "code").log.some((e) => /^The revised spec and suite went to pull request #1 as [0-9a-f]{7}: /.test(e.said)));
-
-  // The gate hears the revised commit first, and it passes the fence; the build goes on to your OK and Package.
-  const { judged } = await f.runner.poll(id);
-  assert.equal(judged, true);
-  b = await f.settled(id);
-  assert.equal(stageOf(b, "code").where.check.title, "Ready for your OK");
-  await f.post(`/builds/${id}/actions/accept`);
-  b = await f.settled(id);
-  assert.equal(stageOf(b, "package").state, "done");
-
-  // The version's run records both ways back, in the person's words, as deviations: from its features to the spec's gate, and to the spec writer.
-  const run = f.store.read(id).run;
-  assert.deepEqual(run.deviations.map((d) => [d.key, d.from, d.to, d.text]), [
-    ["conflict", "gather-the-features", "approve-the-spec", "Declare the address of the counting service as a setting."],
-    ["changes", "approve-the-spec", "write-the-spec", "Declare the address of the counting service as a setting."],
-  ]);
-  assert.deepEqual(run.events.filter((e) => e.type === "deviated").map((e) => e.action), ["back_to_requirements", "back_to_requirements"]);
-  // The feature's run went back to its suite with the revised spec, and on to Code, on the same pull request.
-  assert.deepEqual(codeRun(f, id).run.deviations.map((d) => [d.key, d.from, d.to]), [["conflict", "write-the-scripts", "write-the-suite"]]);
-});
-
-test("Send back to Requirements when Code was refused before any pull request: the pull request then opened is watched, and its gate runs", async (t) => {
-  const gh = await fakeGitHub();
-  const f = await factory({ holder: "pull-request", github: gh, doc: { version: "0.1", organization: { used: { review: false, security: false } } } });
-  t.after(async () => { await f.close(); await gh.close(); });
-  gh.branch(BRANCH); // left over from an earlier build, so the pull request cannot be opened
-  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
-  await f.settled(id);
-  await f.post(`/builds/${id}/actions/approve`);
-  let b = await f.settled(id);
-  assert.equal(stageOf(b, "code").state, "refused");
-  assert.equal(gh.pulls.size, 0);
-  assert.equal((await f.post(`/builds/${id}/actions/back_to_requirements`, { changes: "Say what an empty passage counts as." })).status, 200);
-  b = await f.settled(id);
-  await f.post(`/builds/${id}/actions/approve`);
-  b = await f.settled(id);
-  assert.equal(stageOf(b, "code").state, "refused", "the branch is still there");
-  gh.dropBranch(BRANCH);
-  await f.post(`/builds/${id}/actions/resume`);
-  b = await f.settled(id);
-  assert.equal(gh.pulls.size, 1);
-  assert.equal(codeRun(f, id).work.back_to_requirements, undefined, "the pull request was opened from the revised spec, so nothing is left to send");
-  gh.push(BRANCH, { [SCRIPT]: RIGHT });
-  const { judged } = await f.runner.poll(id);
-  assert.equal(judged, true, "the gate runs on the push");
-  b = await f.settled(id);
-  assert.equal(stageOf(b, "code").where.check.title, "Ready for your OK");
-});
-
-test("Send back to Requirements when Code was refused on this computer: the spec and suite are revised, and the scripts written so far carry over", async (t) => {
+test("Send back to Requirements when Code was refused: the spec and suite are revised, and the scripts written so far carry over", async (t) => {
   const f = await factory({ failRounds: 2, rounds: 2 });
   t.after(f.close);
-  const id = (await f.post("/builds", { does: "Count the words.", name: "counter" })).json.build.id;
+  const id = await startRebuild(f, { does: "Count the words.", name: "counter" });
   await f.settled(id);
   await f.post(`/builds/${id}/actions/approve`);
   let b = await f.settled(id);
@@ -389,7 +272,7 @@ test("Send back to Requirements when Code was refused on this computer: the spec
   const code = stageOf(b, "code");
   assert.equal(code.state, "waiting_on_you", "the harness passes the revised suite");
   assert.ok(code.log.some((e) => e.said === "The scripts written before the build went back to Requirements are in it, over the stubs: scripts/count.mjs."));
-  assert.equal(codeRun(f, id).work.back_to_requirements, undefined);
+  assert.equal(f.store.read(id).work.back_to_requirements, undefined);
   const run = f.store.read(id).run;
   assert.deepEqual(run.deviations.map((d) => d.key), ["conflict", "changes"]);
 });

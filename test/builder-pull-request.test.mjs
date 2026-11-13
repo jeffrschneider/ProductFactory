@@ -239,10 +239,61 @@ test("the folder mirrors its branch, keeps records/, and names only what changed
   assert.match(builderPullRequestBody("word-counter", "0.1.0", "agents/word-counter"), /`agents\/word-counter\/`/);
 });
 
-test("code.where is for one builder only, and a pull request needs its repository", () => {
-  assert.throws(() => readConfig({ code: { holder: "harness", where: "pull-request" } }, "/"), /"code.where" is for "code.holder": "builder" only/);
+test("code.where says where one builder works, and a pull request needs its repository", () => {
   assert.throws(() => readConfig({ code: { holder: "builder", where: "pull-request" } }, "/"), /"code.where" is "pull-request", so "repository" names where the pull request goes/);
   assert.throws(() => readConfig({ code: { holder: "builder", where: "elsewhere" } }, "/"), /"code.where" is "here" .* or "pull-request"/);
   const c = readConfig({ code: { holder: "builder", where: "pull-request" }, repository: { host: "github", repo: "acme/agents", token: "GITHUB_TOKEN" } }, "/");
   assert.equal(c.code.where, "pull-request");
+  assert.deepEqual(c.repository, { host: "github", repo: "acme/agents", token: "GITHUB_TOKEN", api: "https://api.github.com", poll_seconds: 30 });
+  // The repository names the variable its token is read from, never a token; on GitHub, as owner/name.
+  assert.throws(() => readConfig({ repository: { host: "github", repo: "a/b", token: "ghp_abcdefghijklmnopqrstuvwxyz0123456789" } }, "/"), /never a token/);
+  assert.throws(() => readConfig({ repository: { host: "gitlab", repo: "a/b", token: "T" } }, "/"), /"github"/);
+  assert.throws(() => readConfig({ repository: { host: "github", repo: "nope", token: "T" } }, "/"), /owner\/name/);
+});
+
+test("on a pull request, the reviewers read the pushed build once its check passes, and their refusal is said on the pull request", async (t) => {
+  const adlc = await adlcWithKit();
+  const gh = await fakeGitHub();
+  const f = await factory({ doc: { version: "0.1", organization: { used: { docs: false } } }, holder: "builder", where: "pull-request", github: gh, adlc });
+  t.after(async () => { await f.close(); await gh.close(); delete process.env.PF_STUB_MARK; });
+  const folder = "agents/word-counter";
+  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "word-counter" })).json.build.id;
+  await f.settled(id);
+  const branch = [...gh.pulls.values()][0].head;
+  // Your assistant writes everything, and its script carries a line the security reviewer refuses.
+  process.env.PF_STUB_MARK = "TODO-SECURITY";
+  await personPushes(gh, branch, folder);
+  await f.runner.poll(id);
+  await f.settled(id);
+  assert.equal((await f.post(`/builds/${id}/actions/approve`)).status, 200);
+  await f.settled(id);
+  await f.post(`/builds/${id}/actions/changes`, { changes: "egress-1: yes" });
+  const b = await f.settled(id);
+  assert.equal(stageOf(b, "security").state, "refused");
+  assert.equal(stageOf(b, "package").state, "not_started");
+  assert.ok(gh.comments.some((c) => /The security reviewer refused/.test(c.body ?? "")), "the reviewers' word is said on the pull request");
+});
+
+test("a one-builder pull request closed without merging is said on the build, once", async (t) => {
+  const adlc = await adlcWithKit();
+  const gh = await fakeGitHub();
+  const f = await factory({ doc: leftOut, holder: "builder", where: "pull-request", github: gh, adlc });
+  t.after(async () => { await f.close(); await gh.close(); });
+  const folder = "agents/word-counter";
+  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "word-counter" })).json.build.id;
+  await f.settled(id);
+  const branch = [...gh.pulls.values()][0].head;
+  await personPushes(gh, branch, folder);
+  await f.runner.poll(id);
+  await f.settled(id);
+  await f.post(`/builds/${id}/actions/approve`);
+  await f.settled(id);
+  // The pull request is closed on GitHub, unmerged, while the build waits on your answer.
+  [...gh.pulls.values()][0].state = "closed";
+  await f.runner.pollAll();
+  await f.runner.pollAll();
+  const r = f.store.read(id);
+  assert.match(r.work.builder.pr.note ?? "", /^Pull request #1 was closed without merging\. Reopen it to go on\.$/);
+  const said = r.stages[r.at].log.filter((l) => /was closed without merging/.test(l.said));
+  assert.equal(said.length, 1, "said once, however often it is polled");
 });

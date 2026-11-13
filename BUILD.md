@@ -35,8 +35,8 @@ Analytics page. Spend and how each holder performs come next.
 
 A build starts from a ticket or an API call as well as the console, links
 back to its ticket, and posts there when a gate waits and when it ends.
-Connectors for the tracker, the repository host (Code as a pull request with
-the gate run on every push) and notifications, each small and behind its own
+Connectors for the tracker, the repository host (one builder on a pull
+request, with the build folder's check run on every push) and notifications, each small and behind its own
 published interface.
 
 ## Teams

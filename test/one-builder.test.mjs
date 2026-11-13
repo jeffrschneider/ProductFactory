@@ -159,3 +159,74 @@ test("a build folder still on the kit from before the two phases is never read a
   assert.equal(c.stage, null);
   assert.match(c.problems[0], /^This build folder carries the ADLC plugin's kit from before its two phases/);
 });
+
+// Review and Security review used: the code critic and the security reviewer read the build folder once its check passes the build.
+const withReviews = { version: "0.1", organization: { used: { docs: false } } };
+
+test("with Review and Security review used, the reviewers read the build folder once its check passes, and a pass goes on to Package", async (t) => {
+  const adlc = await adlcWithKit();
+  const f = await factory({ doc: withReviews, holder: "builder", harness: ["node", STUB_BUILDER, "{prompt}", "{plugin}"], adlc });
+  t.after(f.close);
+  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "word-counter" })).json.build.id;
+  await f.settled(id);
+  await f.post(`/builds/${id}/actions/approve`);
+  await f.settled(id);
+  await f.post(`/builds/${id}/actions/changes`, { changes: "egress-1: yes" });
+  const b = await f.settled(id);
+  ok(b);
+  const gate = f.store.read(id).work.builder.gate;
+  assert.equal(gate.runs.length, 1);
+  assert.equal(gate.runs[0].passed, true);
+  assert.deepEqual(Object.keys(gate.runs[0].reviews).sort(), ["critic", "security"]);
+  assert.equal(gate.passed, gate.runs[0].sha);
+  assert.equal(stageOf(b, "review").state, "done");
+  assert.equal(stageOf(b, "security").state, "done");
+  assert.match(stageOf(b, "security").given, /^Read in the build folder, once its check passed the build, at [0-9a-f]{7}/);
+  const made = Object.fromEntries(b.artifacts.map((x) => [x.id, x.state]));
+  assert.equal(made.findings, "made", "the code critic's findings");
+  assert.equal(made.security, "made", "the security reviewer's record");
+  assert.equal(stageOf(b, "package").state, "done");
+});
+
+test("a security refusal holds the build for the person, with the reviewer's words, and a send back opens it for the builder", async (t) => {
+  const adlc = await adlcWithKit();
+  const f = await factory({ doc: withReviews, holder: "builder", harness: ["node", STUB_BUILDER, "{prompt}", "{plugin}"], adlc, extraEnv: { PF_STUB_MARK: "TODO-SECURITY" } });
+  t.after(f.close);
+  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "word-counter" })).json.build.id;
+  await f.settled(id);
+  await f.post(`/builds/${id}/actions/approve`);
+  await f.settled(id);
+  await f.post(`/builds/${id}/actions/changes`, { changes: "egress-1: yes" });
+  let b = await f.settled(id);
+  ok(b);
+  assert.equal(stageOf(b, "security").state, "refused");
+  assert.equal(stageOf(b, "review").state, "done", "the code critic left nothing open");
+  assert.equal(stageOf(b, "package").state, "not_started", "nothing refused is packed");
+  assert.equal(stageOf(b, "code").state, "refused");
+  const words = stageOf(b, "code").handed_back.words.join(" ");
+  assert.match(words, /The security reviewer refused it\./);
+  assert.match(words, /send it back to the start of the build/);
+  assert.deepEqual(actionNames(b), ["resume", "send_back", "stop"]);
+  // You send it back to the start of the build: the build folder opens, and the builder goes on from your words.
+  assert.equal((await f.post(`/builds/${id}/actions/send_back`, { to: "architecture", changes: "Take out the marked line the security reviewer refused." })).status, 200);
+  b = await f.settled(id);
+  ok(b);
+  // The build opened again, its check passed it again (the stand-in kit holds nothing back), and the reviewers read it again: the marker is still there, so they refuse again.
+  const runs = f.store.read(id).work.builder.gate.runs;
+  assert.equal(runs.length, 2);
+  assert.equal(runs[1].passed, false);
+  assert.equal(stageOf(b, "security").state, "refused");
+});
+
+test("the builder's spec puts its features in the product's register as proposed, as the spec writer's does", async (t) => {
+  const adlc = await adlcWithKit();
+  const f = await factory({ doc: leftOut, holder: "builder", harness: ["node", STUB_BUILDER, "{prompt}", "{plugin}"], adlc });
+  t.after(f.close);
+  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "word-counter" })).json.build.id;
+  await f.settled(id);
+  const kept = f.store.read(id);
+  assert.deepEqual((kept.feature_log ?? []).map((e) => e.feature), ["F1"], "the spec's one feature is proposed");
+  const matrix = await f.get(`/builds/${id}/features`);
+  assert.equal(matrix.status, 200);
+  assert.ok(JSON.stringify(matrix.json).includes("F1"), "the features matrix shows it");
+});
