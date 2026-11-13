@@ -13,7 +13,7 @@ test("paths are read from the settings file's folder, and the defaults fill the 
   const c = readConfig({ adlc: "../adlc" }, join("/work", "pf"));
   assert.equal(c.adlc, resolve("/work", "adlc"));
   assert.equal(c.lifecycle, resolve("/work", "pf", "lifecycle.json"));
-  assert.equal(c.code.holder, "harness");
+  assert.equal(c.code.holder, "builder", "new agents are built by one builder");
   assert.equal(c.code.rounds, 3);
   assert.deepEqual(c.model, { name: "MODEL_NAME", endpoint: "MODEL_ENDPOINT", key: "MODEL_KEY", protocol: "MODEL_PROTOCOL" });
 });
