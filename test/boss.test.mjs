@@ -8,17 +8,23 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { factory, stageOf, actionNames } from "./helpers.mjs";
+import { factory, stageOf, actionNames, startRebuild } from "./helpers.mjs";
 import { createKeys, KEYS_FILE } from "../lib/people.mjs";
 import { checkBossMessages, checkBossReply, checkBossCommitments, checkMessages } from "../standards/lifecycle-api-check.mjs";
 import { STAGE_IDS } from "../lib/standards.mjs";
 import { nextVersion } from "../lib/boss.mjs";
 
-/** A product "counter", its first build waiting at the spec's gate. */
-async function counter(t, opts = {}) {
-  const f = await factory({ holder: "harness", ...opts });
+/**
+ * A product "counter", its first build waiting at the spec's gate. It is built on the reference
+ * writers (a rebuild from an as-built record with no behaviors), whose stage chats the boss posts
+ * into; one builder, which makes new agents, is talked to where it runs. builder: a new agent
+ * instead, built by one builder, for what the boss plans and starts.
+ */
+async function counter(t, opts = {}, { builder = false } = {}) {
+  const f = await factory(opts);
   t.after(f.close);
-  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
+  const body = { does: "Count the words in a passage.", name: "counter" };
+  const id = builder ? (await f.post("/builds", body)).json.build.id : await startRebuild(f, body);
   await f.settled(id);
   return { f, id };
 }
@@ -51,7 +57,7 @@ test("a question is answered from the product's record, and answering changes no
   const prompt = readFileSync(join(f.store.folder(id), "thread", message.id, "prompt.txt"), "utf8");
   assert.match(prompt, /^You are the boss of the product counter/);
   assert.match(prompt, /- requirements \(Requirements\): waiting_on_you, held by the spec writer\. Its gate is open: Anyone may answer this gate/);
-  assert.match(prompt, /Stages you may post a directive to on 0\.1\.0: requirements \(the spec writer\), architecture \(the solution architect\), test \(the test writer\)\./);
+  assert.match(prompt, /Stages you may post a directive to on 0\.1\.0: requirements \(the spec writer\), test \(the test writer\), code \(the code writer\)\./);
   assert.equal(frozen(f.store.read(id)), before);
 
   // Kept as the product's boss conversation, and in no stage's chat.
@@ -99,16 +105,17 @@ test("a directive is routed into the chat of the stage that owns it, with its co
 });
 
 test("a request that changes the statement is planned, proposes the next version, then the spec writer's changes action", async (t) => {
-  const { f, id } = await counter(t);
+  const { f, id } = await counter(t, {}, { builder: true });
   const said = "It should also count the characters.";
   const got = await tell(f, said);
   assert.equal(got.status, 200);
   const { reply } = got.json;
 
   // The plan: every stage the next version runs, in order, with the gates the person meets.
-  assert.deepEqual(reply.plan.map((s) => s.stage), ["requirements", "architecture", "test", "code", "package", "conformance"]);
+  // One builder's build: the reviewers read it once its check passes, so Review and Security review are in the plan.
+  assert.deepEqual(reply.plan.map((s) => s.stage), ["requirements", "architecture", "test", "code", "review", "security", "package", "conformance"]);
   assert.equal(reply.plan[0].words, "The spec writer revises the statement to say it.");
-  assert.equal(reply.plan[3].words, "Your coding harness (node) writes the scripts until the suite passes.");
+  assert.equal(reply.plan[3].words, "One builder: your coding harness (node) with the ADLC plugin writes the scripts until the suite passes.");
   assert.equal(reply.plan[0].gate, "You approve the spec, or ask for changes. Anyone may answer this gate: the lifecycle names no approvers for it.");
   assert.match(reply.plan[3].gate, /^You OK the code\./);
   assert.equal(reply.plan[1].gate, undefined);
@@ -128,14 +135,13 @@ test("a request that changes the statement is planned, proposes the next version
   // Then it proposes the spec writer's own action, with the person's words.
   assert.deepEqual({ ...yes.json.reply.proposes, id: "x" }, { id: "x", build: started.build, action: "changes", needs: { changes: said }, words: "Ask for changes on Requirements, 0.2.0?", when: "When Requirements of 0.2.0 waits on you, after the spec writer's first draft." });
 
-  // The new build is the product's newest, version 0.2.0, and its first draft revised 0.1.0's statement.
+  // The new build is the product's newest, version 0.2.0, and the builder's request names 0.1.0 as the version it changes.
   const b = await f.settled(started.build);
   assert.equal(b.version, "0.2.0");
   assert.deepEqual(actionNames(b), ["approve", "changes", "stop"]);
-  const asked = JSON.parse(readFileSync(join(f.store.folder(started.build), "stages", "requirements", "records", "r1", "asked.json"), "utf8"));
-  assert.match(asked.said, new RegExp(`\\nprototype: counter 0\\.1\\.0 \\(build ${id}\\): its approved spec and the agent's own files are attached, to revise\\.\\n`));
-  assert.match(asked.said, /\nversion: 0\.2\.0\n/);
-  assert.ok(asked.files.some((p) => p.replace(/\\/g, "/").endsWith("/out/agent/agent-descriptor.json") && p.includes(id)), asked.files.join("\n"));
+  const request = readFileSync(join(f.store.folder(started.build), "build", "request.md"), "utf8");
+  assert.match(request, new RegExp(`prototype: counter 0\\.1\\.0 \\(build ${id}\\) is the version this one changes\\.`));
+  assert.match(request, /version: 0\.2\.0/);
   assert.deepEqual((await f.get("/products/counter")).json.builds.map((x) => x.version), ["0.2.0", "0.1.0"]);
   // A proposal is confirmed once.
   assert.equal((await tell(f, "Yes again.", { confirms: reply.proposes.id })).status, 400);
@@ -247,7 +253,7 @@ const PEOPLE = {
 
 test("teams rules: anyone who may see the product talks to the boss, and a gate's action is proposed only to whoever may answer it", async (t) => {
   const doc = { version: "0.1", organization: { approvers: { requirements: [{ person: "ana@example.com" }] } } };
-  const { f, id } = await counter(t, { people: PEOPLE, doc });
+  const { f, id } = await counter(t, { people: PEOPLE, doc }, { builder: true });
   const keys = createKeys(join(f.config.data, KEYS_FILE));
   const as = (key) => (method, path, body) => f.call(method, path, body, { auth: key });
   const ana = as(keys.make("ana@example.com"));

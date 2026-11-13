@@ -2,7 +2,7 @@
 // 127.0.0.1 with fake holders (the stand-in agents under fixtures/fake-adlc,
 // the stand-in harness and the stand-in packer under fixtures/bin).
 
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,7 +21,6 @@ export const FAKE_ADLC = join(HERE, "fixtures", "fake-adlc");
 export const STUB_HARNESS = join(HERE, "fixtures", "bin", "stub-harness.mjs");
 export const STUB_BUILDER = join(HERE, "fixtures", "stub-builder.mjs");
 export const STUB_PACKER = join(HERE, "fixtures", "bin", "stub-packer.mjs");
-export const FIX_HARNESS = join(HERE, "fixtures", "bin", "fix-harness.mjs");
 
 export const tempDir = (name) => mkdtemp(join(process.env.PF_TEST_TMP || tmpdir(), `pf-${name}-`));
 
@@ -92,22 +91,38 @@ export async function factory({ doc = null, holder = "builder", rounds = 3, fail
   };
 }
 
-export const stageOf = (build, id) => build.stages.find((s) => s.stage === id);
 /**
- * The record of the run that made a build's Test and Code, as build.json keeps it: a version's newest
- * feature run (make-a-feature.txt), or the build itself when it made them in one chain (an old build,
- * or one started from existing code or an as-built record). feature: the run of that feature.
+ * A whole as-built record of code kept elsewhere (record.json and its five parts) in a folder of its
+ * own, in the reverse engineer's shape, with the behaviors given (none by default). Resolves to the folder.
  */
-export const codeRun = (f, id, feature = null) => {
-  const b = f.store.read(id);
-  const runs = b?.feature_runs ?? [];
-  return (feature ? runs.find((x) => x.feature === feature) : runs.at(-1)) ?? b;
-};
-/** The folder that run keeps its files in: the feature run's own (runs/<id>/), or the build's. */
-export const codeDir = (f, id, feature = null) => {
-  const r = codeRun(f, id, feature);
-  return r.feature ? join(f.store.folder(id), "runs", r.id) : f.store.folder(id);
-};
+export async function asBuiltRecord(behaviors = []) {
+  const dir = join(await tempDir("record"), "as-built");
+  await mkdir(dir, { recursive: true });
+  const files = {
+    "record.json": { format: "as-built-record-v1", as_built: true, repository: "file:///work/orig", commit: "bfecc9cea70c5df651db5cf2530416832c6fc68d", read_mode: "read", trigger: "adoption", made_by: { agent: "reverse-engineer", version: "0.1.0" } },
+    "behaviors.json": { format: "as-built-behaviors-v1", behaviors },
+    "architecture.json": { format: "as-built-architecture-v1", settings: [], systems: [] },
+    "interfaces.json": { format: "as-built-interfaces-v1", interfaces: [] },
+    "sbom.cdx.json": { bomFormat: "CycloneDX", specVersion: "1.5", components: [] },
+    "tests-and-gaps.json": { format: "as-built-tests-and-gaps-v1", tests: [], gaps: [] },
+  };
+  for (const [p, v] of Object.entries(files)) await writeFile(join(dir, p), JSON.stringify(v, null, 2));
+  return dir;
+}
+
+/**
+ * A build that runs on the reference writers: a rebuild from an as-built record (starting point
+ * as-built-record), started as POST /builds starts one. One builder makes new agents only, so a test
+ * of what the reference spec writer, test writer or code writer do starts one of these. body: the
+ * request (name is required). behaviors: the record's, each proposed as built. Resolves to the build id.
+ */
+export async function startRebuild(f, body, { behaviors = [] } = {}) {
+  const got = await f.post("/builds", { ...body, starting_point: "as-built-record", source: { folder: await asBuiltRecord(behaviors) } });
+  if (got.status !== 201) throw new Error(`The rebuild did not start: ${JSON.stringify(got.json)}`);
+  return got.json.build.id;
+}
+
+export const stageOf = (build, id) => build.stages.find((s) => s.stage === id);
 export const actionNames = (build) => build.actions.map((a) => a.name);
 
 /**

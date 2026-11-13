@@ -4,25 +4,29 @@
 // (fixtures/fake-adlc/agents/spec-writer/scripts/model-caller.mjs), and the
 // stand-in test writer names one test per approved feature "[F1] ...". No test
 // reaches a model or the network.
+//
+// The product is built on the reference writers (a rebuild from an as-built
+// record with no behaviors in it), so its Requirements chat is the reference
+// spec writer's: one builder makes new agents, and is talked to where it runs.
 
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { factory, tempDir, codeDir } from "./helpers.mjs";
+import { factory, tempDir, startRebuild, asBuiltRecord } from "./helpers.mjs";
 import { createKeys, KEYS_FILE } from "../lib/people.mjs";
 import { checkBuild, checkFeatures, checkFeature, checkFeatureDecision, checkMessages, checkMessageReply, checkStageWorkspace, checkBossMessages } from "../standards/lifecycle-api-check.mjs";
 import { STAGE_IDS } from "../lib/standards.mjs";
 import { byFeature, materialLines, registerOf } from "../lib/features.mjs";
-import { phaseMaterial, parse, PROCESS_FILE, FEATURE_FILE } from "../lib/orchestrator.mjs";
+import { phaseMaterial, parse, RECORD_FILE } from "../lib/orchestrator.mjs";
 
 const SINK = join(import.meta.dirname, "fixtures", "bin", "notice-sink.mjs");
 
 /** A product "counter", its first build waiting for the spec's approval. */
 async function counter(t, opts = {}) {
-  const f = await factory({ holder: "harness", rounds: 1, ...opts });
+  const f = await factory({ rounds: 1, ...opts });
   t.after(f.close);
-  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
+  const id = await startRebuild(f, { does: "Count the words in a passage.", name: "counter" });
   await f.settled(id);
   return { f, id };
 }
@@ -144,14 +148,13 @@ test("approved features reach the spec writer and the test writer as lines aimed
   await approved(f, id, "Add a feature: Count words - Counts the words in a passage.");
   await approved(f, id, "Add a feature: Fails on purpose - A case no script passes.");
 
-  // Lines aimed at a phase go to that phase alone: the spec writer's in the version's run, the test writer's in each feature's.
-  const doc = parse(readFileSync(PROCESS_FILE, "utf8"));
-  const fdoc = parse(readFileSync(FEATURE_FILE, "utf8"));
+  // Lines aimed at a phase go to that phase alone: the spec writer's, and the test writer's.
+  const doc = parse(readFileSync(RECORD_FILE, "utf8"));
   const lines = materialLines([...registerOf(f.store.read(id).feature_log.map((e) => ({ ...e, build: id, version: "0.1.0" }))).values()]);
   assert.match(phaseMaterial(lines, doc, "write-the-spec"), /^features: the owner approved these; keep each one in the spec/);
   assert.doesNotMatch(phaseMaterial(lines, doc, "write-the-spec"), /square brackets/);
-  assert.match(phaseMaterial(lines, fdoc, "write-the-suite"), /starting with the feature's id in square brackets/);
-  assert.doesNotMatch(phaseMaterial(lines, fdoc, "write-the-suite"), /keep each one in the spec/);
+  assert.match(phaseMaterial(lines, doc, "write-the-suite"), /starting with the feature's id in square brackets/);
+  assert.doesNotMatch(phaseMaterial(lines, doc, "write-the-suite"), /keep each one in the spec/);
 
   // Ask for changes: the spec writer's revision carries the features.
   await f.post(`/builds/${id}/actions/changes`, { changes: "Say what it refuses." });
@@ -160,23 +163,19 @@ test("approved features reach the spec writer and the test writer as lines aimed
   assert.match(specText, /^changes: Say what it refuses\.\n\nfeatures: the owner approved these; keep each one in the spec, by its id and in its offering:\n- F1 \(offering Count\): Count words\. Counts the words in a passage\.\n- F2 /);
   assert.doesNotMatch(specText, /\[write-the-/);
 
-  // The gate: each feature is made in a run of its own. Its test writer is asked for that feature's tests alone, Code runs them, and the round says the feature's results.
+  // The gate: the test writer is asked for the approved features' tests, Code runs them, and the round says each feature's results.
   await f.post(`/builds/${id}/actions/approve`);
   const b = await f.settled(id);
-  const testText = readFileSync(join(codeDir(f, id, "F1"), "stages", "test", "jobs", "r1", "message.txt"), "utf8");
-  assert.match(testText, /^Write the tests of feature F1 \(Count words\) alone, from the spec and the agent's files attached\. Name each test file for the feature\.\n\nfeature: F1\n\nfeatures: the owner approved these:\n- F1 /);
-  assert.doesNotMatch(testText, /- F2 /, "a feature's test writer is given its own feature alone");
+  const testText = readFileSync(join(f.store.folder(id), "stages", "test", "jobs", "r1", "message.txt"), "utf8");
+  assert.match(testText, /features: the owner approved these:\n- F1 [^\n]*\n- F2 /);
   // With a spec (stages.json 1.6.0) a test is named by its acceptance scenario, and a feature the spec has no scenario for by its own id.
   assert.match(testText, /Name each test that checks one of the spec's acceptance scenarios starting with the scenario's id in square brackets, such as "\[F1\.A1\] \.\.\.", and each test of a kept interface with the interface's id, such as "\[I1\] \.\.\."\. A test of one of these features that has no scenario in the spec starts with the feature's id, such as "\[F1\] count words"\./);
   // The revised spec kept both features with a scenario each, so each test is named by its scenario and counts for its feature;
   // the kept interface's test checks no feature.
-  assert.deepEqual(b.artifacts.find((a) => a.id === "suite").summary.tests, ["[F1.A1] count words", "[I1] count is exported, as the spec keeps it", "[F2.A1] fails on purpose"]);
-  const rounds = b.stages.find((s) => s.stage === "code").rounds;
-  const one = rounds.find((x) => /^F1 · /.test(x.label));
-  const two = rounds.find((x) => /^F2 · /.test(x.label));
-  assert.deepEqual(one.by_feature, [{ feature: "F1", passed: 1, total: 1 }]);
-  assert.match(one.words, /By feature: F1 1 of 1 pass\.$/);
-  assert.deepEqual(two.by_feature, [{ feature: "F2", passed: 0, total: 1 }]);
+  assert.deepEqual(b.artifacts.find((a) => a.id === "suite").summary.tests, ["counts the words in a passage", "[F1.A1] count words", "[F2.A1] fails on purpose", "[I1] count is exported, as the spec keeps it"]);
+  const [round] = b.stages.find((s) => s.stage === "code").rounds;
+  assert.deepEqual(round.by_feature, [{ feature: "F1", passed: 1, total: 1 }, { feature: "F2", passed: 0, total: 1 }]);
+  assert.match(round.words, /By feature: F1 1 of 1 pass/);
   assert.deepEqual(checkBuild((await f.get(`/builds/${id}`)).json, STAGE_IDS, id), []);
 
   const m = await matrix(f, id);
@@ -214,7 +213,7 @@ test("the matrix: done, stale and missing cells, and new, changed or unchanged b
   // The next version: F2 changes, F4 is new, F1 and F3 are unchanged.
   await f.post(`/builds/${id}/actions/accept`);
   await f.settled(id);
-  const next = (await f.runner.start({ does: "Count the words in a passage.", name: "counter" }, undefined, { version: "0.2.0" })).id;
+  const next = (await f.runner.start({ does: "Count the words in a passage.", name: "counter", starting_point: "as-built-record", source: { folder: await asBuiltRecord() } }, undefined, { version: "0.2.0" })).id;
   await f.settled(next);
   const c2 = await say(f, "requirements", "Change feature F2: Lines - Says how many lines and paragraphs there are.", f.call, { build: next });
   await decide(f, next, "F2", "approve", { proposal: c2.json.reply.features[0].proposal });
@@ -245,7 +244,7 @@ test("a feature's history: proposed in chat, approved, tests added, code changed
   assert.match(got.json.history[0].words, /^Spec writer proposed F1: Count words\. Counts the words in a passage\. \(offering Count\)$/);
   assert.match(got.json.history[1].words, /^Approved in the chat\. The spec is v2 with it\.$/);
   assert.deepEqual(got.json.history[2].link, { kind: "artifact", artifact: "suite", feature: "F1" });
-  assert.match(got.json.history[3].words, /^The code passes 1 of 1 tests for F1 \(F1 · Round 1\)\.$/);
+  assert.match(got.json.history[3].words, /^The code passes 1 of 1 tests for F1 \(Round 1\)\.$/);
   assert.equal((await f.get("/products/counter/features/F99")).status, 404);
 });
 

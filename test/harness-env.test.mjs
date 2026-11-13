@@ -1,6 +1,7 @@
 // code.env_remove: variables taken out of the harness's environment before it
 // runs, so a harness such as Claude Code uses its own sign-in (the person's
-// plan) rather than an ANTHROPIC_API_KEY that happens to be set.
+// plan) rather than an ANTHROPIC_API_KEY that happens to be set. The harness
+// here is one builder's (the stand-in builder), from the spec through the code.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -9,7 +10,7 @@ import { readConfig, STARTER } from "../lib/config.mjs";
 import { withoutEnv } from "../lib/exec.mjs";
 import { factory, stageOf } from "./helpers.mjs";
 
-const calls = (f) => (existsSync(f.stubLog) ? readFileSync(f.stubLog, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []);
+const calls = (f) => (existsSync(f.stubLog) ? readFileSync(f.stubLog, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((c) => c.builder) : []);
 const leftOut = { version: "0.1", organization: { used: { review: false, docs: false } } };
 
 test("code.env_remove defaults to ANTHROPIC_API_KEY, takes [] and refuses anything but variable names", () => {
@@ -37,12 +38,12 @@ async function toCode(f) {
   await f.settled(id);
   assert.equal((await f.post(`/builds/${id}/actions/approve`)).status, 200);
   const b = await f.settled(id);
-  assert.equal(stageOf(b, "code").state, "waiting_on_you");
+  assert.equal(stageOf(b, "code").state, "done");
   return calls(f);
 }
 
 test("by default the harness runs without ANTHROPIC_API_KEY, and the model settings still reach it", async (t) => {
-  const f = await factory({ holder: "harness", doc: leftOut, extraEnv: { ANTHROPIC_API_KEY: "stand-in-key-with-no-credit" } });
+  const f = await factory({ doc: leftOut, extraEnv: { ANTHROPIC_API_KEY: "stand-in-key-with-no-credit" } });
   t.after(f.close);
   const h = await toCode(f);
   assert.ok(h.length >= 1);
@@ -52,7 +53,7 @@ test("by default the harness runs without ANTHROPIC_API_KEY, and the model setti
 });
 
 test("code.env_remove [] keeps ANTHROPIC_API_KEY for the harness", async (t) => {
-  const f = await factory({ holder: "harness", doc: leftOut, envRemove: [], extraEnv: { ANTHROPIC_API_KEY: "stand-in-key" } });
+  const f = await factory({ doc: leftOut, envRemove: [], extraEnv: { ANTHROPIC_API_KEY: "stand-in-key" } });
   t.after(f.close);
   const h = await toCode(f);
   assert.ok(h.length >= 1);

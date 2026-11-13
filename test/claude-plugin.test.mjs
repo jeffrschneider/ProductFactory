@@ -12,7 +12,7 @@ import { createInterface } from "node:readline";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { factory, tempDir } from "./helpers.mjs";
+import { factory, tempDir, startRebuild } from "./helpers.mjs";
 import { fakeGitHub } from "./fixtures/fake-github.mjs";
 import { locate, TOOLS } from "../claude-plugin/mcp/tools.mjs";
 
@@ -44,7 +44,7 @@ function mcp(t, f, env = {}) {
 
 /** A Product Factory and the plugin's server on it. */
 async function setUp(t, opts = {}) {
-  const f = await factory({ holder: "harness", rounds: 1, ...opts });
+  const f = await factory({ rounds: 1, ...opts });
   t.after(f.close);
   const m = mcp(t, f);
   const init = await m.rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "0" } });
@@ -74,15 +74,16 @@ test("start_build starts a build from words, and waiting_on_me shows its gate wi
   assert.deepEqual(started.json.actions.map((a) => a.id), [`${id}/approve`, `${id}/changes`, `${id}/stop`]);
 
   const w = await m.call("waiting_on_me");
-  assert.match(w.words, /^1 thing waits on you \(Test Person\)\./);
+  // The spec's gate, and the feature the builder's spec proposes.
+  assert.match(w.words, /^2 things wait on you \(Test Person\)\./);
   assert.match(w.words, /counter 0\.1\.0 \(b_[a-z0-9]{12}\) at Requirements: Waiting on you at Requirements\./);
-  assert.match(w.words, /It says: Drafted the spec for counter\./);
+  assert.match(w.words, /It says: The builder's spec is ready for your approval/);
   assert.match(w.words, /Who may answer: Anyone may answer this gate/);
   assert.match(w.words, new RegExp(`Approve the spec \\[${id}/approve\\]; Ask for changes \\[${id}/changes\\]; Stop \\[${id}/stop\\]`));
   assert.equal(w.json.gates.length, 1);
   assert.deepEqual({ build: w.json.gates[0].build, stage: w.json.gates[0].stage }, { build: id, stage: "requirements" });
-  assert.deepEqual(w.json.gates[0].gate.said, ["Drafted the spec for counter."]);
-  assert.deepEqual(w.json.features, []);
+  assert.match(w.json.gates[0].gate.said[0], /^The builder's spec is ready for your approval/);
+  assert.deepEqual(w.json.features.map((x) => x.feature), ["F1"]);
 
   // build_status and stage read the same build, and change nothing.
   const s = await m.call("build_status", { product: "counter" });
@@ -101,7 +102,9 @@ test("start_build starts a build from words, and waiting_on_me shows its gate wi
 
 test("ask returns a stage agent's reply with the action it proposes, and a feature with its id; approving the feature is left to the console", async (t) => {
   const { f, m } = await setUp(t);
-  const id = (await m.call("start_build", { does: "Count the words in a passage.", name: "counter", wait_seconds: 30 })).json.build;
+  // On the reference writers (a rebuild), whose Requirements chat is the spec writer's.
+  const id = await startRebuild(f, { does: "Count the words in a passage.", name: "counter" });
+  await f.settled(id);
 
   const change = await m.call("ask", { product: "counter", stage: "requirements", text: "Please change the name to tally." });
   assert.equal(change.error, false, change.words);
@@ -157,7 +160,9 @@ test("act refuses an action the build does not offer now, says what it offers, a
 
 test("act leaves the person's approvals to the console, takes the other gate actions, and the build moves on", async (t) => {
   const { f, m } = await setUp(t);
-  const id = (await m.call("start_build", { does: "Count the words in a passage.", name: "counter", wait_seconds: 30 })).json.build;
+  // On the reference writers (a rebuild): Code waits for your OK, and Requirements' chat is the spec writer's.
+  const id = await startRebuild(f, { does: "Count the words in a passage.", name: "counter" });
+  await f.settled(id);
 
   const got = await m.call("act", { id: `${id}/approve`, engineer_said: "Approve the spec." });
   assert.equal(got.error, true);
@@ -174,7 +179,8 @@ test("act leaves the person's approvals to the console, takes the other gate act
   assert.equal(w.json.gates[0].stage, "code");
 
   // A proposed change goes back through its gate: Ask for changes, with the agent's words, from a fresh build.
-  const id2 = (await m.call("start_build", { does: "Say hello.", name: "greeter", wait_seconds: 30 })).json.build;
+  const id2 = await startRebuild(f, { does: "Say hello.", name: "greeter" });
+  await f.settled(id2);
   const asked = await m.call("ask", { product: "greeter", stage: "requirements", text: "Please change the greeting to a wave." });
   const changed = await m.call("act", { id: asked.json.proposes.id, needs: asked.json.proposes.needs, engineer_said: "Yes, ask for that change." });
   assert.equal(changed.error, false, changed.words);
@@ -201,7 +207,7 @@ test("the boss's start_version proposal is confirmed through act, which starts t
 
 test("start_build from an issue number when intake is on, and says so when it is off", async (t) => {
   const gh = await fakeGitHub();
-  const f = await factory({ holder: "harness", github: gh, intake: { github_issues: { label: "product-factory", poll_seconds: 3600 } } });
+  const f = await factory({ github: gh, intake: { github_issues: { label: "product-factory", poll_seconds: 3600 } } });
   t.after(async () => { await f.close(); await gh.close(); });
   const m = mcp(t, f);
   const n = gh.addIssue({ title: "Count the words in a passage.", labels: ["product-factory"] });

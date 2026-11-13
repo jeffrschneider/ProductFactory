@@ -1,41 +1,34 @@
 // Products, stage workspaces and each stage's chat (lifecycle API 0.4), over
-// HTTP, on builds walked with stand-in holders: the stand-in agents, a fake
-// GitHub for Code's pull request, and a stand-in for the shared model caller
-// (fixtures/fake-adlc/agents/spec-writer/scripts/model-caller.mjs). No test
-// reaches a model or the network.
+// HTTP, on builds walked with stand-in holders: the stand-in agents, and a
+// stand-in for the shared model caller
+// (fixtures/fake-adlc/agents/spec-writer/scripts/model-caller.mjs). The
+// product is built on the reference writers (a rebuild from an as-built record
+// with no behaviors), whose stage chats answer; one builder, which makes new
+// agents, is talked to where it runs. No test reaches a model or the network.
 
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { factory, stageOf, actionNames, FAKE_ADLC } from "./helpers.mjs";
-import { fakeGitHub } from "./fixtures/fake-github.mjs";
+import { factory, stageOf, actionNames, FAKE_ADLC, startRebuild } from "./helpers.mjs";
 import { createKeys, KEYS_FILE } from "../lib/people.mjs";
 import { checkBuild } from "adlc-console/lib/contract.mjs";
 import { validate, checkProducts, checkProduct, checkStageWorkspace, checkMessages, checkMessageReply } from "../standards/lifecycle-api-check.mjs";
 import { STAGE_IDS, STAGES_DOC } from "../lib/standards.mjs";
 import { holderWithSkills } from "../lib/view.mjs";
 
-const BRANCH = "adlc/counter-0.1.0";
-const SCRIPT = "agents/counter/scripts/count.mjs";
-const RIGHT = "export function count(text) { return String(text).split(/\\s+/).filter(Boolean).length; }\n";
-
-/** A product "counter" on a pull request, its first build waiting for the spec's approval. */
+/** A product "counter" on the reference writers, its first build waiting for the spec's approval. */
 async function counter(t, { factory: opts = {} } = {}) {
-  const gh = await fakeGitHub();
-  const f = await factory({ holder: "pull-request", github: gh, ...opts });
-  t.after(async () => { await f.close(); await gh.close(); });
-  const id = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
+  const f = await factory(opts);
+  t.after(f.close);
+  const id = await startRebuild(f, { does: "Count the words in a passage.", name: "counter" });
   await f.settled(id);
-  return { gh, f, id };
+  return { f, id };
 }
 
-/** Walks the build from the spec's gate to Code's gate, with a passing push. */
-async function toCodeGate(f, gh, id) {
+/** Walks the build from the spec's gate to Code's gate. */
+async function toCodeGate(f, id) {
   await f.post(`/builds/${id}/actions/approve`);
-  await f.settled(id);
-  gh.push(BRANCH, { [SCRIPT]: RIGHT });
-  await f.runner.poll(id);
   return f.settled(id);
 }
 
@@ -48,7 +41,7 @@ async function ws(f, id, stage) {
 const say = (f, stage, text, extra = {}, call = f.call) => call("POST", `/products/counter/stages/${stage}/messages`, { text, ...extra });
 
 test("products, a product's builds and activity, and each stage's workspace, from a walked build", async (t) => {
-  const { gh, f, id } = await counter(t);
+  const { f, id } = await counter(t);
 
   // The product list: one product per build name, with its newest build.
   let list = await f.get("/products");
@@ -60,43 +53,33 @@ test("products, a product's builds and activity, and each stage's workspace, fro
   let req = (await ws(f, id, "requirements")).json;
   assert.equal(req.state, "waiting_on_you");
   assert.deepEqual(req.gate, { actions: ["approve", "changes", "stop"], state: "open", who_may: "Anyone may answer this gate: the lifecycle names no approvers for it." });
-  assert.deepEqual(req.given, []);
+  // A rebuild is given the as-built record it was started from.
+  assert.deepEqual(req.given, ["as_built"]);
   assert.deepEqual(req.outputs.map((a) => [a.id, a.state]), [["spec", "made"]]);
   // The words are stages.json's, as pinned (standards/ADLC.json), never a copy here.
   assert.equal(req.done_when, STAGES_DOC.stages.find((s) => s.id === "requirements").done_when);
-  // Test has not run: nothing given yet but the statement, its suite comes after the architecture record, and it has no gate.
+  // Test has not run: what it is given is made, its suite is next, and it has no gate.
   const tst = (await ws(f, id, "test")).json;
-  assert.deepEqual(tst.given, ["spec", "statement"]);
-  assert.deepEqual(tst.outputs.map((a) => [a.id, a.state]), [["suite", "later"]]);
+  assert.deepEqual(tst.given, ["spec", "statement", "as_built"]);
+  assert.deepEqual(tst.outputs.map((a) => [a.id, a.state]), [["suite", "next"]]);
   assert.equal(tst.gate, undefined);
 
   // On to Code's gate: Requirements now reads answered, by the person, with the action they took.
-  let b = await toCodeGate(f, gh, id);
+  let b = await toCodeGate(f, id);
   req = (await ws(f, id, "requirements")).json;
   assert.equal(req.gate.state, "answered");
   assert.deepEqual({ ...req.gate.answered, at: "x" }, { by: "Test Person", at: "x", action: "approve" });
   const code = (await ws(f, id, "code")).json;
-  assert.deepEqual(code.gate.actions, ["accept", "back_to_test", "back_to_requirements", "stop"]);
+  assert.deepEqual(code.gate.actions, ["accept", "stop"]);
   assert.equal(code.gate.state, "open");
   assert.deepEqual(code.given, ["spec", "statement", "suite"]);
   assert.deepEqual(code.outputs.map((a) => [a.id, a.state]), [["programs", "made"]]);
-  assert.equal(code.outputs[0].summary.pr.number, 1);
-  const review = (await ws(f, id, "review")).json;
-  assert.deepEqual(review.outputs.map((a) => [a.id, a.state]), [["findings", "made"]]);
-  assert.equal(review.outputs[0].summary.verdict, "Nothing open.");
-  assert.deepEqual(review.given, ["spec", "suite", "programs"]);
 
   // The build answer carries the artifacts, and still meets the console's checks and the lifecycle API's.
   const one = await f.get(`/builds/${id}`);
   assert.deepEqual(checkBuild(one.json, STAGE_IDS), []);
   assert.deepEqual(validate("BuildAnswer", one.json), []);
-  assert.deepEqual(one.json.build.artifacts.map((a) => a.id), ["spec", "statement", "architecture", "suite", "programs", "findings", "security", "package", "build_record", "run_plan", "attestation", "agentdoc"]);
   assert.equal(one.json.build.artifacts.find((a) => a.id === "package").state, "next");
-  // A reviewer's document is read at its artifact's link.
-  const findings = one.json.build.artifacts.find((a) => a.id === "findings").files[0];
-  const doc = await f.call("GET", findings.link.replace("/v1/lifecycle", ""), undefined, { raw: true });
-  assert.equal(doc.status, 200);
-  assert.match(doc.text, /open: 0/);
 
   // Your OK, then the package: the deploy gate opens with the package and the run plan.
   await f.post(`/builds/${id}/actions/accept`);
@@ -114,7 +97,7 @@ test("products, a product's builds and activity, and each stage's workspace, fro
   assert.deepEqual(p.builds.map((x) => [x.id, x.version, x.state]), [[id, "0.1.0", "waiting_on_you"]]);
   assert.equal(p.run_plan.build, id);
   assert.ok(p.run_plan.summary.stages.some((e) => e.stage === "monitor"));
-  assert.ok(p.activity.some((e) => e.stage === "code" && /^Opened pull request #1/.test(e.words)));
+  assert.ok(p.activity.some((e) => e.stage === "code" && /^The build folder is laid out at /.test(e.words)));
   assert.ok(p.activity.some((e) => e.stage === "requirements" && e.words === "You approved the spec."));
   assert.ok(p.activity.every((e, i, all) => i === 0 || all[i - 1].at >= e.at), "newest first");
   assert.ok(p.activity.every((e) => e.build === id && e.version === "0.1.0"));
@@ -133,8 +116,8 @@ test("products, a product's builds and activity, and each stage's workspace, fro
 });
 
 test("the agent holding a stage answers a question from its outputs, and the chat is kept per product per stage", async (t) => {
-  const { gh, f, id } = await counter(t);
-  await toCodeGate(f, gh, id);
+  const { f, id } = await counter(t);
+  await toCodeGate(f, id);
   const before = f.store.read(id);
 
   const got = await say(f, "test", "What happens with an empty message?");
@@ -146,8 +129,8 @@ test("the agent holding a stage answers a question from its outputs, and the cha
   assert.equal(reply.from.name, "Test writer");
   assert.equal(reply.from.role, "test-writer");
   assert.equal(reply.build, id);
-  // The test writer read its suite, then what it was given: the spec and the agent's own files (stages.json 1.6.0).
-  assert.match(reply.text, /^You asked: What happens with an empty message\? I read test\/count\.test\.mjs, test\/kept-interfaces\.test\.mjs, requirements\/spec\.json, requirements\/spec\.md, design\/agent-descriptor\.json/);
+  // The test writer read its suite, then what it was given: the as-built record, the spec and the agent's own files (stages.json 1.6.0).
+  assert.match(reply.text, /^You asked: What happens with an empty message\? I read test\/count\.test\.mjs, test\/kept-interfaces\.test\.mjs, as-built\/record\.json, .*requirements\/spec\.json, requirements\/spec\.md, requirements\/agent-descriptor\.json/);
   assert.equal(reply.proposes, undefined);
 
   // The agent was told its suite, what it was given, and the build's record, and nothing changed by answering.
@@ -170,7 +153,7 @@ test("the agent holding a stage answers a question from its outputs, and the cha
   assert.deepEqual((await f.get("/products/counter/stages/requirements/messages")).json.messages, []);
 
   // A second build of the product: the chat at Test goes on across builds, each message marked with its build.
-  const second = (await f.post("/builds", { does: "Count the words in a passage.", name: "counter" })).json.build.id;
+  const second = await startRebuild(f, { does: "Count the words in a passage.", name: "counter" });
   await f.settled(second);
   await f.post(`/builds/${second}/actions/approve`);
   await f.settled(second);
@@ -185,7 +168,8 @@ test("the agent holding a stage answers a question from its outputs, and the cha
 });
 
 test("a change request proposes the stage's existing action with its needs filled, and confirming it goes through the gate", async (t) => {
-  const { gh, f, id } = await counter(t);
+  // The stand-in harness writes the wrong code every round, so Code is refused after its one round.
+  const { f, id } = await counter(t, { factory: { failRounds: 9, rounds: 1 } });
 
   // At Requirements: the spec writer proposes changes.
   let got = await say(f, "requirements", "Please change the price to free.");
@@ -193,39 +177,41 @@ test("a change request proposes the stage's existing action with its needs fille
   assert.deepEqual(got.json.reply.proposes, { action: "changes", needs: { changes: "change the price to free." } });
   assert.equal(f.store.read(id).status, "waiting", "answering changed nothing");
 
-  // At Code's gate: the test writer proposes sending the build back to Test.
-  await toCodeGate(f, gh, id);
-  got = await say(f, "test", "Change the suite so an empty passage has no words.");
-  assert.deepEqual(checkMessageReply(got.json, (await f.get(`/builds/${id}`)).json), []);
-  assert.deepEqual(got.json.reply.proposes, { action: "back_to_test", needs: { changes: "Change the suite so an empty passage has no words." } });
-  // The spec is approved and the build is at Code: the spec writer proposes sending it back to Requirements (0.4.7).
+  // The spec is approved and Code was refused: the spec writer proposes sending the build back to Requirements (0.4.7).
+  const atCode = await toCodeGate(f, id);
+  assert.equal(stageOf(atCode, "code").state, "refused");
   got = await say(f, "requirements", "Change the name to tally.");
   assert.deepEqual(checkMessageReply(got.json, (await f.get(`/builds/${id}`)).json), []);
   assert.deepEqual(got.json.reply.proposes, { action: "back_to_requirements", needs: { changes: "Change the name to tally." } });
 
-  // The person confirms the test writer's proposal with the actions route.
-  const p = (await f.get("/products/counter/stages/test/messages")).json.messages.find((m) => m.proposes?.action === "back_to_test").proposes;
+  // The person confirms the spec writer's proposal with the actions route: Requirements opens again with the words.
+  const p = got.json.reply.proposes;
   const sent = await f.post(`/builds/${id}/actions/${p.action}`, p.needs);
   assert.equal(sent.status, 200);
   const b = await f.settled(id);
-  assert.equal(stageOf(b, "test").rounds[0].verdict, "Suite revised");
+  assert.equal(stageOf(b, "requirements").state, "waiting_on_you");
+  assert.match(readFileSync(join(f.store.folder(id), "stages", "requirements", "records", "r2", "asked.json"), "utf8"), /Change the name to tally\./);
 });
 
 test("a stage nobody Product Factory can reach holds is refused in words, as is a stage the lifecycle leaves out", async (t) => {
   const { f, id } = await counter(t, { factory: { doc: { version: "0.1", organization: { used: { docs: false } } } } });
-  const refused = async (stage, re, status = 400) => {
-    const got = await say(f, stage, "Hello?");
+  const refused = async (stage, re, status = 400, product = "counter") => {
+    const got = await f.call("POST", `/products/${product}/stages/${stage}/messages`, { text: "Hello?" });
     assert.equal(got.status, status, stage);
     assert.match(got.json.error, re, stage);
   };
   await refused("docs", /^This build's lifecycle leaves out Docs, so no agent holds it to answer\.$/);
-  await refused("code", /^Code is held by your coding harness, on a pull request \(acme\/agents\), which Product Factory cannot send messages to\. Talk to it where it runs\./);
   await refused("nowhere", /^There is no stage "nowhere"/, 404);
+  // One builder holds a new agent's stages, and is talked to where it runs.
+  const other = (await f.post("/builds", { does: "Say hello.", name: "greeter" })).json.build.id;
+  await f.settled(other);
+  await refused("code", /^Code is held by one builder: your coding harness \(node\) with the ADLC plugin, which Product Factory cannot send messages to\. Talk to it where it runs\.$/, 400, "greeter");
   assert.equal((await f.call("POST", "/products/counter/stages/test/messages", { text: "" })).status, 400);
   assert.equal((await f.call("POST", "/products/counter/stages/test/messages", { text: "x", build: "b_000000000000" })).status, 400);
   assert.equal((await f.call("POST", "/products/nothing/stages/test/messages", { text: "x" })).status, 404);
   // Nothing refused was kept.
   assert.equal(f.store.read(id).thread, undefined);
+  assert.equal(f.store.read(other).thread, undefined);
 });
 
 test("a stage held by an outside tool, and a model that is not set or fails, are said in words", async (t) => {
@@ -236,7 +222,7 @@ test("a stage held by an outside tool, and a model that is not set or fails, are
   assert.equal(f.store.read(id).thread, undefined);
 
   const g = await counter(t);
-  await toCodeGate(g.f, g.gh, g.id);
+  await toCodeGate(g.f, g.id);
   await g.f.post(`/builds/${g.id}/actions/accept`);
   await g.f.settled(g.id);
   const pkg = await say(g.f, "package", "Hello?");
@@ -285,7 +271,7 @@ test("teams rules: anyone who may see the build may talk to its agents, and a pr
 });
 
 test("0.4.9: a stage's holder lists its skills: a reference agent's from the adlc checkout, none without a skills folder, one sentence for your coding harness", async (t) => {
-  const { gh, f, id } = await counter(t);
+  const { f, id } = await counter(t);
   // The reference spec writer: each skill by its frontmatter name and description, and its SKILL.md as written.
   const req = (await ws(f, id, "requirements")).json;
   const at = (slug) => readFileSync(join(FAKE_ADLC, "agents", "spec-writer", "skills", slug, "SKILL.md"), "utf8");
@@ -294,19 +280,22 @@ test("0.4.9: a stage's holder lists its skills: a reference agent's from the adl
     { name: "write-a-spec", description: "the whole job, when someone asks for a spec of an agent", text: at("write-a-spec") },
   ]);
   assert.equal(req.holder.skills_note, undefined);
-  await toCodeGate(f, gh, id);
-  // Your coding harness keeps its own skills, so one sentence says so and none are listed.
-  const code = (await ws(f, id, "code")).json;
+  // One builder is your coding harness, which keeps its own skills, so one sentence says so and none are listed.
+  const other = (await f.post("/builds", { does: "Say hello.", name: "greeter" })).json.build.id;
+  await f.settled(other);
+  const code = (await ws(f, other, "code")).json;
   assert.equal(code.holder.kind, "your_agent");
   assert.equal(code.holder.skills, undefined);
   assert.equal(code.holder.skills_note, "Its skills are whatever your coding harness has installed; Product Factory cannot see them.");
   // The stand-in code critic has no skills folder, so it lists none.
-  const review = (await ws(f, id, "review")).json;
+  const review = (await ws(f, other, "review")).json;
   assert.equal(review.holder.kind, "reference_agent");
   assert.deepEqual(review.holder.skills, []);
   // The build's stages leave the skills out, where every stage would repeat them.
-  const b = (await f.get(`/builds/${id}`)).json.build;
-  assert.ok(b.stages.every((s) => !s.holder || (s.holder.skills === undefined && s.holder.skills_note === undefined)));
+  for (const one of [id, other]) {
+    const b = (await f.get(`/builds/${one}`)).json.build;
+    assert.ok(b.stages.every((s) => !s.holder || (s.holder.skills === undefined && s.holder.skills_note === undefined)));
+  }
 });
 
 test("0.4.9: a holder Product Factory cannot read skills for is left as it is", () => {
@@ -320,7 +309,7 @@ test("0.4.9: a holder Product Factory cannot read skills for is left as it is", 
 });
 
 test("a product's documents (0.4.11): one per stage that makes one, in stages.json's order, each with the copy that stands and the versions that made it", async (t) => {
-  const { gh, f, id } = await counter(t);
+  const { f, id } = await counter(t);
   let r = await f.get("/products/counter/documents");
   assert.equal(r.status, 200);
   assert.equal(r.json.product, "counter");
@@ -337,7 +326,7 @@ test("a product's documents (0.4.11): one per stage that makes one, in stages.js
   assert.equal(doc("test").words, "Test has not made it yet.");
   assert.ok(r.json.documents.every((d) => (d.state === "made") === (d.current !== null)));
   // Once the build reached Code's gate, the suite and the code stand too.
-  await toCodeGate(f, gh, id);
+  await toCodeGate(f, id);
   r = await f.get("/products/counter/documents");
   assert.equal(doc("test").state, "made");
   assert.equal(doc("test").current.artifact.id, "suite");

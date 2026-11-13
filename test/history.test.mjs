@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createStore, RECORD_FORMAT } from "../lib/store.mjs";
 import { createHistory, rowsOf, weekOf, median, HISTORY_FILE } from "../lib/history.mjs";
-import { factory, tempDir } from "./helpers.mjs";
+import { factory, tempDir, walk } from "./helpers.mjs";
 import { checkAnalytics } from "adlc-console/lib/contract.mjs";
 
 const MIN = 60_000;
@@ -159,18 +159,12 @@ test("the history follows each save, and is built again from the build files whe
 
 test("GET /v1/lifecycle/analytics: Product Factory's own route, from real walked builds", async (t) => {
   // The walked build goes through the deploy gate to the reference runtime, so it finishes.
-  const f = await factory({ holder: "harness", failRounds: 1, runtime: { command: ["node", fileURLToPath(new URL("../runtimes/folder.mjs", import.meta.url)), "--into", "./installed"] } });
+  const f = await factory({ runtime: { command: ["node", fileURLToPath(new URL("../runtimes/folder.mjs", import.meta.url)), "--into", "./installed"] } });
   t.after(f.close);
   const id = (await f.post("/builds", { does: "Count the words in a passage.", project: "web" })).json.build.id;
   await f.settled(id);
   await f.post(`/builds/${id}/actions/changes`, { changes: "Say what it refuses." });
-  await f.settled(id);
-  await f.post(`/builds/${id}/actions/approve`);
-  await f.settled(id);
-  await f.post(`/builds/${id}/actions/accept`);
-  await f.settled(id);
-  await f.post(`/builds/${id}/actions/approve`);
-  await f.settled(id);
+  await walk(f, id);
   const other = (await f.post("/builds", { does: "Count the words." })).json.build.id;
   await f.settled(other);
   await f.post(`/builds/${other}/actions/stop`);
@@ -187,11 +181,11 @@ test("GET /v1/lifecycle/analytics: Product Factory's own route, from real walked
   assert.equal(sum(a.builds, "started"), 2);
   assert.equal(sum(a.builds, "finished"), 1);
   assert.equal(sum(a.builds, "stopped"), 1);
-  // The walked build ran Requirements, Test, Code and Package, and the deploy gate, each now finished with a time.
-  assert.deepEqual(a.stage_times.map((x) => x.stage), ["requirements", "architecture", "test", "code", "package", "deploy", "conformance"]);
-  // Code's first round failed the suite and Requirements was sent back with changes.
+  // The walked build ran Requirements, one builder's build (one phase, timed at the first stage it holds),
+  // Package, and the deploy gate, each now finished with a time.
+  assert.deepEqual(a.stage_times.map((x) => x.stage), ["requirements", "architecture", "package", "deploy", "conformance"]);
+  // Requirements was sent back with changes.
   const backs = Object.fromEntries(a.send_backs.map((x) => [x.stage, x]));
-  assert.equal(backs.code.back, 1);
   assert.ok(backs.requirements.back >= 1);
   // The spec's gate waited on a person; the reference agents worked.
   assert.ok(sum(a.waiting, "person_ms") > 0);

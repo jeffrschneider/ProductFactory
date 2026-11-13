@@ -3,7 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { join, resolve } from "node:path";
-import { writeFileSync, readFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { readConfig, loadConfig, writeStarter, modelEnv, STARTER } from "../lib/config.mjs";
 import { fill, harnessPrompt } from "../lib/adapters.mjs";
 import { resolveCommand } from "../lib/exec.mjs";
@@ -58,4 +58,14 @@ test("init writes a starter file once, and it reads back", async () => {
 
 test("a command runs without a shell; node is this node", () => {
   assert.deepEqual(resolveCommand(["node", "x.mjs"]), { file: process.execPath, args: ["x.mjs"], shell: false });
+});
+
+test("a word with line breaks goes to a .cmd program on one line, so cmd.exe cannot end the command there", { skip: process.platform !== "win32" }, async () => {
+  const dir = await tempDir("cmd");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "harness.cmd"), "@echo off\r\n");
+  const r = resolveCommand(["harness", "line one\nline two\r\nline three"], { PATH: dir, PATHEXT: ".CMD" });
+  assert.equal(r.shell, true);
+  assert.doesNotMatch(r.file, /[\r\n]/);
+  assert.match(r.file, /"line one line two line three"$/);
 });

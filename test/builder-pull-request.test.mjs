@@ -245,6 +245,11 @@ test("code.where is for one builder only, and a pull request needs its repositor
   assert.throws(() => readConfig({ code: { holder: "builder", where: "elsewhere" } }, "/"), /"code.where" is "here" .* or "pull-request"/);
   const c = readConfig({ code: { holder: "builder", where: "pull-request" }, repository: { host: "github", repo: "acme/agents", token: "GITHUB_TOKEN" } }, "/");
   assert.equal(c.code.where, "pull-request");
+  assert.deepEqual(c.repository, { host: "github", repo: "acme/agents", token: "GITHUB_TOKEN", api: "https://api.github.com", poll_seconds: 30 });
+  // The repository names the variable its token is read from, never a token; on GitHub, as owner/name.
+  assert.throws(() => readConfig({ repository: { host: "github", repo: "a/b", token: "ghp_abcdefghijklmnopqrstuvwxyz0123456789" } }, "/"), /never a token/);
+  assert.throws(() => readConfig({ repository: { host: "gitlab", repo: "a/b", token: "T" } }, "/"), /"github"/);
+  assert.throws(() => readConfig({ repository: { host: "github", repo: "nope", token: "T" } }, "/"), /owner\/name/);
 });
 
 test("on a pull request, the reviewers read the pushed build once its check passes, and their refusal is said on the pull request", async (t) => {
