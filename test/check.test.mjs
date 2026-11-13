@@ -62,7 +62,7 @@ test("the notes name the missing model settings, a missing adlc checkout, a harn
   const notAdlc = readConfig({ adlc: HERE, model: MODEL, code: { harness: ["node", "x.mjs"] } }, "/");
   assert.match(startupNotes(notAdlc, envFor("http://x")).notes[0], /not a CommonAgent\/adlc checkout/);
 
-  const pr = readConfig({ adlc: FAKE_ADLC, model: MODEL, code: { holder: "pull-request" }, repository: { host: "github", repo: "acme/agents", token: "PF_C_TOKEN" } }, "/");
+  const pr = readConfig({ adlc: FAKE_ADLC, model: MODEL, code: { where: "pull-request" }, repository: { host: "github", repo: "acme/agents", token: "PF_C_TOKEN" } }, "/");
   const unset = startupNotes(pr, envFor("http://x"));
   assert.deepEqual(unset.notes.length, 1);
   assert.match(unset.notes[0], /token is read from PF_C_TOKEN, which is not set/);

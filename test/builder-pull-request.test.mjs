@@ -239,8 +239,7 @@ test("the folder mirrors its branch, keeps records/, and names only what changed
   assert.match(builderPullRequestBody("word-counter", "0.1.0", "agents/word-counter"), /`agents\/word-counter\/`/);
 });
 
-test("code.where is for one builder only, and a pull request needs its repository", () => {
-  assert.throws(() => readConfig({ code: { holder: "harness", where: "pull-request" } }, "/"), /"code.where" is for "code.holder": "builder" only/);
+test("code.where says where one builder works, and a pull request needs its repository", () => {
   assert.throws(() => readConfig({ code: { holder: "builder", where: "pull-request" } }, "/"), /"code.where" is "pull-request", so "repository" names where the pull request goes/);
   assert.throws(() => readConfig({ code: { holder: "builder", where: "elsewhere" } }, "/"), /"code.where" is "here" .* or "pull-request"/);
   const c = readConfig({ code: { holder: "builder", where: "pull-request" }, repository: { host: "github", repo: "acme/agents", token: "GITHUB_TOKEN" } }, "/");

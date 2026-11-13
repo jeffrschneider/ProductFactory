@@ -31,7 +31,7 @@ test("a model setting is the name of an environment variable, never a value", ()
 test("the harness is a command as a list of words, with known placeholders filled in", () => {
   assert.throws(() => readConfig({ code: { harness: "claude -p" } }, "/"), /list of words/);
   assert.throws(() => readConfig({ code: { harness: ["claude", "{secret}"] } }, "/"), /\{secret\}/);
-  assert.throws(() => readConfig({ code: { holder: "devin" } }, "/"), /"harness"/);
+  assert.throws(() => readConfig({ code: { holder: "devin" } }, "/"), /"code\.holder" is "builder"/);
   assert.throws(() => readConfig({ code: { rounds: 0 } }, "/"), /whole number/);
   assert.throws(() => readConfig({ colour: "red" }, "/"), /does not read/);
   const c = readConfig({ code: { harness: ["codex", "exec", "{prompt}"], rounds: 5 } }, "/");
@@ -54,6 +54,20 @@ test("init writes a starter file once, and it reads back", async () => {
   writeFileSync(path, "{ nope");
   assert.throws(() => loadConfig(path), /not valid JSON/);
   assert.throws(() => loadConfig(join(dir, "missing.json")), /npx product-factory init/);
+});
+
+test("one builder is the only code holder: a settings file naming an earlier one is refused, saying how new agents are built now", () => {
+  for (const holder of ["harness", "code-writer", "pull-request"]) {
+    assert.throws(() => readConfig({ code: { holder } }, "/"), (e) => {
+      assert.match(e.message, new RegExp(`^"code\\.holder" is "${holder}", and Product Factory no longer has that holder: it builds new agents with one builder`));
+      assert.match(e.message, /Set "code\.holder" to "builder", or leave it out\./);
+      assert.match(e.message, /Adopting existing code and rebuilding from an as-built record use the reference writers on their own/);
+      return true;
+    }, holder);
+  }
+  assert.equal(readConfig({}, "/").code.holder, "builder");
+  assert.equal(readConfig({ code: { holder: "builder" } }, "/").code.holder, "builder");
+  assert.throws(() => readConfig({ code: { fix_rounds: 3 } }, "/"), /"code" has "fix_rounds"; it reads holder, where, harness, rounds, minutes and env_remove\./);
 });
 
 test("a command runs without a shell; node is this node", () => {
